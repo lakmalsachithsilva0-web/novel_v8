@@ -586,7 +586,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
         'description': msg,
         'device_type': 'mobile',
       });
-      final id = res is Map ? (res['id'] ?? res['ticket_id'] ?? res['request_id']) : null;
+      final id = (res['id'] ?? res['ticket_id'] ?? res['request_id']);
       final ticket = id != null ? '#CNT-$id' : '#CNT-${DateTime.now().millisecondsSinceEpoch % 100000}';
       if (!mounted) return;
       setState(() {
@@ -739,7 +739,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
               Text('What can we help you with?', style: TextStyle(fontWeight: FontWeight.w700, color: fg)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _topic,
+                initialValue: _topic,
                 isExpanded: true,
                 decoration: InputDecoration(
                   filled: true,
@@ -862,7 +862,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       itemCount: _history.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, i) {
         final h = _history[i];
         final status = '${h['status'] ?? 'open'}';
@@ -1219,10 +1219,11 @@ class _FavouriteGenresScreenState extends State<FavouriteGenresScreen> {
                                 activeColor: MorePageChrome.purple,
                                 title: Text(g),
                                 onChanged: (v) => setState(() {
-                                  if (v == true)
+                                  if (v == true) {
                                     _selected.add(g);
-                                  else
+                                  } else {
                                     _selected.remove(g);
+                                  }
                                 }),
                               ),
                           ],

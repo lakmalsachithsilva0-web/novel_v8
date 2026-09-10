@@ -25,6 +25,17 @@ class StoryDetailScreen extends StatefulWidget {
   State<StoryDetailScreen> createState() => _StoryDetailScreenState();
 }
 
+String _chapterDisplayTitle(String rawTitle, int number) {
+  final title = rawTitle.trim();
+  if (title.isEmpty) return 'Chapter $number';
+  final chapterPrefix = RegExp(
+    '^chapter\\s*$number(?:\\s*[:.\\-]?\\s*)',
+    caseSensitive: false,
+  );
+  final remainder = title.replaceFirst(chapterPrefix, '').trim();
+  return remainder.isEmpty ? 'Chapter $number' : 'Chapter $number: $remainder';
+}
+
 class _StoryDetailScreenState extends State<StoryDetailScreen> {
   late BookDetailModel _book;
   bool _isFollowing = false;
@@ -83,7 +94,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       if (mounted && uid != null) setState(() => _currentUserId = uid);
     } catch (_) {}
     try {
-      final detail = await widget.apiService.fetchPublicBook(_book.id);
+      final detailFuture = widget.apiService.fetchPublicBook(_book.id);
+      final chaptersFuture = widget.apiService.fetchStoryChapters(_book.id);
+      final detail = await detailFuture;
       if (detail != null && mounted) {
         setState(() {
           _book = BookDetailModel.fromMap(detail);
@@ -122,7 +135,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
           }
         });
       }
-      final chapters = await widget.apiService.fetchStoryChapters(_book.id);
+      final chapters = await chaptersFuture;
       if (!mounted) return;
       setState(() {
         _chapters = chapters;
@@ -252,8 +265,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
           } catch (_) {}
         }
 
-        if (mounted)
+        if (mounted) {
           setState(() => _youMayAlsoLike = related.take(12).toList());
+        }
       } catch (_) {}
     } catch (e) {
       if (mounted) {
@@ -347,7 +361,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     }
   }
 
-
   Future<void> _openStoryCommentsSheet() async {
     var comments = List<Map<String, dynamic>>.from(_storyComments);
     var loading = false;
@@ -368,8 +381,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             Future<void> reload() async {
               setModal(() => loading = true);
               try {
-                final list =
-                    await widget.apiService.fetchBookComments(_book.id);
+                final list = await widget.apiService.fetchBookComments(
+                  _book.id,
+                );
                 if (ctx.mounted) {
                   setModal(() {
                     comments = list;
@@ -408,116 +422,104 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       child: loading
                           ? const Center(child: CircularProgressIndicator())
                           : comments.isEmpty
-                              ? const Center(
-                                  child: Text('No story comments yet'),
-                                )
-                              : ListView.separated(
-                                  padding: const EdgeInsets.all(16),
-                                  itemCount: comments.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 12),
-                                  itemBuilder: (_, i) {
-                                    final c = comments[i];
-                                    final name = (c['display_name'] ??
+                          ? const Center(child: Text('No story comments yet'))
+                          : ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: comments.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (_, i) {
+                                final c = comments[i];
+                                final name =
+                                    (c['display_name'] ??
                                             c['username'] ??
                                             'Reader')
                                         .toString();
-                                    final body =
-                                        (c['body'] ?? '').toString();
-                                    final uid =
-                                        (c['user_id'] as num?)?.toInt();
-                                    final cid =
-                                        (c['id'] as num?)?.toInt() ?? 0;
-                                    final isMine =
-                                        myUserId != null && uid == myUserId;
-                                    return ListTile(
-                                      contentPadding: EdgeInsets.zero,
-                                      title: Text(
-                                        name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                      subtitle: Text(body),
-                                      trailing: isMine
-                                          ? PopupMenuButton<String>(
-                                              onSelected: (v) async {
-                                                if (v == 'edit') {
-                                                  final ctrl =
-                                                      TextEditingController(
+                                final body = (c['body'] ?? '').toString();
+                                final uid = (c['user_id'] as num?)?.toInt();
+                                final cid = (c['id'] as num?)?.toInt() ?? 0;
+                                final isMine =
+                                    myUserId != null && uid == myUserId;
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  subtitle: Text(body),
+                                  trailing: isMine
+                                      ? PopupMenuButton<String>(
+                                          onSelected: (v) async {
+                                            if (v == 'edit') {
+                                              final ctrl =
+                                                  TextEditingController(
                                                     text: body,
                                                   );
-                                                  final ok =
-                                                      await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (d) =>
-                                                        AlertDialog(
-                                                      title: const Text(
-                                                        'Edit comment',
-                                                      ),
-                                                      content: TextField(
-                                                        controller: ctrl,
-                                                        maxLines: 4,
-                                                      ),
-                                                      actions: [
-                                                        TextButton(
-                                                          onPressed: () =>
-                                                              Navigator.pop(
+                                              final ok = await showDialog<bool>(
+                                                context: context,
+                                                builder: (d) => AlertDialog(
+                                                  title: const Text(
+                                                    'Edit comment',
+                                                  ),
+                                                  content: TextField(
+                                                    controller: ctrl,
+                                                    maxLines: 4,
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
                                                             d,
                                                             false,
                                                           ),
-                                                          child: const Text(
-                                                            'Cancel',
-                                                          ),
-                                                        ),
-                                                        FilledButton(
-                                                          onPressed: () =>
-                                                              Navigator.pop(
+                                                      child: const Text(
+                                                        'Cancel',
+                                                      ),
+                                                    ),
+                                                    FilledButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
                                                             d,
                                                             true,
                                                           ),
-                                                          child: const Text(
-                                                            'Save',
-                                                          ),
-                                                        ),
-                                                      ],
+                                                      child: const Text('Save'),
                                                     ),
-                                                  );
-                                                  if (ok == true &&
-                                                      ctrl.text
-                                                          .trim()
-                                                          .isNotEmpty) {
-                                                    await widget.apiService
-                                                        .updateChapterComment(
+                                                  ],
+                                                ),
+                                              );
+                                              if (ok == true &&
+                                                  ctrl.text.trim().isNotEmpty) {
+                                                await widget.apiService
+                                                    .updateChapterComment(
                                                       commentId: cid,
                                                       body: ctrl.text.trim(),
                                                     );
-                                                    await reload();
-                                                  }
-                                                } else if (v == 'delete') {
-                                                  await widget.apiService
-                                                      .deleteChapterComment(
-                                                    cid,
-                                                  );
-                                                  await reload();
-                                                }
-                                              },
-                                              itemBuilder: (_) => const [
-                                                PopupMenuItem(
-                                                  value: 'edit',
-                                                  child: Text('Edit'),
-                                                ),
-                                                PopupMenuItem(
-                                                  value: 'delete',
-                                                  child: Text('Delete'),
-                                                ),
-                                              ],
-                                            )
-                                          : null,
-                                    );
-                                  },
-                                ),
+                                                await reload();
+                                              }
+                                            } else if (v == 'delete') {
+                                              await widget.apiService
+                                                  .deleteChapterComment(cid);
+                                              await reload();
+                                            }
+                                          },
+                                          itemBuilder: (_) => const [
+                                            PopupMenuItem(
+                                              value: 'edit',
+                                              child: Text('Edit'),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'delete',
+                                              child: Text('Delete'),
+                                            ),
+                                          ],
+                                        )
+                                      : null,
+                                );
+                              },
+                            ),
                     ),
                     if (!_isOwner)
                       SafeArea(
@@ -546,18 +548,17 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                         try {
                                           await widget.apiService
                                               .postBookComment(
-                                            bookId: _book.id,
-                                            body: body,
-                                          );
+                                                bookId: _book.id,
+                                                body: body,
+                                              );
                                           controller.clear();
                                           await reload();
                                         } catch (e) {
                                           if (mounted) {
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                              SnackBar(
-                                                content: Text('$e'),
-                                              ),
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(content: Text('$e')),
                                             );
                                           }
                                         } finally {
@@ -603,7 +604,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             if (!mounted) return;
             setState(() => _hasMyReview = hasMine);
             try {
-              final reviews = await widget.apiService.fetchBookReviews(_book.id);
+              final reviews = await widget.apiService.fetchBookReviews(
+                _book.id,
+              );
               if (mounted) {
                 setState(() {
                   _reviews = _dedupeReviews(reviews);
@@ -648,7 +651,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     if (_hasMyReview) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('You already reviewed this story. Delete it to write again.'),
+          content: Text(
+            'You already reviewed this story. Delete it to write again.',
+          ),
         ),
       );
       return;
@@ -893,8 +898,11 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   }
 
   void _openChapter(Map<String, dynamic> chapter, {int? index}) {
-    final chapterTitle = chapter['title'] as String? ?? 'Untitled chapter';
     final chapterNumber = (chapter['chapter_number'] as num?)?.toInt() ?? 1;
+    final chapterTitle = _chapterDisplayTitle(
+      chapter['title'] as String? ?? '',
+      chapterNumber,
+    );
     final chapterContent = chapter['content'] as String? ?? '';
     final idx =
         index ??
@@ -922,6 +930,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
           authorPhotoUrl: _authorPhotoUrl,
           chapters: _chapters,
           initialChapterIndex: idx < 0 ? 0 : idx,
+          isOwnerBook:
+              _currentUserId != null &&
+              _book.authorUserId != null &&
+              _currentUserId == _book.authorUserId,
         ),
       ),
     );
@@ -1124,7 +1136,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                     ),
                                   );
                                 },
-                                errorBuilder: (_, __, ___) => ColoredBox(
+                                errorBuilder: (_, _, _) => ColoredBox(
                                   color: Colors.grey.shade300,
                                   child: const Icon(
                                     Icons.broken_image,
@@ -1272,8 +1284,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                           color: _isOwner
                               ? Colors.grey
                               : (_liked
-                                  ? const Color(0xFFFF4757) // solid red/pink when liked
-                                  : fg),
+                                    ? const Color(
+                                        0xFFFF4757,
+                                      ) // solid red/pink when liked
+                                    : fg),
                         ),
                         label: Text(
                           '$_likesCount',
@@ -1295,8 +1309,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                           color: _isOwner
                               ? Colors.grey
                               : (_saved
-                                  ? const Color(0xFF6C3CE1) // primary purple when saved
-                                  : fg),
+                                    ? const Color(
+                                        0xFF6C3CE1,
+                                      ) // primary purple when saved
+                                    : fg),
                         ),
                         label: const FittedBox(
                           fit: BoxFit.scaleDown,
@@ -1576,18 +1592,19 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   final rawTitle = (chapter['title'] as String? ?? '').trim();
                   final number =
                       (chapter['chapter_number'] as num?)?.toInt() ?? index + 1;
-                  final label = rawTitle.isEmpty
-                      ? 'Chapter $number'
-                      : 'Chapter $number  $rawTitle';
-                  return ListTile(
-                    title: Text(
-                      label,
-                      style: TextStyle(
-                        color: inkittGreen,
-                        fontWeight: FontWeight.w600,
+                  final label = _chapterDisplayTitle(rawTitle, number);
+                  return Material(
+                    color: Colors.transparent,
+                    child: ListTile(
+                      title: Text(
+                        label,
+                        style: TextStyle(
+                          color: inkittGreen,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
+                      onTap: () => _openChapter(chapter, index: index),
                     ),
-                    onTap: () => _openChapter(chapter, index: index),
                   );
                 }, childCount: _chapters.length),
               ),
@@ -1777,9 +1794,9 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
       await _load(); // recomputes _hasMyReview = false and notifies parent
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not delete: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not delete: $e')));
       }
     }
   }
@@ -1880,7 +1897,9 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                                   await widget.onHasMyReviewChanged(true);
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Review added')),
+                                      const SnackBar(
+                                        content: Text('Review added'),
+                                      ),
                                     );
                                   }
                                 }
@@ -2427,7 +2446,7 @@ class _HorizontalBookRail extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: books.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, i) {
                 final b = books[i];
                 final id = (b['id'] as num?)?.toInt() ?? 0;
@@ -2477,7 +2496,7 @@ class _HorizontalBookRail extends StatelessWidget {
                                   width: 110,
                                   height: 150,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
+                                  errorBuilder: (_, _, _) => Container(
                                     width: 110,
                                     height: 150,
                                     color: const Color(0xFFEDE9FE),

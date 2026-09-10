@@ -36,7 +36,8 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   String _contentVersion = '';
   Timer? _syncTimer;
   AuthSession? _session;
-  // Open app → login first (until a real session is restored from storage).
+  // Every fresh app launch starts at Login. Existing sessions are validated in
+  // the background but do not bypass the explicit sign-in screen.
   bool _showLoginOverlay = true;
 
   /// Once true, never show complete-profile again this session (home already reached).
@@ -75,15 +76,9 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   Future<void> _bootstrapApp() async {
     // Start disk loading immediately; it can run while remote auth wakes up.
     final diskFuture = _apiService.loadDiskBootstrap();
-    AuthSession? restored;
     try {
-      restored = await _authService.restoreSession();
-      if (mounted && restored != null) {
-        setState(() {
-          _session = restored;
-          _showLoginOverlay = false;
-        });
-      } else if (mounted) {
+      await _authService.restoreSession();
+      if (mounted) {
         setState(() {
           _session = null;
           _showLoginOverlay = true;
@@ -110,28 +105,6 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
         });
       }
     } catch (_) {}
-    if (mounted && restored != null) {
-      if (restored.isGoogle) {
-        final needsProfile = await _needsCompleteProfile(restored);
-        if (needsProfile) {
-          final completed = await _showOnboardingBlocking(restored);
-          if (!completed) {
-            if (mounted) {
-              setState(() {
-                _session = null;
-                _showLoginOverlay = true;
-              });
-            }
-            return;
-          }
-          // A completed gate must remain closed for the rest of this app run,
-          // even if a later bootstrap request is slow or unavailable.
-          if (mounted) setState(() => _profileGatePassed = true);
-        }
-      }
-      if (mounted) setState(() => _profileGatePassed = true);
-    }
-
     await _loadBootstrap(showLoading: _bootstrap == null);
   }
 
@@ -390,22 +363,8 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading || _bootstrap == null) {
-      return const Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Loading...', style: TextStyle(fontSize: 14)),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Explicit login overlay (when user taps a gated tab)
+    // Do not wait for bootstrap before showing Login. Public data can continue
+    // loading behind the login screen and will be ready after sign-in.
     if (_showLoginOverlay && !_isAuthenticated) {
       return LoginScreen(
         onContinue: _continueLogin,
@@ -422,6 +381,21 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
             ),
           );
         },
+      );
+    }
+
+    if (_loading || _bootstrap == null) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading...', style: TextStyle(fontSize: 14)),
+            ],
+          ),
+        ),
       );
     }
 

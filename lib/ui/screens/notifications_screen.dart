@@ -177,7 +177,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       final url = widget.apiService.resolveAssetUrl(cover);
       return CircleAvatar(
         backgroundImage: NetworkImage(url),
-        onBackgroundImageError: (_, __) {},
+        onBackgroundImageError: (_, _) {},
         child: null,
       );
     }
@@ -228,7 +228,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
             itemCount: rows.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (context, i) {
               final n = rows[i];
               final type = (n['type'] ?? n['tab'] ?? '').toString();

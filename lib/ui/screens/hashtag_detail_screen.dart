@@ -432,7 +432,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                         : Image.network(
                             coverUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
+                            errorBuilder: (_, _, _) =>
                                 const Icon(Icons.tag, color: AppTheme.brand),
                           ),
                   ),
@@ -476,7 +476,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: books.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, i) {
               final m = books[i];
               final cover = _coverPath(m);
@@ -505,7 +505,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                                         fit: BoxFit.cover,
                                         width: 120,
                                         height: double.infinity,
-                                        errorBuilder: (_, __, ___) =>
+                                        errorBuilder: (_, _, _) =>
                                             const Icon(Icons.menu_book),
                                       ),
                               ),
@@ -638,7 +638,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                           : Image.network(
                               url,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
+                              errorBuilder: (_, _, _) =>
                                   const Icon(Icons.menu_book, size: 20),
                             ),
                     ),
@@ -765,7 +765,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: _related.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (context, i) {
               final t = _related[i];
               final name = (t['name'] ?? t['tag'] ?? '').toString();

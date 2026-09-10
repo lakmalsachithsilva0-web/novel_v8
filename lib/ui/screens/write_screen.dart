@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
 import 'create_story_screen.dart';
+import 'chapter_reader_screen.dart';
 import 'edit_chapter_screen.dart';
 import 'story_detail_screen.dart';
 
@@ -92,6 +93,17 @@ class _WriteScreenState extends State<WriteScreen>
     });
   }
 
+  Future<void> _selectSubmittedIfRequested() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('write_open_submitted') != true) return;
+      await prefs.setBool('write_open_submitted', false);
+      if (!mounted) return;
+      _mainTabs.animateTo(0);
+      _storySubTabs.animateTo(0);
+    } catch (_) {}
+  }
+
   Future<void> _openCreateStory({Map<String, dynamic>? story}) async {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
@@ -106,9 +118,77 @@ class _WriteScreenState extends State<WriteScreen>
     _storySubTabs.animateTo(0);
   }
 
+  Future<void> _readChapter(
+    Map<String, dynamic> story,
+    Map<String, dynamic> chapter,
+    List<Map<String, dynamic>> chapters,
+  ) async {
+    final chapterNumber = (chapter['chapter_number'] as num?)?.toInt() ?? 1;
+    final chapterIndex = chapters.indexOf(chapter);
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => ChapterReaderScreen(
+          apiService: widget.apiService,
+          title: story['title']?.toString() ?? 'Story',
+          author: story['author']?.toString() ?? '',
+          coverPath: story['cover_path']?.toString() ?? '',
+          chapterNumber: chapterNumber,
+          chapterTitle:
+              chapter['title']?.toString() ?? 'Chapter $chapterNumber',
+          chapterContent: chapter['content']?.toString() ?? '',
+          bookId: (story['id'] as num?)?.toInt(),
+          chapters: chapters,
+          initialChapterIndex: chapterIndex < 0 ? 0 : chapterIndex,
+          isOwnerBook: true,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteChapter(Map<String, dynamic> chapter) async {
+    final chapterId = (chapter['id'] as num?)?.toInt();
+    if (chapterId == null) return;
+    final title = chapter['title']?.toString() ?? 'this chapter';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete chapter?'),
+        content: Text('Delete "$title" permanently?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.apiService.deleteStoryChapter(chapterId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Chapter deleted')));
+      await _reloadStories();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not delete chapter: $e')));
+    }
+  }
+
   Future<void> _openEditChapter(Map<String, dynamic> story) async {
     final storyId = (story['id'] as num?)?.toInt();
     if (storyId == null) return;
+    final latestStory = await widget.apiService.fetchWriterStory(storyId);
+    final storyForEditing = latestStory ?? story;
+    if (!mounted) return;
 
     List<Map<String, dynamic>> chapters = const [];
     try {
@@ -116,6 +196,27 @@ class _WriteScreenState extends State<WriteScreen>
     } catch (_) {}
 
     if (!mounted) return;
+    final visibleChapters = chapters.where((chapter) {
+      final status = (chapter['submission_status'] ?? 'draft')
+          .toString()
+          .toLowerCase()
+          .trim();
+      final published = {
+        'ongoing',
+        'published',
+        'submitted',
+        'completed',
+      }.contains(status);
+      return _storySubTabs.index == 0 ? published : !published;
+    }).toList();
+    if (!_storyDetailsComplete(storyForEditing)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Complete story details before adding chapters'),
+        ),
+      );
+      return;
+    }
 
     final choice = await showModalBottomSheet<Object>(
       context: context,
@@ -132,18 +233,18 @@ class _WriteScreenState extends State<WriteScreen>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Chapters — ${story['title'] ?? 'Story'}',
+                  'Chapters — ${storyForEditing['title'] ?? 'Story'}',
                   style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (chapters.isEmpty)
+                if (visibleChapters.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
                     child: Text('No chapters yet. Add the first one.'),
                   ),
-                for (final c in chapters)
+                for (final c in visibleChapters)
                   ListTile(
                     leading: CircleAvatar(
                       radius: 16,
@@ -162,15 +263,50 @@ class _WriteScreenState extends State<WriteScreen>
                     subtitle: Text(
                       (c['submission_status'] ?? 'draft').toString(),
                     ),
-                    trailing: const Icon(Icons.edit_outlined, size: 18),
-                    onTap: () => Navigator.pop(ctx, c),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Read chapter',
+                          icon: const Icon(Icons.menu_book_outlined),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _readChapter(storyForEditing, c, visibleChapters);
+                          },
+                        ),
+                        IconButton(
+                          tooltip: 'Edit chapter',
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _editSelectedChapter(storyId, c);
+                          },
+                        ),
+                        IconButton(
+                          tooltip: 'Delete chapter',
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _deleteChapter(c);
+                          },
+                        ),
+                      ],
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _editSelectedChapter(storyId, c);
+                    },
                   ),
                 const SizedBox(height: 8),
-                FilledButton.icon(
-                  onPressed: () => Navigator.pop(ctx, 'new'),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add new chapter'),
-                ),
+                if (_storySubTabs.index == 1)
+                  FilledButton.icon(
+                    onPressed: () => Navigator.pop(ctx, 'new'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add new chapter'),
+                  ),
               ],
             ),
           ),
@@ -192,23 +328,30 @@ class _WriteScreenState extends State<WriteScreen>
         ),
       );
       await _reloadStories();
-    } else if (choice is Map<String, dynamic>) {
-      final id = (choice['id'] as num?)?.toInt();
-      final chapterNo = (choice['chapter_number'] as num?)?.toInt();
-      final title = (choice['title'] ?? 'Chapter').toString();
-      await Navigator.of(context).push<Map<String, dynamic>>(
-        MaterialPageRoute<Map<String, dynamic>>(
-          builder: (_) => EditChapterScreen(
-            apiService: widget.apiService,
-            storyId: storyId,
-            chapterId: id,
-            chapterNumber: chapterNo,
-            chapterTitle: title,
-          ),
-        ),
-      );
-      await _reloadStories();
+      await _selectSubmittedIfRequested();
     }
+  }
+
+  Future<void> _editSelectedChapter(
+    int storyId,
+    Map<String, dynamic> chapter,
+  ) async {
+    final id = (chapter['id'] as num?)?.toInt();
+    final chapterNo = (chapter['chapter_number'] as num?)?.toInt();
+    final title = (chapter['title'] ?? 'Chapter').toString();
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => EditChapterScreen(
+          apiService: widget.apiService,
+          storyId: storyId,
+          chapterId: id,
+          chapterNumber: chapterNo,
+          chapterTitle: title,
+        ),
+      ),
+    );
+    await _reloadStories();
+    await _selectSubmittedIfRequested();
   }
 
   Future<void> _changeStoryStatus(
@@ -726,23 +869,31 @@ class _ManageStoriesTab extends StatelessWidget {
                       '';
                   final publishedChapters =
                       (story['published_chapter_count'] as num?)?.toInt() ?? 0;
-                  // A story belongs to exactly one tab. Once it has at least
-                  // one published/submitted chapter, keep the story card in
-                  // Submitted even if later chapters are still drafts.
-                  return publishedChapters > 0 ||
-                      (statusText.isNotEmpty &&
-                          !statusText.contains('draft') &&
-                          (statusText.contains('ongoing') ||
-                              statusText.contains('complete') ||
-                              statusText.contains('publish') ||
-                              statusText.contains('submitted')));
+                  final draftChapters =
+                      (story['draft_chapter_count'] as num?)?.toInt() ?? 0;
+                  final hasChapters = publishedChapters + draftChapters > 0;
+                  // A story needs both a public status and at least one
+                  // public chapter. Later unfinished chapters remain Drafts.
+                  final publicStory =
+                      statusText.isNotEmpty &&
+                      !statusText.contains('draft') &&
+                      (statusText.contains('ongoing') ||
+                          statusText.contains('complete') ||
+                          statusText.contains('publish') ||
+                          statusText.contains('submitted'));
+                  return hasChapters && publishedChapters > 0 && publicStory;
                 }
 
                 var stories = all.where((story) {
                   final submitted = isSubmittedStatus(story);
+                  final draftChapters =
+                      (story['draft_chapter_count'] as num?)?.toInt() ?? 0;
+                  final hasDrafts = draftChapters > 0;
                   // index 0 Submitted, index 1 Drafts
                   if (storySubTabs.index == 0 && !submitted) return false;
-                  if (storySubTabs.index == 1 && submitted) return false;
+                  if (storySubTabs.index == 1 && submitted && !hasDrafts) {
+                    return false;
+                  }
                   if (query.trim().isEmpty) return true;
                   final q = query.trim().toLowerCase();
                   final title = story['title']?.toString().toLowerCase() ?? '';
@@ -868,6 +1019,15 @@ class _ManageStoriesTab extends StatelessWidget {
       ],
     );
   }
+}
+
+bool _storyDetailsComplete(Map<String, dynamic> story) {
+  final title = story['title']?.toString().trim() ?? '';
+  final summary =
+      (story['description'] ?? story['summary'])?.toString().trim() ?? '';
+  final genre =
+      (story['genre'] ?? story['primary_genre'])?.toString().trim() ?? '';
+  return title.isNotEmpty && summary.isNotEmpty && genre.isNotEmpty;
 }
 
 class _StoryListCard extends StatelessWidget {
@@ -1128,13 +1288,19 @@ class _StoryListCard extends StatelessWidget {
                       .toLowerCase();
                   final isDraft = st.contains('draft') || st.isEmpty;
                   final isComplete = st.contains('complete');
+                  final canEditChapters = _storyDetailsComplete(story);
                   return [
                     const PopupMenuItem(
                       value: 'edit',
-                      child: Text('Edit details'),
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.edit_outlined),
+                        title: Text('Edit details'),
+                      ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'chapter',
+                      enabled: canEditChapters,
                       child: Text('Chapters'),
                     ),
                     if (!isDraft && !isComplete)
@@ -1152,7 +1318,14 @@ class _StoryListCard extends StatelessWidget {
                         value: 'unpublish',
                         child: Text('Unpublish (Draft)'),
                       ),
-                    const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.delete_outline, color: Colors.red),
+                        title: Text('Delete'),
+                      ),
+                    ),
                   ];
                 },
                 icon: const Icon(Icons.more_vert_rounded, size: 20),

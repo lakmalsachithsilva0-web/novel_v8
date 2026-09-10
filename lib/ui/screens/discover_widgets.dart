@@ -1749,7 +1749,7 @@ class _BrowseGenresSection extends StatelessWidget {
                         Image.network(
                           apiService.resolveAssetUrl(coverPath),
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, _) => Container(color: color),
+                          errorBuilder: (_, _, _) => Container(color: color),
                         )
                       else
                         Container(
@@ -2184,7 +2184,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                             (_books.first['cover_path'] ?? '').toString(),
                           ),
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, _) => const SizedBox.shrink(),
+                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
                         ),
                       ),
                     Container(
@@ -2255,7 +2255,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
             : ListView.separated(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                 itemCount: _books.length,
-                separatorBuilder: (_, __) => const Divider(height: 20),
+                separatorBuilder: (_, _) => const Divider(height: 20),
                 itemBuilder: (context, index) {
                   final item = _books[index];
                   final title = (item['title'] ?? 'Untitled').toString();
@@ -2303,7 +2303,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                                 ? Image.network(
                                     widget.apiService.resolveAssetUrl(cover),
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, _) => Container(
+                                    errorBuilder: (_, _, _) => Container(
                                       color: const Color(0xFFE8E8E8),
                                       child: const Icon(
                                         Icons.menu_book_rounded,
@@ -2706,7 +2706,7 @@ class _HomeFeaturedBanner extends StatelessWidget {
                 child: Image.network(
                   coverUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 ),
               ),
             ),
@@ -3010,7 +3010,7 @@ class _HomeTopGenresRow extends StatelessWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: names.length.clamp(0, 10),
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final name = names[index];
           final key = name.toLowerCase();
@@ -3168,7 +3168,7 @@ class _HomeTrendingList extends StatelessWidget {
                           ? Image.network(
                               apiService.resolveAssetUrl(valid[i].coverPath),
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
+                              errorBuilder: (_, _, _) => Container(
                                 color: const Color(0xFFEDE9FE),
                                 child: const Icon(Icons.menu_book, size: 20),
                               ),
@@ -3438,7 +3438,7 @@ class _AllGenresScreenState extends State<_AllGenresScreen> {
           : ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               itemCount: _genres.length,
-              separatorBuilder: (_, __) => Divider(
+              separatorBuilder: (_, _) => Divider(
                 height: 1,
                 color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEEEEEE),
               ),

@@ -1182,7 +1182,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildLocationSocialCard() {
-    final country = _s(_userProfile?['country']);
+    final country = _firstNonEmpty([
+      _userProfile?['country'],
+      widget.profile.country,
+    ]);
     final facebook = _facebookUrl;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
@@ -1579,97 +1582,101 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                       book['id'] ??
                                                           it['book_id'],
                                                     );
-                                                    return ListTile(
-                                                      leading: cPath.isNotEmpty
-                                                          ? ClipRRect(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    4,
-                                                                  ),
-                                                              child: Image.network(
-                                                                widget
-                                                                    .apiService
-                                                                    .resolveAssetUrl(
-                                                                      cPath,
+                                                    return Material(
+                                                      color: Colors.transparent,
+                                                      child: ListTile(
+                                                        leading:
+                                                            cPath.isNotEmpty
+                                                            ? ClipRRect(
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      4,
                                                                     ),
-                                                                width: 40,
-                                                                height: 56,
-                                                                fit: BoxFit
-                                                                    .cover,
-                                                                errorBuilder:
-                                                                    (
-                                                                      _,
-                                                                      _,
-                                                                      _,
-                                                                    ) => const Icon(
-                                                                      Icons
-                                                                          .menu_book,
-                                                                    ),
-                                                              ),
-                                                            )
-                                                          : const Icon(
-                                                              Icons.menu_book,
-                                                            ),
-                                                      title: Text(
-                                                        title.isEmpty
-                                                            ? 'Story'
-                                                            : title,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                      ),
-                                                      subtitle: Text(
-                                                        author,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                      ),
-                                                      onTap: bookId > 0
-                                                          ? () {
-                                                              Navigator.pop(
-                                                                ctx,
-                                                              );
-                                                              Navigator.of(
-                                                                context,
-                                                              ).push(
-                                                                MaterialPageRoute<
-                                                                  void
-                                                                >(
-                                                                  builder: (_) => StoryDetailScreen(
-                                                                    apiService:
-                                                                        widget
-                                                                            .apiService,
-                                                                    book: BookDetailModel(
-                                                                      id: bookId,
-                                                                      title:
-                                                                          title,
-                                                                      author:
-                                                                          author,
-                                                                      description: _s(
-                                                                        book['description'],
+                                                                child: Image.network(
+                                                                  widget
+                                                                      .apiService
+                                                                      .resolveAssetUrl(
+                                                                        cPath,
                                                                       ),
-                                                                      statusText: _s(
-                                                                        book['status_text'],
+                                                                  width: 40,
+                                                                  height: 56,
+                                                                  fit: BoxFit
+                                                                      .cover,
+                                                                  errorBuilder:
+                                                                      (
+                                                                        _,
+                                                                        _,
+                                                                        _,
+                                                                      ) => const Icon(
+                                                                        Icons
+                                                                            .menu_book,
                                                                       ),
-                                                                      rating:
-                                                                          (book['rating']
-                                                                                  as num?)
-                                                                              ?.toDouble() ??
-                                                                          0,
-                                                                      genre: _s(
-                                                                        book['genre'] ??
-                                                                            book['primary_genre'],
-                                                                      ),
-                                                                      cta:
-                                                                          'Read',
-                                                                      coverPath:
-                                                                          cPath,
-                                                                    ),
-                                                                  ),
                                                                 ),
-                                                              );
-                                                            }
-                                                          : null,
+                                                              )
+                                                            : const Icon(
+                                                                Icons.menu_book,
+                                                              ),
+                                                        title: Text(
+                                                          title.isEmpty
+                                                              ? 'Story'
+                                                              : title,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                        subtitle: Text(
+                                                          author,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                        onTap: bookId > 0
+                                                            ? () {
+                                                                Navigator.pop(
+                                                                  ctx,
+                                                                );
+                                                                Navigator.of(
+                                                                  context,
+                                                                ).push(
+                                                                  MaterialPageRoute<
+                                                                    void
+                                                                  >(
+                                                                    builder: (_) => StoryDetailScreen(
+                                                                      apiService:
+                                                                          widget
+                                                                              .apiService,
+                                                                      book: BookDetailModel(
+                                                                        id: bookId,
+                                                                        title:
+                                                                            title,
+                                                                        author:
+                                                                            author,
+                                                                        description: _s(
+                                                                          book['description'],
+                                                                        ),
+                                                                        statusText: _s(
+                                                                          book['status_text'],
+                                                                        ),
+                                                                        rating:
+                                                                            (book['rating']
+                                                                                    as num?)
+                                                                                ?.toDouble() ??
+                                                                            0,
+                                                                        genre: _s(
+                                                                          book['genre'] ??
+                                                                              book['primary_genre'],
+                                                                        ),
+                                                                        cta:
+                                                                            'Read',
+                                                                        coverPath:
+                                                                            cPath,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                );
+                                                              }
+                                                            : null,
+                                                      ),
                                                     );
                                                   },
                                                 ),
@@ -2818,8 +2825,9 @@ class _WallPostText extends StatelessWidget {
     final spans = <TextSpan>[];
     var cursor = 0;
     for (final match in parts) {
-      if (match.start > cursor)
+      if (match.start > cursor) {
         spans.add(TextSpan(text: body.substring(cursor, match.start)));
+      }
       final token = match.group(0)!;
       final query = token.startsWith('@[')
           ? token.substring(2, token.length - 1)

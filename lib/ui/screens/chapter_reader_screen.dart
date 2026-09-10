@@ -29,6 +29,7 @@ class ChapterReaderScreen extends StatefulWidget {
     this.chapters = const [],
     this.initialChapterIndex = 0,
     this.initialParagraphIndex = 0,
+    this.isOwnerBook = false,
   });
 
   final ApiService apiService;
@@ -47,6 +48,7 @@ class ChapterReaderScreen extends StatefulWidget {
 
   /// Resume position inside the chapter (0-based paragraph index).
   final int initialParagraphIndex;
+  final bool isOwnerBook;
 
   @override
   State<ChapterReaderScreen> createState() => _ChapterReaderScreenState();
@@ -78,8 +80,11 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   int _chapterCommentCount = 0;
   final ScrollController _scrollController = ScrollController();
   Map<int, int> _paragraphCommentCounts = {};
+  final Map<int, int> _paragraphLikeCounts = {};
+  final Set<int> _likedParagraphs = {};
 
   Future<bool> _isAuthorReadingOwnBook() async {
+    if (widget.isOwnerBook) return true;
     final authorId = widget.authorUserId;
     if (authorId == null || authorId <= 0) return false;
     try {
@@ -90,7 +95,6 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
       return false;
     }
   }
-
 
   static const _reactionOptions = <List<String>>[
     ['❤️', 'Love this'],
@@ -117,7 +121,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     // Track as ongoing when reader opens
     unawaited(_markLibraryProgress(completed: false));
     _chapters = List<Map<String, dynamic>>.from(widget.chapters);
-    _loadLikeState();
+    _loadChapterLikeState();
     _chapterIndex = widget.initialChapterIndex.clamp(
       0,
       _chapters.isEmpty ? 0 : _chapters.length - 1,
@@ -208,7 +212,18 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
       final prefs = await SharedPreferences.getInstance();
       final myId = prefs.getInt('auth_id');
       final authorId = widget.authorUserId;
-      if (myId != null && authorId != null && myId > 0 && authorId > 0 && myId == authorId) {
+      if (widget.isOwnerBook ||
+          (myId != null &&
+              authorId != null &&
+              myId > 0 &&
+              authorId > 0 &&
+              myId == authorId)) {
+        final raw = prefs.getString('continue_reading_v1') ?? '{}';
+        final cache = Map<String, dynamic>.from(
+          (jsonDecode(raw) as Map?) ?? const {},
+        );
+        cache.remove('$bookId');
+        await prefs.setString('continue_reading_v1', jsonEncode(cache));
         return;
       }
     } catch (_) {}
@@ -365,13 +380,29 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     Map<String, dynamic> chapter, {
     bool resumeParagraph = false,
   }) {
-    _chapterTitle = chapter['title'] as String? ?? 'Untitled';
+    final rawTitle = chapter['title'] as String? ?? '';
     _chapterContent = chapter['content'] as String? ?? '';
     _chapterNumber =
         (chapter['chapter_number'] as num?)?.toInt() ?? (_chapterIndex + 1);
+    final titlePrefix = RegExp(
+      '^chapter\\s*$_chapterNumber(?:\\s*[:.\\-]?\\s*)',
+      caseSensitive: false,
+    );
+    final titleRemainder = rawTitle.replaceFirst(titlePrefix, '').trim();
+    _chapterTitle = titleRemainder.isEmpty
+        ? 'Chapter $_chapterNumber'
+        : titleRemainder;
+    final paragraphCount = _paragraphs().length;
+    if (paragraphCount == 0) {
+      _lastParagraphIndex = 0;
+    } else {
+      _lastParagraphIndex = _lastParagraphIndex.clamp(0, paragraphCount - 1);
+    }
     _selectedReactions.clear();
     _reactionCounts.clear();
     _paragraphCommentCounts = {};
+    _paragraphLikeCounts.clear();
+    _likedParagraphs.clear();
     _chapterCommentCount = 0;
     _paragraphKeys.clear();
     if (!resumeParagraph) {
@@ -700,51 +731,30 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     }
   }
 
-  Future<void> _loadLikeState() async {
+  Future<void> _loadChapterLikeState() async {
     final bookId = widget.bookId;
     if (bookId == null) return;
     try {
-      final res = await widget.apiService.fetchBookLike(bookId);
+      final res = await widget.apiService.fetchChapterReactions(
+        bookId: bookId,
+        chapterNumber: widget.chapterNumber,
+      );
+      final counts = Map<String, dynamic>.from(
+        (res['counts'] as Map?) ?? const {},
+      );
+      final mine =
+          (res['mine'] as List?)?.map((e) => e.toString()).toSet() ??
+          <String>{};
       if (!mounted) return;
       setState(() {
-        _liked = (res['liked'] as bool?) ?? false;
-        _likeCount = (res['likes_count'] as num?)?.toInt() ?? 0;
+        _liked = mine.contains('Like');
+        _likeCount = (counts['Like'] as num?)?.toInt() ?? 0;
       });
     } catch (_) {}
   }
 
   Future<void> _toggleLike() async {
-    final bookId = widget.bookId;
-    if (bookId == null) {
-      setState(() {
-        _liked = !_liked;
-        _likeCount += _liked ? 1 : -1;
-        if (_likeCount < 0) _likeCount = 0;
-      });
-      return;
-    }
-    try {
-      final res = _liked
-          ? await widget.apiService.unlikeBook(bookId)
-          : await widget.apiService.likeBook(bookId);
-      if (!mounted) return;
-      setState(() {
-        _liked = (res['liked'] as bool?) ?? !_liked;
-        _likeCount = (res['likes_count'] as num?)?.toInt() ?? _likeCount;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      final msg = e.toString().toLowerCase();
-      final text =
-          (msg.contains('401') ||
-              msg.contains('token') ||
-              msg.contains('unauthorized'))
-          ? 'Sign in to like. One like per account.'
-          : (msg.contains('timeout')
-                ? 'Server busy — try like again'
-                : 'Like failed: $e');
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-    }
+    await _toggleReaction('Like');
   }
 
   Widget _buildAdBanner({required String label}) {
@@ -1168,6 +1178,8 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
 
   Widget _buildParagraphBlock(String text, int index) {
     final count = _paragraphCommentCounts[index] ?? 0;
+    final likes = _paragraphLikeCounts[index] ?? 0;
+    final liked = _likedParagraphs.contains(index);
     final key = _paragraphKeys.putIfAbsent(index, () => GlobalKey());
     return Padding(
       key: key,
@@ -1182,40 +1194,106 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
             ),
           ),
           const SizedBox(width: 6),
-          GestureDetector(
-            onTap: () => _openParagraphComments(index, text),
-            child: Container(
-              constraints: const BoxConstraints(minWidth: 28),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              decoration: BoxDecoration(
-                color: count > 0 ? const Color(0xFFEDE9FE) : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.chat_bubble_outline,
-                    size: 16,
-                    color: count > 0
-                        ? const Color(0xFF6C3CE1)
-                        : _muted.withValues(alpha: 0.7),
+          Column(
+            children: [
+              GestureDetector(
+                onTap: () => _openParagraphComments(index, text),
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 28),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
                   ),
-                  if (count > 0)
-                    Text(
-                      '$count',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF6C3CE1),
+                  decoration: BoxDecoration(
+                    color: count > 0
+                        ? const Color(0xFFEDE9FE)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.chat_bubble_outline,
+                        size: 16,
+                        color: count > 0
+                            ? const Color(0xFF6C3CE1)
+                            : _muted.withValues(alpha: 0.7),
                       ),
-                    ),
-                ],
+                      if (count > 0)
+                        Text(
+                          '$count',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6C3CE1),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              IconButton(
+                tooltip: 'Like paragraph',
+                visualDensity: VisualDensity.compact,
+                icon: Icon(
+                  liked ? Icons.favorite : Icons.favorite_border,
+                  size: 16,
+                  color: liked ? Colors.redAccent : _muted,
+                ),
+                onPressed: () => _toggleParagraphLike(index),
+              ),
+              if (likes > 0)
+                Text('$likes', style: TextStyle(fontSize: 10, color: _muted)),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _toggleParagraphLike(int index) async {
+    final bookId = widget.bookId;
+    if (bookId == null) return;
+    final label = 'paragraph:$index:Like';
+    final wasLiked = _likedParagraphs.contains(index);
+    setState(() {
+      if (wasLiked) {
+        _likedParagraphs.remove(index);
+        _paragraphLikeCounts[index] = (_paragraphLikeCounts[index] ?? 1) - 1;
+      } else {
+        _likedParagraphs.add(index);
+        _paragraphLikeCounts[index] = (_paragraphLikeCounts[index] ?? 0) + 1;
+      }
+    });
+    try {
+      final result = await widget.apiService.toggleChapterReaction(
+        bookId: bookId,
+        chapterNumber: _chapterNumber,
+        label: label,
+      );
+      if (!mounted) return;
+      final selected = result['selected'] == true;
+      final count = int.tryParse('${result['count'] ?? 0}') ?? 0;
+      setState(() {
+        if (selected) {
+          _likedParagraphs.add(index);
+        } else {
+          _likedParagraphs.remove(index);
+        }
+        _paragraphLikeCounts[index] = count;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (wasLiked) {
+          _likedParagraphs.add(index);
+        } else {
+          _likedParagraphs.remove(index);
+        }
+        _paragraphLikeCounts[index] =
+            (_paragraphLikeCounts[index] ?? 0) + (wasLiked ? 1 : -1);
+      });
+    }
   }
 
   @override
@@ -1783,6 +1861,20 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
       }
       if (!mounted) return;
       setState(() {
+        _paragraphLikeCounts.clear();
+        _likedParagraphs.clear();
+        for (final entry in counts.entries) {
+          final match = RegExp(r'^paragraph:(\d+):Like$').firstMatch(entry.key);
+          if (match != null) {
+            _paragraphLikeCounts[int.parse(match.group(1)!)] = entry.value;
+          }
+        }
+        for (final label in mine) {
+          final match = RegExp(r'^paragraph:(\d+):Like$').firstMatch(label);
+          if (match != null) {
+            _likedParagraphs.add(int.parse(match.group(1)!));
+          }
+        }
         _reactionCounts
           ..clear()
           ..addAll(counts);
@@ -1814,6 +1906,10 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
         _selectedReactions.add(label);
         _reactionCounts[label] = (_reactionCounts[label] ?? 0) + 1;
       }
+      if (label == 'Like') {
+        _liked = !wasSelected;
+        _likeCount = _reactionCounts[label] ?? 0;
+      }
     });
     try {
       final res = await widget.apiService.toggleChapterReaction(
@@ -1831,6 +1927,10 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
           _selectedReactions.remove(label);
         }
         _reactionCounts[label] = count;
+        if (label == 'Like') {
+          _liked = selected;
+          _likeCount = count;
+        }
       });
     } catch (e) {
       // roll back
@@ -1845,6 +1945,10 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
             0,
             999999,
           );
+        }
+        if (label == 'Like') {
+          _liked = wasSelected;
+          _likeCount = _reactionCounts[label] ?? 0;
         }
       });
       ScaffoldMessenger.of(
@@ -1864,7 +1968,9 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Authors cannot post new chapter comments on their own book. You can reply under reader comments.'),
+          content: Text(
+            'Authors cannot post new chapter comments on their own book. You can reply under reader comments.',
+          ),
         ),
       );
       return false;
@@ -1877,7 +1983,6 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     );
     return true;
   }
-
 
   Future<void> _editOwnComment({
     required int commentId,
@@ -1895,8 +2000,14 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
           decoration: const InputDecoration(hintText: 'Your comment'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
@@ -1904,13 +2015,16 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     final body = ctrl.text.trim();
     if (body.isEmpty) return;
     try {
-      await widget.apiService.updateChapterComment(commentId: commentId, body: body);
+      await widget.apiService.updateChapterComment(
+        commentId: commentId,
+        body: body,
+      );
       await onDone();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not edit: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not edit: $e')));
       }
     }
   }
@@ -1925,8 +2039,14 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
         title: const Text('Delete comment?'),
         content: const Text('This cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -1936,9 +2056,9 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
       await onDone();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not delete: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not delete: $e')));
       }
     }
   }
@@ -1956,14 +2076,14 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
 
     final controller = TextEditingController();
     var comments = <Map<String, dynamic>>[];
-        final likedComments = <int>{};
+    final likedComments = <int>{};
     int? myUserId;
     try {
       final me = await widget.apiService.fetchMe();
       myUserId =
           (me['id'] as num?)?.toInt() ?? (me['user_id'] as num?)?.toInt();
     } catch (_) {}
-var loading = true;
+    var loading = true;
     var posting = false;
     String? error;
 
@@ -2187,7 +2307,8 @@ var loading = true;
                                                   PopupMenuButton<String>(
                                                     padding: EdgeInsets.zero,
                                                     onSelected: (v) async {
-                                                      final id = (c['id'] as num?)
+                                                      final id =
+                                                          (c['id'] as num?)
                                                               ?.toInt() ??
                                                           0;
                                                       if (id <= 0) return;
@@ -2200,7 +2321,8 @@ var loading = true;
                                                                 setModal,
                                                               ),
                                                         );
-                                                      } else if (v == 'delete') {
+                                                      } else if (v ==
+                                                          'delete') {
                                                         await _deleteOwnComment(
                                                           commentId: id,
                                                           onDone: () async {
@@ -2273,7 +2395,9 @@ var loading = true;
                                                                   ?.toInt() ??
                                                               0,
                                                         )
-                                                        ? const Color(0xFFFF4757)
+                                                        ? const Color(
+                                                            0xFFFF4757,
+                                                          )
                                                         : Colors.grey,
                                                   ),
                                                   onPressed: () =>

@@ -384,7 +384,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
-                        value: _gender,
+                        initialValue: _gender,
                         isExpanded: true,
                         decoration: _deco(
                           label: 'Sex',
@@ -400,7 +400,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
-                        value: _country,
+                        initialValue: _country,
                         isExpanded: true,
                         decoration: _deco(
                           label: 'Country',

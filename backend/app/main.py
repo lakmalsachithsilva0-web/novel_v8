@@ -767,6 +767,16 @@ def _ensure_wall_posts_table() -> None:
                 """,
                 (),
             )
+            columns = fetch_all("PRAGMA table_info(wall_posts)")
+            names = {
+                _row_get(column, "name")
+                for column in (columns or [])
+            }
+            if "image_path" not in names:
+                execute_write(
+                    "ALTER TABLE wall_posts ADD COLUMN image_path TEXT DEFAULT ''",
+                    (),
+                )
         else:
             execute_write(
                 """
@@ -782,6 +792,15 @@ def _ensure_wall_posts_table() -> None:
                 """,
                 (),
             )
+            columns = fetch_all(
+                "SHOW COLUMNS FROM wall_posts LIKE %s",
+                ("image_path",),
+            )
+            if not columns:
+                execute_write(
+                    "ALTER TABLE wall_posts ADD COLUMN image_path VARCHAR(512) DEFAULT ''",
+                    (),
+                )
         _WALL_POSTS_TABLE_READY = True
     except Exception as exc:
         LOGGER.warning("wall_posts ensure failed: %s", exc)
@@ -4422,7 +4441,7 @@ def get_writer_stories(user: dict[str, Any] = Depends(require_user)):
     rows = fetch_all(
         """
         SELECT id, user_id, title, author, description, genre, status_text,
-                             cover_path, accent_hex, content_warnings,
+                     cover_path, accent_hex, content_warnings, audience, language,
                              (SELECT COUNT(*) FROM chapters c
                                 WHERE c.story_id=books.id
                                     AND LOWER(COALESCE(c.submission_status, 'draft')) IN
@@ -4457,6 +4476,8 @@ def get_writer_stories(user: dict[str, Any] = Depends(require_user)):
                 "content_warnings": str(
                     _row_get(row, "content_warnings") or ""
                 ).strip(),
+                "audience": _row_get(row, "audience") or "",
+                "language": _row_get(row, "language") or "",
                 "cta_label": "Read now",
                 "rating": 0.0,
                 "tags": [],
@@ -4470,20 +4491,51 @@ def get_writer_stories(user: dict[str, Any] = Depends(require_user)):
 
 
 @app.get("/api/write/stories/{story_id}/chapters")
-def get_story_chapters(story_id: int):
-    story_rows = fetch_all("SELECT id FROM books WHERE id=%s", (story_id,))
+def get_story_chapters(
+    story_id: int,
+    user: dict[str, Any] | None = Depends(optional_user),
+):
+    story_rows = fetch_all(
+        "SELECT id, user_id, status_text FROM books WHERE id=%s",
+        (story_id,),
+    )
     if not story_rows:
         raise HTTPException(status_code=404, detail="Story not found")
+
+    story = story_rows[0]
+    owner_id = int(_row_get(story, "user_id") or 0)
+    is_owner = user is not None and owner_id == int(user["user_id"])
+    if not is_owner:
+        status = str(_row_get(story, "status_text") or "").strip().lower()
+        is_public = (
+            status in {"ongoing", "completed", "complete", "published", "submitted"}
+            or status.startswith("ongoing")
+            or status.startswith("completed")
+            or status.startswith("published")
+        )
+        if not is_public:
+            raise HTTPException(status_code=404, detail="Story not found")
 
     rows = fetch_all(
         """
         SELECT id, story_id, chapter_number, title, content, notes, submission_status, scheduled_for,
                sort_order, created_at, updated_at
-        FROM chapters
-        WHERE story_id=%s
+                FROM chapters
+                WHERE story_id=%s
+                    AND (%s OR LOWER(COALESCE(submission_status, 'draft')) IN
+                             ('published', 'submitted', 'ongoing', 'completed')
+                             OR (
+                                     chapter_number=1
+                                     AND EXISTS (
+                                             SELECT 1 FROM chapters public_chapter
+                                             WHERE public_chapter.story_id=chapters.story_id
+                                                 AND LOWER(COALESCE(public_chapter.submission_status, 'draft')) IN
+                                                         ('published', 'submitted', 'ongoing', 'completed')
+                                     )
+                             ))
         ORDER BY chapter_number, sort_order, id
         """,
-        (story_id,),
+                (story_id, is_owner),
     )
     items = []
     for row in rows:
@@ -4509,8 +4561,31 @@ def get_story_chapters(story_id: int):
     return {"items": items}
 
 
+def _require_story_owner(story_id: int, user: dict[str, Any]) -> dict[str, Any]:
+    rows = fetch_all(
+        "SELECT id, user_id FROM books WHERE id=%s LIMIT 1",
+        (story_id,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Story not found")
+    owner_id = int(_row_get(rows[0], "user_id") or 0)
+    if owner_id != int(user["user_id"]):
+        raise HTTPException(status_code=403, detail="Only the story owner can manage chapters")
+    return rows[0]
+
+
 @app.get("/api/write/chapters/{chapter_id}/revisions")
-def get_story_chapter_revisions(chapter_id: int):
+def get_story_chapter_revisions(
+    chapter_id: int,
+    user: dict[str, Any] = Depends(require_user),
+):
+    chapter_rows = fetch_all(
+        "SELECT story_id FROM chapters WHERE id=%s LIMIT 1",
+        (chapter_id,),
+    )
+    if not chapter_rows:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    _require_story_owner(int(_row_get(chapter_rows[0], "story_id") or 0), user)
     rows = fetch_all(
         """
         SELECT id, chapter_id, title, notes, submission_status, scheduled_for, created_at
@@ -4573,11 +4648,13 @@ def _promote_author_and_maybe_publish(user_id: int, story_id: int, chapter_conte
 
 
 @app.post("/api/write/stories/{story_id}/chapters")
-def create_story_chapter(story_id: int, payload: ChapterCreateRequest):
+def create_story_chapter(
+    story_id: int,
+    payload: ChapterCreateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
     try:
-        story_rows = fetch_all("SELECT id FROM books WHERE id=%s", (story_id,))
-        if not story_rows:
-            raise HTTPException(status_code=404, detail="Story not found")
+        _require_story_owner(story_id, user)
 
         chapter_number = payload.chapter_number
         if chapter_number is None:
@@ -4660,12 +4737,17 @@ def create_story_chapter(story_id: int, payload: ChapterCreateRequest):
 
 
 @app.put("/api/write/chapters/{chapter_id}")
-def update_story_chapter(chapter_id: int, payload: ChapterUpdateRequest):
+def update_story_chapter(
+    chapter_id: int,
+    payload: ChapterUpdateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
     rows = fetch_all("SELECT * FROM chapters WHERE id=%s", (chapter_id,))
     if not rows:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
     current = rows[0]
+    _require_story_owner(int(_row_get(current, "story_id") or 0), user)
     next_title = payload.title or current["title"]
     # Unique title within same story (allow keeping own title)
     title_norm = (next_title or "").strip()
@@ -4742,7 +4824,17 @@ def update_story_chapter(chapter_id: int, payload: ChapterUpdateRequest):
 
 
 @app.delete("/api/write/chapters/{chapter_id}")
-def delete_story_chapter(chapter_id: int):
+def delete_story_chapter(
+    chapter_id: int,
+    user: dict[str, Any] = Depends(require_user),
+):
+    rows = fetch_all(
+        "SELECT story_id FROM chapters WHERE id=%s LIMIT 1",
+        (chapter_id,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    _require_story_owner(int(_row_get(rows[0], "story_id") or 0), user)
     _, affected = execute_write("DELETE FROM chapters WHERE id=%s", (chapter_id,))
     if affected == 0:
         raise HTTPException(status_code=404, detail="Chapter not found")

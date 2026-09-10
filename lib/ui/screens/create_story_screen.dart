@@ -42,14 +42,36 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   static const Color _green = Color(0xFF6C3CE1);
 
   static const List<String> _defaultGenres = [
-    'Romance', 'Fantasy', 'Drama', 'Horror', 'Mystery', 'Adventure',
-    'Poetry', 'Slice of Life', 'Fanfiction', 'Thriller', 'Sci-Fi',
-    'Young Adult', 'Humor', 'Paranormal', 'Action', 'Other',
+    'Romance',
+    'Fantasy',
+    'Drama',
+    'Horror',
+    'Mystery',
+    'Adventure',
+    'Poetry',
+    'Slice of Life',
+    'Fanfiction',
+    'Thriller',
+    'Sci-Fi',
+    'Young Adult',
+    'Humor',
+    'Paranormal',
+    'Action',
+    'Other',
   ];
   static const List<String> _languages = ['Sinhala', 'English', 'Tamil'];
-  static const List<String> _audiences = ['All Ages', 'Teen (13+)', 'Mature (18+)'];
+  static const List<String> _audiences = [
+    'All Ages',
+    'Teen (13+)',
+    'Mature (18+)',
+  ];
   static const List<String> _warningOptions = [
-    'Violence', 'Strong Language', 'Sexual Content', 'Drug/Alcohol Use', 'Death', 'Other',
+    'Violence',
+    'Strong Language',
+    'Sexual Content',
+    'Drug/Alcohol Use',
+    'Death',
+    'Other',
   ];
 
   final _titleController = TextEditingController();
@@ -73,11 +95,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   List<String> _genres = List<String>.from(_defaultGenres);
   String? _selectedGenre;
   bool _loadingGenres = false;
-  bool _showCustomGenre = false;
+  final bool _showCustomGenre = false;
 
   String _status = 'Draft';
   String _language = 'Sinhala';
-  String? _audience;
+  String? _audience = 'All Ages';
   int? _savedStoryId;
   final Set<String> _selectedWarnings = {};
 
@@ -85,15 +107,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
   int get _readinessDone {
     var n = 0;
-    if (_coverPath.isNotEmpty) n++;
-    if (_titleController.text.trim().length > 2) n++;
-    if (_summaryController.text.trim().length > 20) n++;
+    if (_titleController.text.trim().isNotEmpty) n++;
+    if (_summaryController.text.trim().isNotEmpty) n++;
     if ((_selectedGenre ?? '').trim().isNotEmpty) n++;
-    if ((_audience ?? '').trim().isNotEmpty) n++;
     return n;
   }
 
-  int get _readinessPct => ((_readinessDone / 5) * 100).round();
+  int get _readinessPct => ((_readinessDone / 3) * 100).round();
 
   String get _readinessCaption {
     if (_readinessPct == 0) return 'A blank page. Where will it begin?';
@@ -108,7 +128,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       _titleController.text = widget.story!['title']?.toString() ?? '';
       _summaryController.text = widget.story!['description']?.toString() ?? '';
       _savedStoryId = (widget.story!['id'] as num?)?.toInt();
-      final warningsRaw = (widget.story!['content_warnings'] ?? widget.story!['contentWarnings'] ?? '').toString();
+      final warningsRaw =
+          (widget.story!['content_warnings'] ??
+                  widget.story!['contentWarnings'] ??
+                  '')
+              .toString();
       if (warningsRaw.isNotEmpty) {
         for (final part in warningsRaw.split(RegExp(r'[,;]'))) {
           final t = part.trim();
@@ -121,11 +145,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             _selectedWarnings.add(match);
           } else {
             _selectedWarnings.add('Other');
-            _otherWarningController.text = t;                                                                          
+            _otherWarningController.text = t;
           }
         }
       }
-      final g = (widget.story!['genre'] ?? widget.story!['primary_genre'] ?? '').toString().trim();
+      final g = (widget.story!['genre'] ?? widget.story!['primary_genre'] ?? '')
+          .toString()
+          .trim();
       if (g.isNotEmpty) {
         _selectedGenre = g;
         if (!_genres.any((x) => x.toLowerCase() == g.toLowerCase())) {
@@ -144,13 +170,22 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       final rawTags = widget.story!['tags'];
       List<String> existing = <String>[];
       if (rawTags is List) {
-        existing = rawTags.map((e) => e.toString().replaceFirst('#', '').trim()).where((t) => t.isNotEmpty).toList();
+        existing = rawTags
+            .map((e) => e.toString().replaceFirst('#', '').trim())
+            .where((t) => t.isNotEmpty)
+            .toList();
       } else if (rawTags != null && rawTags.toString().trim().isNotEmpty) {
-        existing = rawTags.toString().split(RegExp(r'[,;]')).map((e) => e.replaceFirst('#', '').trim()).where((t) => t.isNotEmpty).toList();
+        existing = rawTags
+            .toString()
+            .split(RegExp(r'[,;]'))
+            .map((e) => e.replaceFirst('#', '').trim())
+            .where((t) => t.isNotEmpty)
+            .toList();
       }
       _selectedTags.addAll(existing.take(3));
     }
     _titleController.addListener(() => setState(() {}));
+    _summaryController.addListener(() => setState(() {}));
     // Length counter uses ValueListenableBuilder — avoid setState (was stealing focus)
     _resolveAuthorName();
     _loadAvailableTags();
@@ -165,7 +200,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     if (name.isEmpty) {
       try {
         final me = await widget.apiService.fetchMe();
-        name = (me['display_name'] ?? me['username'] ?? me['name'] ?? '').toString().trim();
+        name = (me['display_name'] ?? me['username'] ?? me['name'] ?? '')
+            .toString()
+            .trim();
       } catch (_) {}
     }
     if (name.isEmpty) {
@@ -186,9 +223,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     if (!mounted) return;
     setState(() => _loadingTags = true);
     try {
-      final items = await widget.apiService
-          .fetchTags()
-          .timeout(const Duration(seconds: 8), onTimeout: () => <Map<String, dynamic>>[]);
+      final items = await widget.apiService.fetchTags().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => <Map<String, dynamic>>[],
+      );
       if (!mounted) return;
       setState(() {
         _availableTags = items
@@ -207,9 +245,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     if (!mounted) return;
     setState(() => _loadingGenres = true);
     try {
-      final remote = await widget.apiService
-          .fetchGenres()
-          .timeout(const Duration(seconds: 8), onTimeout: () => <String>[]);
+      final remote = await widget.apiService.fetchGenres().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => <String>[],
+      );
       if (!mounted) return;
       final merged = <String>{..._defaultGenres};
       for (final g in remote) {
@@ -236,7 +275,6 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     }
   }
 
-
   Future<void> _pickCover() async {
     final picked = await _imagePicker.pickImage(
       source: ImageSource.gallery,
@@ -247,8 +285,17 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     if (picked == null) return;
     try {
       final bytes = await picked.readAsBytes();
-      final result = await widget.apiService.uploadWriterImage(bytes, picked.name);
-      final path = (result['path'] ?? result['cover_path'] ?? result['url'] ?? result['file_url'] ?? '').toString();
+      final result = await widget.apiService.uploadWriterImage(
+        bytes,
+        picked.name,
+      );
+      final path =
+          (result['path'] ??
+                  result['cover_path'] ??
+                  result['url'] ??
+                  result['file_url'] ??
+                  '')
+              .toString();
       if (!mounted) return;
       if (path.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -257,14 +304,14 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         return;
       }
       setState(() => _coverPath = path);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cover uploaded')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Cover uploaded')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cover upload failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Cover upload failed: $e')));
     }
   }
 
@@ -339,7 +386,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     if (q.isEmpty) return const Iterable<String>.empty();
     return _availableTags
         .where((t) => t.toLowerCase().contains(q))
-        .where((t) => !_selectedTags.any((s) => s.toLowerCase() == t.toLowerCase()))
+        .where(
+          (t) => !_selectedTags.any((s) => s.toLowerCase() == t.toLowerCase()),
+        )
         .take(8);
   }
 
@@ -348,9 +397,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     if (name.isEmpty) return;
     if (_selectedTags.any((t) => t.toLowerCase() == name.toLowerCase())) return;
     if (_selectedTags.length >= 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum 3 tags')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Maximum 3 tags')));
       return;
     }
     setState(() {
@@ -405,11 +454,14 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         'tags': List<String>.from(_selectedTags.take(3)),
         'status_text': forceStatus ?? (asDraft ? 'Draft' : 'Ongoing'),
         'language': _language,
-        'audience': ((_audience ?? '').trim().isEmpty ? 'All Ages' : _audience!.trim()),
+        'audience': ((_audience ?? '').trim().isEmpty
+            ? 'All Ages'
+            : _audience!.trim()),
         'cover_path': _coverPath,
       };
 
-      var storyId = _savedStoryId ??
+      var storyId =
+          _savedStoryId ??
           (_isEditing ? ((widget.story!['id'] as num?)?.toInt() ?? 0) : 0);
 
       Future<int> persist() async {
@@ -431,7 +483,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         } catch (e) {
           lastErr = e;
           final msg = e.toString().toLowerCase();
-          final isSlow = msg.contains('timeout') ||
+          final isSlow =
+              msg.contains('timeout') ||
               msg.contains('timed out') ||
               msg.contains('socket') ||
               msg.contains('connection');
@@ -442,8 +495,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
       if (storyId <= 0) {
         await Future<void>.delayed(const Duration(milliseconds: 600));
-        final recovered =
-            await widget.apiService.findWriterStoryIdByTitle(safeTitle);
+        final recovered = await widget.apiService.findWriterStoryIdByTitle(
+          safeTitle,
+        );
         if (recovered > 0) {
           storyId = recovered;
           _savedStoryId = recovered;
@@ -470,9 +524,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
       if (asDraft) {
         if (!popAfter && !silent) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Draft saved')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Draft saved')));
         }
         if (popAfter && mounted) {
           try {
@@ -480,6 +534,19 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             await prefs.setBool('write_open_drafts', true);
           } catch (_) {}
           Navigator.of(context).pop(true);
+        }
+        return;
+      }
+
+      if (_readinessDone < 3) {
+        if (!silent) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Complete all story details before adding chapters',
+              ),
+            ),
+          );
         }
         return;
       }
@@ -505,15 +572,17 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString().toLowerCase();
-      final isSlow = msg.contains('timeout') ||
+      final isSlow =
+          msg.contains('timeout') ||
           msg.contains('timed out') ||
           msg.contains('socket');
 
       var existingId = _savedStoryId ?? 0;
       if (existingId <= 0 && isSlow) {
         try {
-          existingId =
-              await widget.apiService.findWriterStoryIdByTitle(safeTitle);
+          existingId = await widget.apiService.findWriterStoryIdByTitle(
+            safeTitle,
+          );
           if (existingId > 0) _savedStoryId = existingId;
         } catch (_) {}
       }
@@ -543,9 +612,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
       if (existingId > 0 && asDraft) {
         if (!silent) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Draft saved')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Draft saved')));
         }
         if (popAfter && mounted) Navigator.of(context).pop(true);
         return;
@@ -554,10 +623,12 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       final text = isSlow
           ? 'Still saving on server. Wait 10 seconds, then open Drafts — or tap Save once more.'
           : (msg.contains('401') || msg.contains('unauthorized'))
-              ? 'Please sign in again to save'
-              : 'Save failed: $e';
+          ? 'Please sign in again to save'
+          : 'Save failed: $e';
       if (!silent) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(text)));
       }
     } finally {
       _saving = false;
@@ -679,6 +750,24 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         canPop: false,
         onPopInvokedWithResult: (didPop, result) async {
           if (didPop) return;
+          final leave = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Leave story details?'),
+              content: const Text('Save this story as a draft before leaving?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('No'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Yes'),
+                ),
+              ],
+            ),
+          );
+          if (leave != true || !mounted) return;
           if (_saving) {
             // Never trap user on this page if a prior save is stuck
             _saving = false;
@@ -690,615 +779,796 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           }
         },
         child: Scaffold(
-      backgroundColor: _ink,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(8, 10, 16, 10),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF7F5FC),
-                border: Border(bottom: BorderSide(color: _borderSoft)),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () async {
-                      if (_saving) {
-                        _saving = false;
-                        if (mounted) setState(() {});
-                      }
-                      try {
-                        await _save(asDraft: true, popAfter: true);
-                      } catch (_) {
-                        if (context.mounted) Navigator.of(context).maybePop();
-                      }
-                    },
-                    icon: const Icon(Icons.arrow_back, color: _textHi),
+          backgroundColor: _ink,
+          body: SafeArea(
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(8, 10, 16, 10),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF7F5FC),
+                    border: Border(bottom: BorderSide(color: _borderSoft)),
                   ),
-                  const Text(
-                    'New Story',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: _textHi,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  const Spacer(),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-                children: [
-                  GestureDetector(
-                    onTap: _pickCover,
-                    child: Container(
-                      width: double.infinity,
-                      height: 180,
-                      decoration: BoxDecoration(
-                        color: _panel,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: _border, width: 1.5),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: _coverPath.isNotEmpty
-                          ? Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Image.network(
-                                  widget.apiService.resolveAssetUrl(_coverPath),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => const Center(
-                                    child: Icon(Icons.image_outlined, size: 40, color: _textLo),
-                                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () async {
+                          final leave = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Leave story details?'),
+                              content: const Text(
+                                'Save this story as a draft before leaving?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('No'),
                                 ),
-                                Positioned(
-                                  right: 8,
-                                  bottom: 8,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black54,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Text(
-                                      'Change',
-                                      style: TextStyle(color: Colors.white, fontSize: 11),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.upload_rounded, size: 28, color: _textLo),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Tap to upload a cover image',
-                                  style: TextStyle(color: _textFaint, fontSize: 12),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Yes'),
                                 ),
                               ],
                             ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Shown on Draft & Submitted lists',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 11.5, color: _textFaint),
-                  ),
-                  const SizedBox(height: 18),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: _panel,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: _borderSoft),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Text('✒', style: TextStyle(fontSize: 14)),
-                            SizedBox(width: 8),
-                            Text(
-                              'DRAFT READINESS',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                letterSpacing: 0.8,
-                                color: _textLo,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 9),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            value: _readinessPct / 100,
-                            minHeight: 7,
-                            backgroundColor: _panelAlt,
-                            valueColor: const AlwaysStoppedAnimation<Color>(_magenta),
-                          ),
-                        ),
-                        const SizedBox(height: 9),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _readinessCaption,
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  fontStyle: FontStyle.italic,
-                                  color: _textHi,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '$_readinessPct%',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                color: _textHi,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _label('TITLE'),
-                  const SizedBox(height: 7),
-                  _darkField(
-                    child: TextField(
-                      controller: _titleController,
-                      maxLength: 100,
-                      style: const TextStyle(color: _textHi, fontSize: 15),
-                      decoration: const InputDecoration(
-                        hintText: 'My Story',
-                        hintStyle: TextStyle(color: _textFaint),
-                        border: InputBorder.none,
-                        counterText: '',
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      '$titleLen / 100',
-                      style: TextStyle(fontSize: 11, color: titleLen >= 100 ? _amber : _textFaint),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _label('AUTHOR (FROM YOUR ACCOUNT)'),
-                  const SizedBox(height: 7),
-                  Stack(
-                    children: [
-                      _darkField(
-                        child: TextField(
-                          controller: _authorController,
-                          readOnly: true,
-                          enabled: false,
-                          style: const TextStyle(color: _textFaint, fontSize: 15),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                          ),
-                        ),
-                      ),
-                      const Positioned(
-                        right: 14,
-                        top: 14,
-                        child: Icon(Icons.lock, size: 14, color: _textFaint),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _label('SUMMARY'),
-                  const SizedBox(height: 7),
-                  _darkField(
-                    child: TextField(
-                      controller: _summaryController,
-                      focusNode: _summaryFocus,
-                      maxLength: 500,
-                      maxLines: 4,
-                      style: const TextStyle(color: _textHi, fontSize: 15, height: 1.45),
-                      decoration: const InputDecoration(
-                        hintText: 'Short description of your story...',
-                        hintStyle: TextStyle(color: _textFaint),
-                        border: InputBorder.none,
-                        counterText: '',
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _summaryController,
-                      builder: (context, value, _) {
-                        final len = value.text.length;
-                        return Text(
-                          '$len / 500',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: len >= 500 ? _amber : _textFaint,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _label('GENRE'),
-                  const SizedBox(height: 7),
-                  GestureDetector(
-                    onTap: () => _openPicker(
-                              title: 'Select genre',
-                              options: _genres.isEmpty ? _defaultGenres : _genres,
-                              current: _selectedGenre,
-                              onSelect: (v) => setState(() => _selectedGenre = v),
-                            ),
-                    child: _dropdownTrigger(
-                      _selectedGenre ?? 'Select genre',
-                      isPlaceholder: _selectedGenre == null,
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _label('LANGUAGE'),
-                            const SizedBox(height: 7),
-                            GestureDetector(
-                              onTap: () => _openPicker(
-                                title: 'Select language',
-                                options: _languages,
-                                current: _language,
-                                onSelect: (v) { setState(() => _language = v); _scheduleDraftSave(); },
-                              ),
-                              child: _dropdownTrigger(_language),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _label('AUDIENCE'),
-                            const SizedBox(height: 7),
-                            GestureDetector(
-                              onTap: () => _openPicker(
-                                title: 'Select audience',
-                                options: _audiences,
-                                current: _audience,
-                                onSelect: (v) { setState(() => _audience = v); _scheduleDraftSave(); },
-                              ),
-                              child: _dropdownTrigger(
-                                _audience ?? 'Select audience',
-                                isPlaceholder: _audience == null,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _label('CONTENT WARNINGS (OPTIONAL)'),
-                  const SizedBox(height: 7),
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: 3.2,
-                    children: _warningOptions.map((w) {
-                      final checked = _selectedWarnings.contains(w);
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (checked) {
-                              _selectedWarnings.remove(w);
-                            } else {
-                              _selectedWarnings.add(w);
+                          );
+                          if (leave != true || !context.mounted) return;
+                          if (_saving) {
+                            _saving = false;
+                            if (mounted) setState(() {});
+                          }
+                          try {
+                            await _save(asDraft: true, popAfter: true);
+                          } catch (_) {
+                            if (context.mounted) {
+                              Navigator.of(context).maybePop();
                             }
-                          });
+                          }
                         },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
-                          decoration: BoxDecoration(
-                            color: _panelAlt,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: checked ? _magenta : _border),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 15,
-                                height: 15,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(5),
-                                  border: Border.all(
-                                    color: checked ? Colors.transparent : _textFaint,
-                                    width: 1.5,
-                                  ),
-                                  gradient: checked
-                                      ? const LinearGradient(colors: [_magenta, _violet])
-                                      : null,
-                                ),
-                                child: checked
-                                    ? const Icon(Icons.check, size: 11, color: Colors.white)
-                                    : null,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  w,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: checked ? _textHi : _textLo,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  if (_selectedWarnings.contains('Other')) ...[
-                    const SizedBox(height: 8),
-                    _darkField(
-                      child: TextField(
-                        controller: _otherWarningController,
-                        style: const TextStyle(color: _textHi, fontSize: 15),
-                        decoration: const InputDecoration(
-                          hintText: 'Describe the other warning...',
-                          hintStyle: TextStyle(color: _textFaint),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                        icon: const Icon(Icons.arrow_back, color: _textHi),
+                      ),
+                      const Text(
+                        'New Story',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: _textHi,
+                          letterSpacing: 0.2,
                         ),
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  _label('HASHTAGS (MAX 3)'),
-                  const SizedBox(height: 7),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _panelAlt,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (_selectedTags.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: _selectedTags.map((t) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0x1A6C3CE1),
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(color: const Color(0x666C3CE1)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        '#$t',
-                                        style: const TextStyle(color: Color(0xFF6C3CE1), fontSize: 12.5),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      GestureDetector(
-                                        onTap: () => _removeTag(t),
-                                        child: const Icon(Icons.close, size: 12, color: Color(0xFF6C3CE1)),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
-                            ),
+                      const Spacer(),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+                    children: [
+                      GestureDetector(
+                        onTap: _pickCover,
+                        child: Container(
+                          width: double.infinity,
+                          height: 180,
+                          decoration: BoxDecoration(
+                            color: _panel,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: _border, width: 1.5),
                           ),
-                        if (_selectedTags.length < 3)
-                          RawAutocomplete<String>(
-                            textEditingController: _tagInputController,
-                            focusNode: _tagFocus,
-                            optionsBuilder: (v) => _tagSuggestions(v.text),
-                            onSelected: _addTag,
-                            fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                              return TextField(
-                                controller: controller,
-                                focusNode: focusNode,
-                                style: const TextStyle(color: _textHi, fontSize: 14.5),
-                                decoration: const InputDecoration(
-                                  hintText: 'Search admin hashtags…',
-                                  hintStyle: TextStyle(color: _textFaint),
-                                  prefixIcon: Icon(Icons.tag, size: 18, color: _textFaint),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 8),
-                                ),
-                                onSubmitted: (v) {
-                                  // Only accept if it matches a suggestion
-                                  final opts = _tagSuggestions(v);
-                                  if (opts.isEmpty) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Pick a hashtag from the suggestion list',
+                          clipBehavior: Clip.antiAlias,
+                          child: _coverPath.isNotEmpty
+                              ? Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Image.network(
+                                      widget.apiService.resolveAssetUrl(
+                                        _coverPath,
+                                      ),
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => const Center(
+                                        child: Icon(
+                                          Icons.image_outlined,
+                                          size: 40,
+                                          color: _textLo,
                                         ),
                                       ),
-                                    );
-                                  } else if (opts.any((o) =>
-                                      o.toLowerCase() ==
-                                      v.trim().toLowerCase().replaceFirst('#', ''))) {
-                                    _addTag(v);
-                                    onFieldSubmitted();
-                                  } else {
-                                    // Autofill closest
-                                    _addTag(opts.first);
-                                    onFieldSubmitted();
-                                  }
-                                },
-                              );
-                            },
-                            optionsViewBuilder: (context, onSelected, options) {
-                              return Align(
-                                alignment: Alignment.topLeft,
-                                child: Material(
-                                  color: _panel,
-                                  elevation: 6,
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(maxHeight: 200, maxWidth: 320),
-                                    child: ListView.builder(
-                                      padding: EdgeInsets.zero,
-                                      shrinkWrap: true,
-                                      itemCount: options.length,
-                                      itemBuilder: (context, index) {
-                                        final option = options.elementAt(index);
-                                        return ListTile(
-                                          dense: true,
-                                          title: Text('#$option', style: const TextStyle(color: _textHi)),
-                                          onTap: () => onSelected(option),
-                                        );
-                                      },
+                                    ),
+                                    Positioned(
+                                      right: 8,
+                                      bottom: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black54,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'Change',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.upload_rounded,
+                                      size: 28,
+                                      color: _textLo,
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Tap to upload a cover image',
+                                      style: TextStyle(
+                                        color: _textFaint,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Shown on Draft & Submitted lists',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 11.5, color: _textFaint),
+                      ),
+                      const SizedBox(height: 18),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: _panel,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: _borderSoft),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Text('✒', style: TextStyle(fontSize: 14)),
+                                SizedBox(width: 8),
+                                Text(
+                                  'DRAFT READINESS',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    letterSpacing: 0.8,
+                                    color: _textLo,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 9),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: LinearProgressIndicator(
+                                value: _readinessPct / 100,
+                                minHeight: 7,
+                                backgroundColor: _panelAlt,
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  _magenta,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 9),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _readinessCaption,
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      fontStyle: FontStyle.italic,
+                                      color: _textHi,
                                     ),
                                   ),
                                 ),
-                              );
-                            },
-                          ),
-                        // Quick pick: show popular admin tags as chips
-                        if (!_loadingTags &&
-                            _availableTags.isNotEmpty &&
-                            _selectedTags.length < 3)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: _availableTags
-                                  .where((t) => !_selectedTags
-                                      .any((s) => s.toLowerCase() == t.toLowerCase()))
-                                  .take(12)
-                                  .map(
-                                    (t) => ActionChip(
-                                      label: Text('#$t', style: const TextStyle(fontSize: 12)),
-                                      onPressed: () => _addTag(t),
-                                      visualDensity: VisualDensity.compact,
-                                      materialTapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                  )
-                                  .toList(),
+                                Text(
+                                  '$_readinessPct%',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    color: _textHi,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _label('TITLE'),
+                      const SizedBox(height: 7),
+                      _darkField(
+                        child: TextField(
+                          controller: _titleController,
+                          maxLength: 100,
+                          style: const TextStyle(color: _textHi, fontSize: 15),
+                          decoration: const InputDecoration(
+                            hintText: 'My Story',
+                            hintStyle: TextStyle(color: _textFaint),
+                            border: InputBorder.none,
+                            counterText: '',
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 13,
                             ),
                           ),
-                        if (!_loadingTags && _availableTags.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 6),
-                            child: Text(
-                              'No admin hashtags yet. Ask an admin to create tags.',
-                              style: TextStyle(fontSize: 12, color: Colors.black54),
-                            ),
-                          ),
-                        if (_loadingTags)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 6),
-                            child: LinearProgressIndicator(minHeight: 2, color: _magenta),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 80),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF7F5FC),
-                border: Border(top: BorderSide(color: _borderSoft)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _saving ? null : () => _save(asDraft: true),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _textHi,
-                        side: const BorderSide(color: _border),
-                        backgroundColor: _panelAlt,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                       ),
-                      child: _saving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: _textHi),
-                            )
-                          : const Text('Save Draft', style: TextStyle(fontWeight: FontWeight.w500)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed: _saving
-                          ? null
-                          : () => _save(asDraft: false, forceStatus: 'Draft'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _magenta,
-                        disabledBackgroundColor: _magenta.withValues(alpha: 0.4),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '$titleLen / 100',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: titleLen >= 100 ? _amber : _textFaint,
+                          ),
+                        ),
                       ),
-                      child: _saving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                      const SizedBox(height: 14),
+                      _label('AUTHOR (FROM YOUR ACCOUNT)'),
+                      const SizedBox(height: 7),
+                      Stack(
+                        children: [
+                          _darkField(
+                            child: TextField(
+                              controller: _authorController,
+                              readOnly: true,
+                              enabled: false,
+                              style: const TextStyle(
+                                color: _textFaint,
+                                fontSize: 15,
                               ),
-                            )
-                          : const Text('Save', style: TextStyle(fontWeight: FontWeight.w600)),
-                    ),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 13,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const Positioned(
+                            right: 14,
+                            top: 14,
+                            child: Icon(
+                              Icons.lock,
+                              size: 14,
+                              color: _textFaint,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _label('SUMMARY'),
+                      const SizedBox(height: 7),
+                      _darkField(
+                        child: TextField(
+                          controller: _summaryController,
+                          focusNode: _summaryFocus,
+                          maxLength: 500,
+                          maxLines: 4,
+                          style: const TextStyle(
+                            color: _textHi,
+                            fontSize: 15,
+                            height: 1.45,
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: 'Short description of your story...',
+                            hintStyle: TextStyle(color: _textFaint),
+                            border: InputBorder.none,
+                            counterText: '',
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _summaryController,
+                          builder: (context, value, _) {
+                            final len = value.text.length;
+                            return Text(
+                              '$len / 500',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: len >= 500 ? _amber : _textFaint,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _label('GENRE'),
+                      const SizedBox(height: 7),
+                      GestureDetector(
+                        onTap: () => _openPicker(
+                          title: 'Select genre',
+                          options: _genres.isEmpty ? _defaultGenres : _genres,
+                          current: _selectedGenre,
+                          onSelect: (v) => setState(() => _selectedGenre = v),
+                        ),
+                        child: _dropdownTrigger(
+                          _selectedGenre ?? 'Select genre',
+                          isPlaceholder: _selectedGenre == null,
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('LANGUAGE'),
+                                const SizedBox(height: 7),
+                                GestureDetector(
+                                  onTap: () => _openPicker(
+                                    title: 'Select language',
+                                    options: _languages,
+                                    current: _language,
+                                    onSelect: (v) {
+                                      setState(() => _language = v);
+                                      _scheduleDraftSave();
+                                    },
+                                  ),
+                                  child: _dropdownTrigger(_language),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('AUDIENCE'),
+                                const SizedBox(height: 7),
+                                GestureDetector(
+                                  onTap: () => _openPicker(
+                                    title: 'Select audience',
+                                    options: _audiences,
+                                    current: _audience,
+                                    onSelect: (v) {
+                                      setState(() => _audience = v);
+                                      _scheduleDraftSave();
+                                    },
+                                  ),
+                                  child: _dropdownTrigger(
+                                    _audience ?? 'Select audience',
+                                    isPlaceholder: _audience == null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _label('CONTENT WARNINGS (OPTIONAL)'),
+                      const SizedBox(height: 7),
+                      GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 3.2,
+                        children: _warningOptions.map((w) {
+                          final checked = _selectedWarnings.contains(w);
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                if (checked) {
+                                  _selectedWarnings.remove(w);
+                                } else {
+                                  _selectedWarnings.add(w);
+                                }
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 11,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _panelAlt,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: checked ? _magenta : _border,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 15,
+                                    height: 15,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(5),
+                                      border: Border.all(
+                                        color: checked
+                                            ? Colors.transparent
+                                            : _textFaint,
+                                        width: 1.5,
+                                      ),
+                                      gradient: checked
+                                          ? const LinearGradient(
+                                              colors: [_magenta, _violet],
+                                            )
+                                          : null,
+                                    ),
+                                    child: checked
+                                        ? const Icon(
+                                            Icons.check,
+                                            size: 11,
+                                            color: Colors.white,
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      w,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: checked ? _textHi : _textLo,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      if (_selectedWarnings.contains('Other')) ...[
+                        const SizedBox(height: 8),
+                        _darkField(
+                          child: TextField(
+                            controller: _otherWarningController,
+                            style: const TextStyle(
+                              color: _textHi,
+                              fontSize: 15,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: 'Describe the other warning...',
+                              hintStyle: TextStyle(color: _textFaint),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      _label('HASHTAGS (MAX 3)'),
+                      const SizedBox(height: 7),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _panelAlt,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_selectedTags.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _selectedTags.map((t) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0x1A6C3CE1),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                        border: Border.all(
+                                          color: const Color(0x666C3CE1),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '#$t',
+                                            style: const TextStyle(
+                                              color: Color(0xFF6C3CE1),
+                                              fontSize: 12.5,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          GestureDetector(
+                                            onTap: () => _removeTag(t),
+                                            child: const Icon(
+                                              Icons.close,
+                                              size: 12,
+                                              color: Color(0xFF6C3CE1),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            if (_selectedTags.length < 3)
+                              RawAutocomplete<String>(
+                                textEditingController: _tagInputController,
+                                focusNode: _tagFocus,
+                                optionsBuilder: (v) => _tagSuggestions(v.text),
+                                onSelected: _addTag,
+                                fieldViewBuilder:
+                                    (
+                                      context,
+                                      controller,
+                                      focusNode,
+                                      onFieldSubmitted,
+                                    ) {
+                                      return TextField(
+                                        controller: controller,
+                                        focusNode: focusNode,
+                                        style: const TextStyle(
+                                          color: _textHi,
+                                          fontSize: 14.5,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          hintText: 'Search admin hashtags…',
+                                          hintStyle: TextStyle(
+                                            color: _textFaint,
+                                          ),
+                                          prefixIcon: Icon(
+                                            Icons.tag,
+                                            size: 18,
+                                            color: _textFaint,
+                                          ),
+                                          border: InputBorder.none,
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                        ),
+                                        onSubmitted: (v) {
+                                          // Only accept if it matches a suggestion
+                                          final opts = _tagSuggestions(v);
+                                          if (opts.isEmpty) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Pick a hashtag from the suggestion list',
+                                                ),
+                                              ),
+                                            );
+                                          } else if (opts.any(
+                                            (o) =>
+                                                o.toLowerCase() ==
+                                                v
+                                                    .trim()
+                                                    .toLowerCase()
+                                                    .replaceFirst('#', ''),
+                                          )) {
+                                            _addTag(v);
+                                            onFieldSubmitted();
+                                          } else {
+                                            // Autofill closest
+                                            _addTag(opts.first);
+                                            onFieldSubmitted();
+                                          }
+                                        },
+                                      );
+                                    },
+                                optionsViewBuilder:
+                                    (context, onSelected, options) {
+                                      return Align(
+                                        alignment: Alignment.topLeft,
+                                        child: Material(
+                                          color: _panel,
+                                          elevation: 6,
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          child: ConstrainedBox(
+                                            constraints: const BoxConstraints(
+                                              maxHeight: 200,
+                                              maxWidth: 320,
+                                            ),
+                                            child: ListView.builder(
+                                              padding: EdgeInsets.zero,
+                                              shrinkWrap: true,
+                                              itemCount: options.length,
+                                              itemBuilder: (context, index) {
+                                                final option = options
+                                                    .elementAt(index);
+                                                return ListTile(
+                                                  dense: true,
+                                                  title: Text(
+                                                    '#$option',
+                                                    style: const TextStyle(
+                                                      color: _textHi,
+                                                    ),
+                                                  ),
+                                                  onTap: () =>
+                                                      onSelected(option),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                              ),
+                            // Quick pick: show popular admin tags as chips
+                            if (!_loadingTags &&
+                                _availableTags.isNotEmpty &&
+                                _selectedTags.length < 3)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: _availableTags
+                                      .where(
+                                        (t) => !_selectedTags.any(
+                                          (s) =>
+                                              s.toLowerCase() ==
+                                              t.toLowerCase(),
+                                        ),
+                                      )
+                                      .take(12)
+                                      .map(
+                                        (t) => ActionChip(
+                                          label: Text(
+                                            '#$t',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          onPressed: () => _addTag(t),
+                                          visualDensity: VisualDensity.compact,
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              ),
+                            if (!_loadingTags && _availableTags.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 6),
+                                child: Text(
+                                  'No admin hashtags yet. Ask an admin to create tags.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ),
+                            if (_loadingTags)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 6),
+                                child: LinearProgressIndicator(
+                                  minHeight: 2,
+                                  color: _magenta,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 80),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF7F5FC),
+                    border: Border(top: BorderSide(color: _borderSoft)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _saving
+                              ? null
+                              : () => _save(asDraft: true),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _textHi,
+                            side: const BorderSide(color: _border),
+                            backgroundColor: _panelAlt,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: _saving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: _textHi,
+                                  ),
+                                )
+                              : const Text(
+                                  'Save Draft',
+                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: _saving
+                              ? null
+                              : () =>
+                                    _save(asDraft: false, forceStatus: 'Draft'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _magenta,
+                            disabledBackgroundColor: _magenta.withValues(
+                              alpha: 0.4,
+                            ),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: _saving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Save',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
-    ),
-    ),
     );
   }
 

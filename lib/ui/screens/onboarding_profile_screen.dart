@@ -452,7 +452,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
 
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value:
+                initialValue:
                     (_country != null &&
                         (_countryOptions.contains(_country) ||
                             _country == _detectedCountry))

@@ -280,8 +280,9 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                                                     .trim(),
                                                               },
                                                             );
-                                                        if (sctx.mounted)
+                                                        if (sctx.mounted) {
                                                           Navigator.pop(sctx);
+                                                        }
                                                         if (context.mounted) {
                                                           ScaffoldMessenger.of(
                                                             context,
@@ -1557,7 +1558,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
                         itemCount: _results.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final item = _results[index];
                           final kind =
@@ -1614,7 +1615,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                     ? Image.network(
                                         coverUrl,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Container(
+                                        errorBuilder: (_, _, _) => Container(
                                           color: const Color(0xFFEDE9FE),
                                           child: const Icon(Icons.menu_book),
                                         ),
