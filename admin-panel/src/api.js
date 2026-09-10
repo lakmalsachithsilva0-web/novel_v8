@@ -1,5 +1,5 @@
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "https://novel-v7.vercel.app").trim().replace(/\/$/, "");
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000").trim().replace(/\/$/, "");
 const ADMIN_TOKEN_KEY = "novel_admin_token";
 
 export function getAdminToken() {
@@ -37,7 +37,7 @@ async function request(path, options = {}) {
     });
   } catch (e) {
     throw new Error(
-      `Failed to reach backend at ${API_BASE_URL}. Check VITE_API_BASE_URL and that https://novel-v7.vercel.app is up. (${e?.message || e})`
+      `Failed to reach backend at ${API_BASE_URL}. Check VITE_API_BASE_URL and that the FastAPI backend is running. (${e?.message || e})`
     );
   }
 

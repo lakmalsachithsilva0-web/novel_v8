@@ -2204,6 +2204,12 @@ def update_me(
         and payload.display_name is not None
         and payload.birth_date is not None
     )
+    if want_complete or payload.profile_complete is True:
+        if not (payload.display_name or "").strip() or not (payload.birth_date or "").strip() or not (payload.country or "").strip():
+            raise HTTPException(
+                status_code=422,
+                detail="Display name, birthday, and country are required to complete your profile",
+            )
     if payload.profile_complete is False:
         _queue("profile_complete", 0)
     elif want_complete or payload.profile_complete is True:

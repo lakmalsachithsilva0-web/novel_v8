@@ -114,7 +114,16 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
       if (restored.isGoogle) {
         final needsProfile = await _needsCompleteProfile(restored);
         if (needsProfile) {
-          await _showOnboardingBlocking(restored);
+          final completed = await _showOnboardingBlocking(restored);
+          if (!completed) {
+            if (mounted) {
+              setState(() {
+                _session = null;
+                _showLoginOverlay = true;
+              });
+            }
+            return;
+          }
           // A completed gate must remain closed for the rest of this app run,
           // even if a later bootstrap request is slow or unavailable.
           if (mounted) setState(() => _profileGatePassed = true);
@@ -193,15 +202,13 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
       });
       // First-time users only: complete profile BEFORE Discover (cannot skip).
       // Never again from More / Profile.
-      if (session.isGoogle || method == 'email') {
+      if (session.isGoogle) {
         final needsProfile = await _needsCompleteProfile(session);
         if (!mounted) return;
         if (needsProfile) {
-          await _showOnboardingBlocking(session);
+          final completed = await _showOnboardingBlocking(session);
           if (!mounted) return;
-          final still = await _needsCompleteProfile(session);
-          if (!mounted) return;
-          if (still) {
+          if (!completed || await _needsCompleteProfile(session)) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Please complete your profile to continue'),
@@ -287,77 +294,18 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
 
   Future<bool> _needsCompleteProfile(AuthSession session) async {
     if (session.isGuest) return false;
-    // CRITICAL: once user has reached home this session, NEVER show complete-profile
-    // again (not from More, Profile, or tab switches).
-    if (_profileGatePassed) return false;
-
-    // Local-first: after a successful Complete Profile for this Gmail, never block home
-    // with a long network wait (Vercel cold start).
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool(_profileDoneKey(session)) == true) return false;
-      final em = session.email.trim().toLowerCase();
-      if (em.isNotEmpty && prefs.getBool('profile_complete_local_$em') == true) {
-        return false;
-      }
-    } catch (_) {}
 
     try {
-      final me = await _apiService.fetchMe();
-      final done = _isProfileCompleteFlag(me['profile_complete']);
-      final hasBirth = (me['birth_date'] ?? me['birthday'] ?? '')
-          .toString()
-          .trim()
-          .isNotEmpty;
-      final hasGender = (me['gender'] ?? '').toString().trim().isNotEmpty;
-      final name = (me['display_name'] ?? '').toString().trim();
-      final hasRealName = name.isNotEmpty && name.toLowerCase() != 'reader';
-
-      // Treat profile as complete if flag is set OR birthday was collected (onboarding).
-      if (done || hasBirth || (hasGender && hasRealName)) {
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool(_profileDoneKey(session), true);
-          await prefs.setBool('profile_complete_local_done', true);
-          final em = (session.email).trim().toLowerCase();
-          if (em.isNotEmpty) {
-            await prefs.setBool('profile_complete_local_$em', true);
-          }
-        } catch (_) {}
-        // Heal DB flag in background — never await heavy retries on login path.
-        if (!done) {
-          // ignore: unawaited_futures
-          Future(() async {
-            try {
-              await _apiService.updateMyProfile({'profile_complete': true});
-            } catch (_) {}
-          });
-        }
-        return false;
-      }
-      return true; // first-time only
+      final me = await _apiService.fetchMeStrict();
+      return !_isProfileCompleteFlag(me['profile_complete']);
     } catch (_) {
-      // Network failure: prefer home over blocking onboarding forever.
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        if (prefs.getBool(_profileDoneKey(session)) == true ||
-            prefs.getBool('profile_complete_local_done') == true) {
-          return false;
-        }
-        final em = session.email.trim().toLowerCase();
-        if (em.isNotEmpty && prefs.getBool('profile_complete_local_$em') == true) {
-          return false;
-        }
-      } catch (_) {}
-      // If we cannot reach the server, still allow home (guest-like) rather than
-      // trapping the user on a long-buffering complete-profile screen.
-      return false;
+      // Google users must not bypass the first-login profile gate when the
+      // server is unavailable; retrying login is safer than creating a partial session.
+      return true;
     }
   }
 
-  Future<void> _showOnboardingBlocking(AuthSession session) async {
-    // Absolute guard: never after home / gate
-    if (_profileGatePassed) return;
+  Future<bool> _showOnboardingBlocking(AuthSession session) async {
     try {
       final me = await _apiService.fetchMe();
       final name = (me['display_name'] ?? '').toString().trim();
@@ -367,7 +315,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
       final photo =
           (me['photo_url'] ?? me['avatar_url'] ?? session.photoUrl ?? '')
               .toString();
-      if (!mounted) return;
+      if (!mounted) return false;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           fullscreenDialog: true,
@@ -389,6 +337,8 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
           ),
         ),
       );
+      final saved = await _apiService.fetchMeStrict();
+      if (!_isProfileCompleteFlag(saved['profile_complete'])) return false;
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool(_profileDoneKey(session), true);
@@ -414,7 +364,9 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
       if (mounted) {
         await _loadBootstrap(showLoading: false);
       }
+      return true;
     } catch (_) {}
+    return false;
   }
 
   Future<void> _signOut() async {

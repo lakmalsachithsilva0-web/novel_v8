@@ -111,17 +111,20 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                   padding: const EdgeInsets.fromLTRB(16, 10, 10, 4),
                   child: Row(
                     children: [
-                      Text(
-                        'Wingsaga',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.8,
-                          color: fg,
+                      Expanded(
+                        child: Text(
+                          'Wingsaga',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.8,
+                            color: fg,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 14),
-                      const Spacer(),
+                      const SizedBox(width: 6),
                       // Premium chip (UI only — matches mockup)
                       Container(
                         padding: const EdgeInsets.symmetric(

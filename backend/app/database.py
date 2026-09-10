@@ -20,16 +20,11 @@ _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(_BACKEND_ROOT / ".env.local", override=False)
 load_dotenv(_BACKEND_ROOT / ".env", override=False)
 
-DB_TYPE_ENV = os.getenv("DB_TYPE")
-if DB_TYPE_ENV:
-    DB_TYPE = DB_TYPE_ENV.strip().lower()
-elif mysql_connector is None:
-    DB_TYPE = "sqlite"
-else:
-    DB_TYPE = "mysql"
+DB_TYPE = "mysql"
+if os.getenv("DB_TYPE", "mysql").strip().lower() != "mysql":
+    raise RuntimeError("This backend requires MySQL. Set DB_TYPE=mysql and configure MYSQL_* variables.")
 
-USE_SQLITE = DB_TYPE == "sqlite"
-SQLITE_FILE = Path(os.getenv("SQLITE_FILE", str(_BACKEND_ROOT / "novel_app.db"))).resolve()
+USE_SQLITE = False
 
 MYSQL_ERROR = mysql_connector.Error if mysql_connector is not None else Exception
 
@@ -608,12 +603,6 @@ def _split_sql_statements(sql_content: str) -> list[str]:
 
 def _ensure_database_exists() -> None:
     """Create the target database if it does not exist yet."""
-    if USE_SQLITE:
-        SQLITE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        connection = get_connection()
-        connection.close()
-        return
-
     ssl_disabled = os.getenv("MYSQL_SSL_DISABLED", "false").lower() == "true"
     db_name = os.getenv("MYSQL_DATABASE", "defaultdb")
     if mysql_connector is None:
@@ -643,22 +632,6 @@ def _ensure_database_exists() -> None:
 
 def initialize_database_if_needed() -> bool:
     """Initialize schema/seed data on startup when required tables are missing."""
-    if USE_SQLITE:
-        connection = get_connection()
-        cursor = connection.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        existing_tables = {row["name"] for row in cursor.fetchall()}
-
-        if REQUIRED_TABLES.issubset(existing_tables):
-            cursor.close()
-            connection.close()
-            return False
-
-        _create_sqlite_schema(connection)
-        cursor.close()
-        connection.close()
-        return True
-
     init_sql = os.getenv("MYSQL_INIT_SQL", "setup_railway.sql")
     sql_path = Path(__file__).resolve().parents[1] / "sql" / init_sql
 
@@ -1913,16 +1886,6 @@ def run_startup_migrations() -> dict[str, int]:
     connection.close()
     return result
 def get_connection():
-    if USE_SQLITE:
-        SQLITE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        connection = sqlite3.connect(
-            str(SQLITE_FILE),
-            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
-        )
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        return connection
-
     ssl_disabled = os.getenv("MYSQL_SSL_DISABLED", "false").lower() == "true"
     if mysql_connector is None:
         raise RuntimeError("mysql.connector is not installed; install mysql-connector-python to use MySQL mode")

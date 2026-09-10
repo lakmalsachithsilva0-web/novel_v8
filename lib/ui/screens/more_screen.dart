@@ -56,6 +56,7 @@ class MoreScreen extends StatelessWidget {
           profile: _profile(),
           apiService: apiService,
           achievements: data.achievements,
+          onSignOut: onSignOut,
         ),
       ),
     );
@@ -88,234 +89,241 @@ class MoreScreen extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 28),
         children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: _card(isDark),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () => _openProfile(context),
-                child: CircleAvatar(
-                  radius: 24,
-                  backgroundColor: isDark
-                      ? Colors.white24
-                      : const Color(0xFFEDE9FE),
-                  backgroundImage: _profile().photoUrl.trim().isNotEmpty
-                      ? NetworkImage(
-                          apiService.resolveAssetUrl(_profile().photoUrl),
-                        )
-                      : null,
-                  child: _profile().photoUrl.trim().isEmpty
-                      ? Text(
-                          name.isEmpty ? '?' : name[0].toUpperCase(),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        )
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: GestureDetector(
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: _card(isDark),
+            child: Row(
+              children: [
+                GestureDetector(
                   onTap: () => _openProfile(context),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                          color: isDark ? Colors.white : null,
-                        ),
-                      ),
-                      if (email.isNotEmpty)
+                  child: CircleAvatar(
+                    radius: 24,
+                    backgroundColor: isDark
+                        ? Colors.white24
+                        : const Color(0xFFEDE9FE),
+                    backgroundImage: _profile().photoUrl.trim().isNotEmpty
+                        ? NetworkImage(
+                            apiService.resolveAssetUrl(_profile().photoUrl),
+                          )
+                        : null,
+                    child: _profile().photoUrl.trim().isEmpty
+                        ? Text(
+                            name.isEmpty ? '?' : name[0].toUpperCase(),
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _openProfile(context),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          email,
+                          name,
                           style: TextStyle(
-                            color: isDark
-                                ? Colors.white70
-                                : Colors.grey.shade600,
-                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: isDark ? Colors.white : null,
                           ),
                         ),
-                    ],
+                        if (email.isNotEmpty)
+                          Text(
+                            email,
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white70
+                                  : Colors.grey.shade600,
+                              fontSize: 13,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _sectionLabel('Appearance'),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: _card(isDark),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Light / Dark mode',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                AnimatedBuilder(
+                  animation: ThemeController.instance,
+                  builder: (context, _) {
+                    final mode = ThemeController.instance.mode;
+                    return Row(
+                      children: [
+                        _themeChip(
+                          'Light',
+                          mode == ThemeMode.light,
+                          () =>
+                              ThemeController.instance.setMode(ThemeMode.light),
+                        ),
+                        const SizedBox(width: 8),
+                        _themeChip(
+                          'Dark',
+                          mode == ThemeMode.dark,
+                          () =>
+                              ThemeController.instance.setMode(ThemeMode.dark),
+                        ),
+                        const SizedBox(width: 8),
+                        _themeChip(
+                          'System',
+                          mode == ThemeMode.system,
+                          () => ThemeController.instance.setMode(
+                            ThemeMode.system,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _sectionLabel('Profile'),
+          _menuCard(isDark, [
+            _Item(Icons.bar_chart_rounded, 'Reading Stats', () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ReadingStatsScreen(
+                    profile: _profile(),
+                    apiService: apiService,
+                  ),
+                ),
+              );
+            }),
+          ]),
+          const SizedBox(height: 12),
+          _sectionLabel('Support'),
+          _menuCard(isDark, [
+            _Item(
+              Icons.help_outline,
+              'Help Center',
+              () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => HelpCenterScreen(apiService: apiService),
+                ),
+              ),
+            ),
+            _Item(
+              Icons.mail_outline,
+              'Contact Us',
+              () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ContactUsScreen(
+                    apiService: apiService,
+                    email: email,
+                    username: name,
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _sectionLabel('Appearance'),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: _card(isDark),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Light / Dark mode',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 10),
-              AnimatedBuilder(
-                animation: ThemeController.instance,
-                builder: (context, _) {
-                  final mode = ThemeController.instance.mode;
-                  return Row(
-                    children: [
-                      _themeChip(
-                        'Light',
-                        mode == ThemeMode.light,
-                        () => ThemeController.instance.setMode(ThemeMode.light),
-                      ),
-                      const SizedBox(width: 8),
-                      _themeChip(
-                        'Dark',
-                        mode == ThemeMode.dark,
-                        () => ThemeController.instance.setMode(ThemeMode.dark),
-                      ),
-                      const SizedBox(width: 8),
-                      _themeChip(
-                        'System',
-                        mode == ThemeMode.system,
-                        () =>
-                            ThemeController.instance.setMode(ThemeMode.system),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _sectionLabel('Profile'),
-        _menuCard(isDark, [
-          _Item(Icons.bar_chart_rounded, 'Reading Stats', () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => ReadingStatsScreen(
-                  profile: _profile(),
-                  apiService: apiService,
-                ),
-              ),
-            );
-          }),
-        ]),
-        const SizedBox(height: 12),
-        _sectionLabel('Support'),
-        _menuCard(isDark, [
-          _Item(
-            Icons.help_outline,
-            'Help Center',
-            () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => HelpCenterScreen(apiService: apiService),
-              ),
             ),
-          ),
-          _Item(
-            Icons.mail_outline,
-            'Contact Us',
-            () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) =>
-                    ContactUsScreen(apiService: apiService, email: email, username: name),
-              ),
-            ),
-          ),
-        ]),
-        const SizedBox(height: 12),
-        _sectionLabel('Settings'),
-        _menuCard(isDark, [
-          _Item(
-            Icons.notifications_none,
-            'Notifications',
-            () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) =>
-                    NotificationSettingsScreen(apiService: apiService),
-              ),
-            ),
-          ),
-          _Item(
-            Icons.language,
-            'App Language',
-            () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => AppLanguageScreen(apiService: apiService),
-              ),
-            ),
-          ),
-          _Item(
-            Icons.favorite_border,
-            'Favourite Genres',
-            () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => FavouriteGenresScreen(apiService: apiService),
-              ),
-            ),
-          ),
-          _Item(
-            Icons.warning_amber_outlined,
-            'Content Warnings',
-            () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => ContentWarningsScreen(apiService: apiService),
-              ),
-            ),
-          ),
-        ]),
-        const SizedBox(height: 12),
-        _sectionLabel('Legal'),
-        _menuCard(isDark, [
-          _Item(
-            Icons.cookie_outlined,
-            'Manage Cookie Preferences',
-            () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => CookiePreferencesScreen(apiService: apiService),
-              ),
-            ),
-          ),
-          _Item(
-            Icons.description_outlined,
-            'Terms of Service',
-            () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => LegalTextScreen(
-                  title: 'Terms of Service',
-                  sections: termsSections(),
+          ]),
+          const SizedBox(height: 12),
+          _sectionLabel('Settings'),
+          _menuCard(isDark, [
+            _Item(
+              Icons.notifications_none,
+              'Notifications',
+              () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      NotificationSettingsScreen(apiService: apiService),
                 ),
               ),
             ),
-          ),
-          _Item(
-            Icons.privacy_tip_outlined,
-            'Privacy Policy',
-            () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => LegalTextScreen(
-                  title: 'Privacy Policy',
-                  sections: privacySections(),
+            _Item(
+              Icons.language,
+              'App Language',
+              () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => AppLanguageScreen(apiService: apiService),
                 ),
               ),
             ),
-          ),
-        ]),
-        const SizedBox(height: 12),
-        _sectionLabel('Change Accounts'),
-        _menuCard(isDark, [
-          _Item(
-            Icons.logout,
-            'Sign Out',
-            () => _signOut(context),
-            danger: true,
-          ),
-        ]),
-      ],
-    ),
+            _Item(
+              Icons.favorite_border,
+              'Favourite Genres',
+              () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => FavouriteGenresScreen(apiService: apiService),
+                ),
+              ),
+            ),
+            _Item(
+              Icons.warning_amber_outlined,
+              'Content Warnings',
+              () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ContentWarningsScreen(apiService: apiService),
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          _sectionLabel('Legal'),
+          _menuCard(isDark, [
+            _Item(
+              Icons.cookie_outlined,
+              'Manage Cookie Preferences',
+              () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      CookiePreferencesScreen(apiService: apiService),
+                ),
+              ),
+            ),
+            _Item(
+              Icons.description_outlined,
+              'Terms of Service',
+              () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => LegalTextScreen(
+                    title: 'Terms of Service',
+                    sections: termsSections(),
+                  ),
+                ),
+              ),
+            ),
+            _Item(
+              Icons.privacy_tip_outlined,
+              'Privacy Policy',
+              () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => LegalTextScreen(
+                    title: 'Privacy Policy',
+                    sections: privacySections(),
+                  ),
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          _sectionLabel('Change Accounts'),
+          _menuCard(isDark, [
+            _Item(
+              Icons.logout,
+              'Sign Out',
+              () => _signOut(context),
+              danger: true,
+            ),
+          ]),
+        ],
+      ),
     );
   }
 
@@ -385,7 +393,10 @@ class MoreScreen extends StatelessWidget {
           ListTile(
             dense: true,
             visualDensity: VisualDensity.compact,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 2,
+            ),
             leading: Icon(
               items[i].icon,
               size: 22,

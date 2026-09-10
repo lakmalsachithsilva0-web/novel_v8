@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
+
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
 import 'story_detail_screen.dart';
@@ -14,12 +15,14 @@ class ProfileScreen extends StatefulWidget {
     required this.apiService,
     required this.achievements,
     this.viewingUserId,
+    this.onSignOut,
   });
 
   final ProfileModel profile;
   final ApiService apiService;
   final List<AchievementGroupModel> achievements;
   final int? viewingUserId;
+  final Future<void> Function()? onSignOut;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -447,20 +450,40 @@ class _ProfileScreenState extends State<ProfileScreen>
                 await _shareProfile();
               },
             ),
-            ListTile(
-              title: const Text(
-                'Block user',
-                style: TextStyle(color: Color(0xFF2B6CB0)),
+            if (_isOwnProfile) ...[
+              ListTile(
+                leading: const Icon(Icons.settings_outlined),
+                title: const Text('Profile settings'),
+                onTap: () => Navigator.pop(ctx),
               ),
-              onTap: () => Navigator.pop(ctx),
-            ),
-            ListTile(
-              title: const Text(
-                'Report user',
-                style: TextStyle(color: Color(0xFF2B6CB0)),
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Edit profile'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _editProfile();
+                },
               ),
-              onTap: () => Navigator.pop(ctx),
-            ),
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: const Text('Log out'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await widget.onSignOut?.call();
+                },
+              ),
+            ] else ...[
+              ListTile(
+                leading: const Icon(Icons.block),
+                title: const Text('Block user'),
+                onTap: () => Navigator.pop(ctx),
+              ),
+              ListTile(
+                leading: const Icon(Icons.report_outlined),
+                title: const Text('Report user'),
+                onTap: () => Navigator.pop(ctx),
+              ),
+            ],
             ListTile(
               title: const Text('Cancel', textAlign: TextAlign.center),
               onTap: () => Navigator.pop(ctx),
@@ -1014,17 +1037,23 @@ class _ProfileScreenState extends State<ProfileScreen>
           // Name + verified
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                _displayName,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
-                  color: Theme.of(context).colorScheme.onSurface,
+              Flexible(
+                child: Text(
+                  _displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
               ),
-              // Pen badge for authors (no green check)
+              // Verified-style badge for authors.
               if (_isAuthor) ...[
                 const SizedBox(width: 6),
                 Container(
@@ -1034,7 +1063,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     color: Color(0xFF6C3CE1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.edit, size: 11, color: Colors.white),
+                  child: const Icon(Icons.check, size: 12, color: Colors.white),
                 ),
               ],
             ],
@@ -1146,7 +1175,108 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             ),
           const SizedBox(height: 8),
+          _buildLocationSocialCard(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLocationSocialCard() {
+    final country = _s(_userProfile?['country']);
+    final facebook = _facebookUrl;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: isDark ? Colors.white12 : border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Icon(Icons.location_on, color: brand, size: 25),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Location',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF333333),
+                        ),
+                      ),
+                      Text(
+                        country.isEmpty ? 'Add your location' : country,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isDark ? Colors.white70 : muted,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 42,
+            color: isDark ? Colors.white12 : border,
+            margin: const EdgeInsets.symmetric(horizontal: 14),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Social media',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : const Color(0xFF333333),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  _socialIcon(
+                    Icons.facebook,
+                    const Color(0xFF1877F2),
+                    facebook.isNotEmpty ? () => Share.share(facebook) : null,
+                  ),
+                  _socialIcon(
+                    Icons.link,
+                    brand,
+                    facebook.isNotEmpty ? () => Share.share(facebook) : null,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _socialIcon(IconData icon, Color color, VoidCallback? onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: CircleAvatar(
+          radius: 17,
+          backgroundColor: color.withValues(alpha: 0.12),
+          child: Icon(icon, size: 19, color: color),
+        ),
       ),
     );
   }

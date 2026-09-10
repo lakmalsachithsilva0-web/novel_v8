@@ -34,20 +34,25 @@ class AuthBlockedException implements Exception {
 }
 
 class AuthService {
+  // Public OAuth client ID used as the server audience for Google tokens.
+  // The Android OAuth client still must match the package name and debug SHA-1.
+  static const String _defaultGoogleWebClientId =
+      '470949991659-avk11lvc5sv1ffietga62f8h591t7ijc.apps.googleusercontent.com';
   static const String _googleClientIdEnv = String.fromEnvironment(
     'GOOGLE_CLIENT_ID',
-    defaultValue: '',
+    defaultValue: _defaultGoogleWebClientId,
   );
 
   AuthService({required ApiService apiService, GoogleSignIn? googleSignIn})
-      : _apiService = apiService,
-        _googleSignIn = googleSignIn ??
-            (_googleClientIdEnv.isNotEmpty
-                ? GoogleSignIn(
-                    scopes: const ['email', 'profile'],
-                    serverClientId: _googleClientIdEnv,
-                  )
-                : GoogleSignIn(scopes: const ['email', 'profile']));
+    : _apiService = apiService,
+      _googleSignIn =
+          googleSignIn ??
+          (_googleClientIdEnv.isNotEmpty
+              ? GoogleSignIn(
+                  scopes: const ['email', 'profile'],
+                  serverClientId: _googleClientIdEnv,
+                )
+              : GoogleSignIn(scopes: const ['email', 'profile']));
 
   static const String _methodKey = 'auth_method';
   static const String _idKey = 'auth_id';
@@ -129,7 +134,8 @@ class AuthService {
         id: prefs.getInt(_idKey),
         method: methodName,
         email: prefs.getString(_emailKey) ?? me['email']?.toString() ?? '',
-        displayName: prefs.getString(_displayNameKey) ??
+        displayName:
+            prefs.getString(_displayNameKey) ??
             me['display_name']?.toString() ??
             'Reader',
         photoUrl: prefs.getString(_photoUrlKey) ?? photo,
@@ -138,8 +144,6 @@ class AuthService {
       return null;
     }
   }
-
-  
 
   Future<AuthSession?> restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
@@ -170,7 +174,8 @@ class AuthService {
       if (me['id'] is num) {
         await prefs.setInt(_idKey, (me['id'] as num).toInt());
       }
-      final serverPhoto = (me['photo_url'] ?? me['avatar_url'] ?? '').toString();
+      final serverPhoto = (me['photo_url'] ?? me['avatar_url'] ?? '')
+          .toString();
       if (serverPhoto.isNotEmpty) {
         await prefs.setString(_photoUrlKey, serverPhoto);
       }
@@ -178,7 +183,8 @@ class AuthService {
         id: prefs.getInt(_idKey),
         method: method,
         email: prefs.getString(_emailKey) ?? me['email']?.toString() ?? '',
-        displayName: prefs.getString(_displayNameKey) ??
+        displayName:
+            prefs.getString(_displayNameKey) ??
             me['display_name']?.toString() ??
             'Reader',
         photoUrl: prefs.getString(_photoUrlKey) ?? serverPhoto,
@@ -222,7 +228,12 @@ class AuthService {
   }
 
   Future<AuthSession> signInWithGoogle() async {
-    final user = await _googleSignIn.signIn();
+    GoogleSignInAccount? user;
+    try {
+      user = await _googleSignIn.signIn();
+    } catch (error) {
+      throw Exception(_friendlyGoogleSignInError(error));
+    }
     if (user == null) {
       throw Exception('Google sign-in was cancelled.');
     }
@@ -242,7 +253,8 @@ class AuthService {
         id: payload['id'] is num ? (payload['id'] as num).toInt() : null,
         method: 'google',
         email: payload['email']?.toString() ?? user.email,
-        displayName: payload['display_name']?.toString() ??
+        displayName:
+            payload['display_name']?.toString() ??
             user.displayName ??
             user.email,
         photoUrl: payload['photo_url']?.toString() ?? user.photoUrl,
@@ -255,6 +267,20 @@ class AuthService {
       } catch (_) {}
       throw Exception(_friendlyAuthError(e));
     }
+  }
+
+  String _friendlyGoogleSignInError(Object error) {
+    final message = error.toString();
+    final lower = message.toLowerCase();
+    if (lower.contains('statuscode=10') ||
+        lower.contains('developer_error') ||
+        lower.contains('sign_in_failed')) {
+      return 'Google sign-in is not configured for this debug build. Add the Android OAuth client for com.example.novel_mobile_app with the debug SHA-1, download the updated google-services.json, then rebuild.';
+    }
+    if (lower.contains('network')) {
+      return 'Google sign-in needs an active internet connection.';
+    }
+    return message.replaceFirst(RegExp(r'^Exception:\s*'), '');
   }
 
   /// Username or email + password. [mode] is `login` or `register`.
@@ -286,9 +312,10 @@ class AuthService {
       final session = AuthSession(
         id: id,
         method: 'email',
-        email: payload['email']?.toString() ??
-            (ident.contains('@') ? ident : ''),
-        displayName: payload['display_name']?.toString() ??
+        email:
+            payload['email']?.toString() ?? (ident.contains('@') ? ident : ''),
+        displayName:
+            payload['display_name']?.toString() ??
             payload['username']?.toString() ??
             ident,
       );

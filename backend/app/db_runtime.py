@@ -1,4 +1,4 @@
-"""Runtime DB mode helpers: MySQL probe + SQLite fallback for local dev."""
+"""Runtime database readiness checks for the MySQL-only backend."""
 from __future__ import annotations
 
 import os
@@ -6,18 +6,9 @@ from typing import Any
 
 
 def apply_mysql_fallback_if_needed(db_mod: Any) -> dict[str, Any]:
-    """If MySQL is configured but unreachable, switch db_mod to SQLite."""
+    """Verify that the configured MySQL server is reachable."""
     info: dict[str, Any] = {
-        "db_mode": "sqlite" if getattr(db_mod, "USE_SQLITE", True) else "mysql",
-    }
-    if getattr(db_mod, "USE_SQLITE", True):
-        return info
-
-    fallback = str(os.getenv("MYSQL_FALLBACK_SQLITE", "true")).strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
+        "db_mode": "mysql",
     }
 
     mysql_connector = getattr(db_mod, "mysql_connector", None)
@@ -28,13 +19,7 @@ def apply_mysql_fallback_if_needed(db_mod: Any) -> dict[str, Any]:
             mysql_connector = None
 
     if mysql_connector is None:
-        if fallback:
-            db_mod.DB_TYPE = "sqlite"
-            db_mod.USE_SQLITE = True
-            _sync_use_sqlite_flags()
-        info["db_mode"] = "sqlite"
-        info["mysql_fallback_reason"] = "mysql-connector not installed"
-        return info
+        raise RuntimeError("mysql-connector-python is required; SQLite fallback is disabled")
 
     ssl_disabled = os.getenv("MYSQL_SSL_DISABLED", "false").lower() == "true"
     try:
@@ -50,38 +35,8 @@ def apply_mysql_fallback_if_needed(db_mod: Any) -> dict[str, Any]:
         conn.close()
         info["db_mode"] = "mysql"
         return info
-    except Exception as exc:  # noqa: BLE001
-        if not fallback:
-            raise
-        db_mod.DB_TYPE = "sqlite"
-        db_mod.USE_SQLITE = True
-        _sync_use_sqlite_flags()
-        sqlite_file = getattr(db_mod, "SQLITE_FILE", "./novel_app.db")
-        print(
-            f"[database] MySQL unavailable ({exc}). "
-            f"Falling back to SQLite at {sqlite_file}. "
-            "Start MySQL or set DB_TYPE=sqlite in .env to silence this."
-        )
-        info["db_mode"] = "sqlite"
-        info["mysql_fallback_reason"] = str(exc)
-        return info
-
-
-def _sync_use_sqlite_flags() -> None:
-    import sys
-
-    for mod_name in (
-        "app.main",
-        "app.startup_tasks",
-        "backend.app.main",
-        "backend.app.startup_tasks",
-    ):
-        mod = sys.modules.get(mod_name)
-        if mod is not None and hasattr(mod, "USE_SQLITE"):
-            setattr(mod, "USE_SQLITE", True)
-    try:
-        from . import main as main_mod
-
-        main_mod.USE_SQLITE = True
-    except Exception:
-        pass
+    except Exception as exc:
+        raise RuntimeError(
+            "MySQL is unreachable. Start XAMPP MySQL and verify MYSQL_HOST, MYSQL_PORT, "
+            "MYSQL_USER, MYSQL_PASSWORD, and MYSQL_DATABASE."
+        ) from exc

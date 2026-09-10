@@ -698,17 +698,19 @@ class _StoryCardState extends State<_StoryCard> {
   @override
   Widget build(BuildContext context) {
     final color = _hexToColor(widget.book.accentHex);
-    final compact = widget.width <= 140;
+    // Rails render the title and metadata in the detail panel below the card.
+    // Keep the card cover-only so the scaled card fits the rail's fixed height.
+    final compact = widget.width <= 150;
 
     if (compact) {
       return GestureDetector(
         onTap: _openDetail,
         child: SizedBox(
           width: widget.width,
-          height: 160,
+          height: 148,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: _coverImage(width: widget.width, height: 160),
+            child: _coverImage(width: widget.width, height: 148),
           ),
         ),
       );
@@ -1572,8 +1574,7 @@ class _BrowseGenresSection extends StatelessWidget {
     required this.books,
     required this.topics,
     required this.apiService,
-    this.onOpenExplore,
-  });
+  }) : onOpenExplore = null;
 
   final List<BookCardModel> books;
   final List<ExploreTopicModel> topics;
