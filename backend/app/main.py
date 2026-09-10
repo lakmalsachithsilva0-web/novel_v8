@@ -1,0 +1,8375 @@
+from collections import defaultdict
+import base64
+from datetime import datetime, timedelta, timezone
+import hashlib
+import secrets
+import hmac
+import json
+import logging
+import os
+import sqlite3
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlencode
+from urllib.request import urlopen
+from uuid import uuid4
+
+from fastapi import Body, Depends, FastAPI, File, Header, HTTPException, Query, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+try:
+    import mysql.connector as mysql_connector
+except ModuleNotFoundError:
+    mysql_connector = None
+from pydantic import BaseModel
+
+from .database import (
+    get_connection,
+    USE_SQLITE,
+)
+
+DB_INIT_EXCEPTIONS = (sqlite3.Error, FileNotFoundError, OSError, ValueError)
+if mysql_connector is not None:
+    DB_INIT_EXCEPTIONS = (mysql_connector.Error, sqlite3.Error, FileNotFoundError, OSError, ValueError)
+
+app = FastAPI(title="Novel Mobile Backend")
+LOGGER = logging.getLogger(__name__)
+UPLOAD_ROOT = Path(os.getenv("UPLOAD_DIR", "./uploads")).resolve()
+JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-key-change-in-production")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin_Supun")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Ux3@f=7x2")
+ADMIN_TOKEN_EXPIRES_HOURS = int(os.getenv("ADMIN_TOKEN_EXPIRES_HOURS", "24"))
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+# Support multiple acceptable client IDs via comma-separated env var for flexibility
+# e.g. GOOGLE_CLIENT_IDS=android-client-id,web-client-id
+GOOGLE_CLIENT_IDS = [s.strip() for s in os.getenv("GOOGLE_CLIENT_IDS", GOOGLE_CLIENT_ID).split(",") if s.strip()]
+
+# CORS: explicit origins required when allow_credentials=True (browsers reject "*")
+# Extra hosts: set Vercel env CORS_ORIGINS=https://host1,https://host2
+_DEFAULT_CORS = [
+    "https://novel-v7-web.vercel.app",
+    "https://novel-v7.vercel.app",
+    "https://novel-v7-admin.vercel.app",
+    "https://novel-v7-admin-panel.vercel.app",
+    "https://novel-v7-p8ec.vercel.app",  # admin panel production
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:4173",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
+_extra = [s.strip() for s in os.getenv("CORS_ORIGINS", "").split(",") if s.strip()]
+_CORS_ORIGINS = list(dict.fromkeys(_DEFAULT_CORS + _extra))
+# Allow any Vercel preview/deployment for this project family (admin + web)
+_CORS_ORIGIN_REGEX = r"https://.*\.vercel\.app|http://localhost(:\d+)?|http://127\.0\.0\.1(:\d+)?"
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_CORS_ORIGINS,
+    allow_origin_regex=_CORS_ORIGIN_REGEX,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
+
+UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+
+# --- Request path logging (do not rewrite paths; Vercel FastAPI preserves them) ---
+@app.middleware("http")
+async def log_request_path(request, call_next):
+    path = request.scope.get("path") or ""
+    try:
+        LOGGER.info("ASGI path=%s method=%s", path, request.scope.get("method"))
+    except Exception:
+        pass
+    return await call_next(request)
+
+
+app.mount("/uploads", StaticFiles(directory=UPLOAD_ROOT), name="uploads")
+
+
+class LibraryCreateRequest(BaseModel):
+    book_id: int
+    reading_status: str
+    updated_text: str = ""
+    chapters: int = 0
+    primary_genre: str = ""
+    secondary_genre: str = ""
+    last_chapter_number: int | None = None
+    last_paragraph_index: int | None = None
+    chapters_read: int | None = None
+
+
+class LibraryUpdateRequest(BaseModel):
+    reading_status: str | None = None
+    updated_text: str | None = None
+    chapters: int | None = None
+    primary_genre: str | None = None
+    secondary_genre: str | None = None
+    last_chapter_number: int | None = None
+    last_paragraph_index: int | None = None
+    chapters_read: int | None = None
+
+
+class ReadingListCreateRequest(BaseModel):
+    name: str
+    story_count: int = 0
+    cover_path: str = ""
+    sort_order: int = 999
+
+
+class StoryCreateRequest(BaseModel):
+    model_config = {"extra": "ignore"}
+
+    title: str | None = "Untitled Story"
+    author: str | None = "Author"
+    description: str | None = ""
+    genre: str | None = "Romance"
+    cover_path: str | None = ""
+    tags: list[str] | None = []
+    content_warnings: str | None = ""
+    status_text: str | None = "Draft"
+    language: str | None = None
+    audience: str | None = None
+
+
+class StoryUpdateRequest(BaseModel):
+    model_config = {"extra": "ignore"}
+
+    title: str | None = None
+    author: str | None = None
+    description: str | None = None
+    genre: str | None = None
+    cover_path: str | None = None
+    tags: list[str] | None = None
+    content_warnings: str | None = None
+    status_text: str | None = None
+    language: str | None = None
+    audience: str | None = None
+
+
+class ReviewCreateRequest(BaseModel):
+    rating: int
+    comment: str = ""
+    title: str | None = None
+    plot_rating: int | None = None
+    style_rating: int | None = None
+    tech_rating: int | None = None
+
+
+class ChapterCommentCreateRequest(BaseModel):
+    body: str
+    paragraph_index: int | None = None
+
+
+class ChapterCreateRequest(BaseModel):
+    title: str
+    content: str
+    chapter_number: int | None = None
+    notes: str | None = None
+    submission_status: str | None = None
+    scheduled_for: str | None = None
+
+
+class ChapterUpdateRequest(BaseModel):
+    title: str | None = None
+    content: str | None = None
+    chapter_number: int | None = None
+    notes: str | None = None
+    submission_status: str | None = None
+    scheduled_for: str | None = None
+
+
+class ProfileUpdateRequest(BaseModel):
+    display_name: str | None = None
+    username: str | None = None
+    photo_url: str | None = None
+    cover_url: str | None = None
+    bio: str | None = None
+    gender: str | None = None
+    birth_date: str | None = None
+    country: str | None = None
+    facebook_url: str | None = None
+    profile_complete: bool | None = None
+
+
+class LinkEmailRequest(BaseModel):
+    email: str | None = None
+    username: str | None = None
+    password: str
+
+
+class CategoryCreateRequest(BaseModel):
+    name: str
+    topic_count: int = 0
+    tab_group: str
+    sort_order: int = 0
+    image_path: str | None = None
+
+
+class CategoryUpdateRequest(BaseModel):
+    name: str | None = None
+    topic_count: int | None = None
+    tab_group: str | None = None
+    sort_order: int | None = None
+    image_path: str | None = None
+
+
+class AdminBookCreateRequest(BaseModel):
+    title: str
+    author: str
+    description: str
+    cover_path: str = ""
+    accent_hex: str = "#808080"
+    section_name: str = "recently_updated"
+    status_text: str = "Published"
+    rating: float = 0.0
+    genre: str = ""
+    cta_label: str = "Read now"
+    sort_order: int = 999
+    chapters: list[dict] | None = None
+
+
+class AdminBookUpdateRequest(BaseModel):
+    title: str | None = None
+    author: str | None = None
+    description: str | None = None
+    cover_path: str | None = None
+    accent_hex: str | None = None
+    section_name: str | None = None
+    status_text: str | None = None
+    rating: float | None = None
+    genre: str | None = None
+    cta_label: str | None = None
+    sort_order: int | None = None
+
+
+class AdminNotificationCreateRequest(BaseModel):
+    tab_name: str
+    title: str
+    message: str
+    created_at: str
+    sort_order: int = 999
+
+
+class AdminNotificationUpdateRequest(BaseModel):
+    tab_name: str | None = None
+    title: str | None = None
+    message: str | None = None
+    created_at: str | None = None
+    sort_order: int | None = None
+
+
+class AdminMenuItemCreateRequest(BaseModel):
+    section_name: str
+    section_order: int
+    label: str
+    icon_name: str
+    route_name: str
+    sort_order: int = 999
+
+
+class AdminMenuItemUpdateRequest(BaseModel):
+    section_name: str | None = None
+    section_order: int | None = None
+    label: str | None = None
+    icon_name: str | None = None
+    route_name: str | None = None
+    sort_order: int | None = None
+
+
+class AdminWriteScreenUpdateRequest(BaseModel):
+    manage_tabs: str
+    story_tabs: str
+    filter_label: str
+    sort_label: str
+    empty_title: str
+    empty_cta: str
+
+
+class AdminProfileUpdateRequest(BaseModel):
+    display_name: str
+    username: str
+    following: int
+    followers: int
+    blocked: int
+    chapters_read: int
+    social_karma: int
+    day_streak: int
+
+
+class AdminReadingListCreateRequest(BaseModel):
+    profile_id: int = 1
+    name: str
+    story_count: int = 0
+    cover_path: str = ""
+    sort_order: int = 999
+
+
+class AdminReadingListUpdateRequest(BaseModel):
+    profile_id: int | None = None
+    name: str | None = None
+    story_count: int | None = None
+    cover_path: str | None = None
+    sort_order: int | None = None
+
+
+class AdminAchievementCreateRequest(BaseModel):
+    group_name: str
+    group_order: int
+    title: str
+    subtitle: str
+    progress_label: str
+    badge_value: str
+    style: str
+    sort_order: int = 999
+
+
+class AdminAchievementUpdateRequest(BaseModel):
+    group_name: str | None = None
+    group_order: int | None = None
+    title: str | None = None
+    subtitle: str | None = None
+    progress_label: str | None = None
+    badge_value: str | None = None
+    style: str | None = None
+    sort_order: int | None = None
+
+
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class SupportRequestCreateRequest(BaseModel):
+    email: str
+    first_name: str
+    issue: str
+    subject: str
+    description: str
+    device_type: str = ""
+    attachment_path: str = ""
+
+
+class SupportRequestUpdateRequest(BaseModel):
+    status: str | None = None
+    admin_reply: str | None = None
+
+
+
+def _ensure_password_hash_column() -> None:
+    """Add password_hash to app_users if missing (MySQL + SQLite)."""
+    try:
+        if USE_SQLITE:
+            execute_write("ALTER TABLE app_users ADD COLUMN password_hash TEXT", ())
+        else:
+            execute_write("ALTER TABLE app_users ADD COLUMN password_hash VARCHAR(255) NULL", ())
+    except Exception:
+        pass
+
+
+
+def _ensure_support_request_columns() -> None:
+    """Add admin_reply / user_id on support_requests if missing."""
+    for col, ddl_mysql, ddl_sqlite in (
+        ("admin_reply", "ALTER TABLE support_requests ADD COLUMN admin_reply TEXT NULL", "ALTER TABLE support_requests ADD COLUMN admin_reply TEXT"),
+        ("user_id", "ALTER TABLE support_requests ADD COLUMN user_id INT NULL", "ALTER TABLE support_requests ADD COLUMN user_id INTEGER"),
+        ("replied_at", "ALTER TABLE support_requests ADD COLUMN replied_at TIMESTAMP NULL", "ALTER TABLE support_requests ADD COLUMN replied_at TEXT"),
+    ):
+        try:
+            if _live_use_sqlite():
+                execute_write(ddl_sqlite, ())
+            else:
+                execute_write(ddl_mysql, ())
+        except Exception:
+            pass
+
+
+
+def _ensure_auth_profile_columns() -> None:
+    """username, email_verified, verification_token for professional auth."""
+    cols = [
+        ("username", "ALTER TABLE app_users ADD COLUMN username VARCHAR(64) NULL"),
+        ("email_verified", "ALTER TABLE app_users ADD COLUMN email_verified TINYINT(1) NOT NULL DEFAULT 0"),
+        ("verification_token", "ALTER TABLE app_users ADD COLUMN verification_token VARCHAR(128) NULL"),
+        ("verification_sent_at", "ALTER TABLE app_users ADD COLUMN verification_sent_at DATETIME NULL"),
+    ]
+    for _name, sql in cols:
+        try:
+            execute_write(sql, ())
+        except Exception:
+            pass
+
+
+def _password_policy_ok(password: str) -> tuple[bool, str]:
+    """Min 8 chars, letter + number + symbol."""
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters"
+    has_letter = any(c.isalpha() for c in password)
+    has_digit = any(c.isdigit() for c in password)
+    has_symbol = any(not c.isalnum() for c in password)
+    if not (has_letter and has_digit and has_symbol):
+        return False, "Password needs letters, numbers, and a symbol"
+    return True, ""
+
+
+def _send_verification_email(to_email: str, token: str, display_name: str = "") -> bool:
+    """Send verification email via Gmail SMTP (env or app defaults)."""
+    import os
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    smtp_user = os.environ.get("SMTP_EMAIL", "malindasilva047@gmail.com").strip()
+    smtp_pass = os.environ.get("SMTP_APP_PASSWORD", "nodv evuf pxpn qzeq").replace(" ", "")
+    app_name = os.environ.get("APP_NAME", "Wingsaga")
+    # Deep link / web verify URL for the app
+    base = os.environ.get("APP_PUBLIC_URL", "https://novel-v7.vercel.app").rstrip("/")
+    verify_url = f"{base}/api/auth/verify-email?token={token}"
+
+    subject = f"Verify your {app_name} email"
+    body_text = (
+        f"Hi {display_name or 'there'},\n\n"
+        f"Thanks for signing up for {app_name}.\n"
+        f"Your verification code is:\n\n{token}\n\n"
+        f"Or open this link:\n{verify_url}\n\n"
+        f"If you did not create an account, ignore this email.\n"
+    )
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = smtp_user
+        msg["To"] = to_email
+        msg.attach(MIMEText(body_text, "plain"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, [to_email], msg.as_string())
+        LOGGER.info("Verification email sent to %s", to_email)
+        return True
+    except Exception as exc:
+        LOGGER.exception("Failed to send verification email: %s", exc)
+        return False
+
+
+def _hash_password(password: str, salt: str | None = None) -> str:
+    salt = salt or secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt.encode("utf-8"), 120_000
+    ).hex()
+    return f"{salt}${digest}"
+
+
+def _verify_password(password: str, stored: str | None) -> bool:
+    if not stored or "$" not in stored:
+        return False
+    salt, digest = stored.split("$", 1)
+    check = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt.encode("utf-8"), 120_000
+    ).hex()
+    return secrets.compare_digest(check, digest)
+
+class GoogleAuthRequest(BaseModel):
+    id_token: str | None = None
+    access_token: str | None = None
+
+
+class EmailAuthRequest(BaseModel):
+    email: str = ""
+    display_name: str = ""
+    password: str = ""
+    username: str = ""
+    mode: str = "login"  # login | register
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    display_name: str = ""
+    username: str
+    photo_url: str = ""
+    cover_url: str = ""
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str = ""
+    email: str = ""
+
+
+class GuestAuthRequest(BaseModel):
+    pass
+
+
+class ChatMessageCreateRequest(BaseModel):
+    message: str
+    sender: str = "user"
+
+
+class VersionResponse(BaseModel):
+    value: str
+    updated_at: str | None = None
+
+
+def _live_use_sqlite() -> bool:
+    """Always read current dialect from database module (survives MySQL→SQLite fallback)."""
+    try:
+        from . import database as _db
+        return bool(getattr(_db, "USE_SQLITE", USE_SQLITE))
+    except Exception:
+        return bool(USE_SQLITE)
+
+
+def _to_db_query(query: str) -> str:
+    """Adapt SQL for the active DB dialect (SQLite vs MySQL)."""
+    if _live_use_sqlite():
+        return query.replace("%s", "?")
+    # MySQL uses INSERT IGNORE, not SQLite's INSERT OR IGNORE
+    q = query.replace("INSERT OR IGNORE", "INSERT IGNORE")
+    q = q.replace("INSERT OR REPLACE", "REPLACE")
+    return q
+
+
+def fetch_all(query: str, params: tuple[Any, ...] | None = None):
+    connection = get_connection()
+    use_sqlite = _live_use_sqlite()
+    if use_sqlite:
+        cursor = connection.cursor()
+    else:
+        cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute(_to_db_query(query), params or ())
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        connection.close()
+    if use_sqlite:
+        # sqlite3.Row → plain dict for consistent .get() usage
+        out = []
+        for row in rows or []:
+            if hasattr(row, "keys"):
+                out.append({k: row[k] for k in row.keys()})
+            elif isinstance(row, dict):
+                out.append(row)
+            else:
+                out.append(row)
+        return out
+    return rows
+
+
+def execute_write(query: str, params: tuple[Any, ...]):
+    connection = get_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute(_to_db_query(query), params)
+        connection.commit()
+        last_id = cursor.lastrowid
+        affected = cursor.rowcount
+        # MySQL/SQLite: if lastrowid is 0/None after INSERT, try dialect helpers
+        if not last_id and query.strip().upper().startswith("INSERT"):
+            try:
+                if _live_use_sqlite():
+                    cursor.execute("SELECT last_insert_rowid()")
+                else:
+                    cursor.execute("SELECT LAST_INSERT_ID()")
+                row = cursor.fetchone()
+                if row is not None:
+                    last_id = row[0] if not isinstance(row, dict) else next(iter(row.values()))
+            except Exception:
+                pass
+        return last_id, affected
+    except Exception:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+        raise
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
+        try:
+            connection.close()
+        except Exception:
+            pass
+
+
+def _serialize_db_datetime(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def _content_version_row() -> dict[str, Any]:
+    rows = fetch_all(
+        "SELECT key_value, updated_at FROM app_metadata WHERE key_name='content_version' LIMIT 1"
+    )
+    if rows:
+        row = rows[0]
+        return {
+            "value": row["key_value"],
+            "updated_at": _serialize_db_datetime(row["updated_at"]),
+        }
+
+    value = str(uuid4())
+    execute_write(
+        "INSERT INTO app_metadata (key_name, key_value) VALUES ('content_version', %s)",
+        (value,),
+    )
+    return {"value": value, "updated_at": None}
+
+
+def bump_content_version() -> dict[str, Any]:
+    value = str(uuid4())
+    connection = get_connection()
+    cursor = connection.cursor()
+    if USE_SQLITE:
+        cursor.execute(
+            """
+            INSERT INTO app_metadata (key_name, key_value)
+            VALUES ('content_version', ?)
+            ON CONFLICT(key_name) DO UPDATE SET key_value = excluded.key_value
+            """,
+            (value,),
+        )
+    else:
+        cursor.execute(
+            """
+            INSERT INTO app_metadata (key_name, key_value)
+            VALUES ('content_version', %s)
+            ON DUPLICATE KEY UPDATE key_value = VALUES(key_value)
+            """,
+            (value,),
+        )
+    connection.commit()
+    cursor.close()
+    connection.close()
+    return _content_version_row()
+
+
+def create_admin_token(username: str) -> str:
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=ADMIN_TOKEN_EXPIRES_HOURS)
+    payload = {
+        "sub": username,
+        "role": "admin",
+        "exp": expires_at.isoformat(),
+    }
+    encoded_payload = base64.urlsafe_b64encode(
+        json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    ).decode("ascii")
+    signature = hmac.new(
+        JWT_SECRET.encode("utf-8"),
+        encoded_payload.encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"{encoded_payload}.{signature}"
+
+
+def require_admin(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing admin token")
+
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing admin token")
+
+    try:
+        encoded_payload, provided_signature = token.split(".", 1)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="Invalid admin token") from exc
+
+    expected_signature = hmac.new(
+        JWT_SECRET.encode("utf-8"),
+        encoded_payload.encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected_signature, provided_signature):
+        raise HTTPException(status_code=401, detail="Invalid admin token")
+
+    try:
+        payload = json.loads(
+            base64.urlsafe_b64decode(encoded_payload.encode("ascii")).decode("utf-8")
+        )
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=401, detail="Invalid admin token") from exc
+
+    if payload.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required")
+
+    expires_raw = payload.get("exp")
+    if not isinstance(expires_raw, str):
+        raise HTTPException(status_code=401, detail="Invalid admin token")
+
+    try:
+        expires_at = datetime.fromisoformat(expires_raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="Invalid admin token") from exc
+
+    if expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=401, detail="Admin token expired")
+
+    return payload
+
+
+def _sign_token(payload: dict[str, Any]) -> str:
+    encoded_payload = base64.urlsafe_b64encode(
+        json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    ).decode("ascii")
+    signature = hmac.new(
+        JWT_SECRET.encode("utf-8"),
+        encoded_payload.encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"{encoded_payload}.{signature}"
+
+
+def create_user_token(user_id: int) -> str:
+    expires_at = datetime.now(timezone.utc) + timedelta(days=180)
+    return _sign_token(
+        {
+            "sub": f"user:{user_id}",
+            "role": "user",
+            "exp": expires_at.isoformat(),
+        }
+    )
+
+
+
+
+_WALL_POSTS_TABLE_READY = False
+
+
+def _ensure_wall_posts_table() -> None:
+    """Dedicated wall posts (profile Wall tab). Soft schema; never drops data.
+    Runs once per process — avoids DDL lock storms that cause 300s Vercel timeouts.
+    """
+    global _WALL_POSTS_TABLE_READY
+    if _WALL_POSTS_TABLE_READY:
+        return
+    try:
+        if _live_use_sqlite():
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS wall_posts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    target_user_id INTEGER NOT NULL,
+                    body TEXT NOT NULL,
+                    image_path TEXT DEFAULT '',
+                    likes_count INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                (),
+            )
+        else:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS wall_posts (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    target_user_id INT NOT NULL,
+                    body TEXT NOT NULL,
+                    image_path VARCHAR(512) DEFAULT '',
+                    likes_count INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                (),
+            )
+        _WALL_POSTS_TABLE_READY = True
+    except Exception as exc:
+        LOGGER.warning("wall_posts ensure failed: %s", exc)
+
+
+def _as_bool_flag(v) -> bool:
+    if v is True or v is False:
+        return bool(v)
+    if v is None:
+        return False
+    try:
+        return int(v) == 1
+    except Exception:
+        s = str(v).strip().lower()
+        return s in ("1", "true", "yes")
+
+def _ensure_user_moderation_columns() -> None:
+    """Soft-moderation flags: never hard-delete user rows."""
+    for col_sql in (
+        "ALTER TABLE app_users ADD COLUMN is_banned INT NOT NULL DEFAULT 0",
+        "ALTER TABLE app_users ADD COLUMN is_suspended INT NOT NULL DEFAULT 0",
+        "ALTER TABLE app_users ADD COLUMN is_deleted INT NOT NULL DEFAULT 0",
+        "ALTER TABLE app_users ADD COLUMN suspended_until TEXT NULL",
+        "ALTER TABLE app_users ADD COLUMN is_author_active INT NOT NULL DEFAULT 1",
+    ):
+        try:
+            execute_write(col_sql, ())
+        except Exception:
+            pass
+
+
+
+def _assert_user_can_login(user_id: int) -> None:
+    reason = _user_access_block_reason(user_id)
+    if reason:
+        raise HTTPException(status_code=403, detail=reason)
+
+def _user_access_block_reason(user_id: int) -> str | None:
+    """Return human-readable block reason, or None if user may log in."""
+    _ensure_user_moderation_columns()
+    rows = fetch_all(
+        """
+        SELECT COALESCE(is_banned,0) AS is_banned,
+               COALESCE(is_suspended,0) AS is_suspended,
+               COALESCE(is_deleted,0) AS is_deleted,
+               suspended_until
+        FROM app_users WHERE id=%s LIMIT 1
+        """,
+        (user_id,),
+    )
+    if not rows:
+        return "Account not found (user id missing in app_users — confirm MYSQL_DATABASE=defaultdb)"
+    row = rows[0]
+    if int(_row_get(row, "is_deleted") or 0) == 1:
+        return "This account has been deleted by an administrator"
+    if int(_row_get(row, "is_banned") or 0) == 1:
+        return "This account is banned. Contact support or wait for an unban."
+    if int(_row_get(row, "is_suspended") or 0) == 1:
+        until = _row_get(row, "suspended_until")
+        if until:
+            try:
+                from datetime import datetime, timezone
+                u = str(until).replace("Z", "+00:00")
+                until_dt = datetime.fromisoformat(u)
+                now = datetime.now(timezone.utc)
+                if until_dt.tzinfo is None:
+                    until_dt = until_dt.replace(tzinfo=timezone.utc)
+                if now < until_dt:
+                    return f"Account suspended until {until_dt.isoformat()}"
+                # auto-lift expired suspension
+                execute_write(
+                    "UPDATE app_users SET is_suspended=0, suspended_until=NULL WHERE id=%s",
+                    (user_id,),
+                )
+            except Exception:
+                return "This account is temporarily suspended"
+        else:
+            return "This account is temporarily suspended"
+    return None
+
+
+
+def _ensure_profile_extra_columns() -> None:
+    """gender, birth_date, profile_complete on app_users (MySQL/SQLite safe)."""
+    cols = [
+        ("gender", "ALTER TABLE app_users ADD COLUMN gender VARCHAR(40) NULL"),
+        ("birth_date", "ALTER TABLE app_users ADD COLUMN birth_date VARCHAR(20) NULL"),
+        ("country", "ALTER TABLE app_users ADD COLUMN country VARCHAR(64) NULL"),
+        ("facebook_url", "ALTER TABLE app_users ADD COLUMN facebook_url VARCHAR(255) NULL"),
+        ("profile_complete", "ALTER TABLE app_users ADD COLUMN profile_complete TINYINT(1) NOT NULL DEFAULT 0"),
+    ]
+    for col, sql in cols:
+        try:
+            if USE_SQLITE:
+                # SQLite: check pragma
+                rows = fetch_all(f"PRAGMA table_info(app_users)")
+                names = {r.get("name") if isinstance(r, dict) else r[1] for r in (rows or [])}
+                if col not in names:
+                    execute_write(sql.replace("TINYINT(1) NOT NULL DEFAULT 0", "INTEGER DEFAULT 0").replace("VARCHAR(40)", "TEXT").replace("VARCHAR(20)", "TEXT"), ())
+            else:
+                cursor_check = fetch_all(f"SHOW COLUMNS FROM app_users LIKE %s", (col,))
+                if not cursor_check:
+                    execute_write(sql, ())
+        except Exception as exc:
+            LOGGER.warning("ensure profile col %s: %s", col, exc)
+
+def require_user(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing user token")
+
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing user token")
+
+    try:
+        encoded_payload, provided_signature = token.split(".", 1)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="Invalid user token") from exc
+
+    expected_signature = hmac.new(
+        JWT_SECRET.encode("utf-8"),
+        encoded_payload.encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected_signature, provided_signature):
+        raise HTTPException(status_code=401, detail="Invalid user token")
+
+    try:
+        payload = json.loads(
+            base64.urlsafe_b64decode(encoded_payload.encode("ascii")).decode("utf-8")
+        )
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=401, detail="Invalid user token") from exc
+
+    if payload.get("role") != "user":
+        raise HTTPException(status_code=403, detail="User role required")
+
+    sub = payload.get("sub")
+    if not isinstance(sub, str) or not sub.startswith("user:"):
+        raise HTTPException(status_code=401, detail="Invalid user token")
+
+    expires_raw = payload.get("exp")
+    if not isinstance(expires_raw, str):
+        raise HTTPException(status_code=401, detail="Invalid user token")
+
+    try:
+        expires_at = datetime.fromisoformat(expires_raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="Invalid user token") from exc
+
+    if expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=401, detail="User token expired")
+
+    uid = int(sub.split(":", 1)[1])
+    reason = _user_access_block_reason(uid)
+    if reason:
+        raise HTTPException(status_code=403, detail=reason)
+    return {"user_id": uid}
+
+
+def optional_user(authorization: str | None = Header(default=None)) -> dict[str, Any] | None:
+    """Like require_user but returns None instead of 401 when no/invalid token.
+    Used for public endpoints that enrich response when the caller is logged in.
+    """
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        return None
+    try:
+        encoded_payload, provided_signature = token.split(".", 1)
+    except ValueError:
+        return None
+    expected_signature = hmac.new(
+        JWT_SECRET.encode("utf-8"),
+        encoded_payload.encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected_signature, provided_signature):
+        return None
+    try:
+        payload = json.loads(
+            base64.urlsafe_b64decode(encoded_payload.encode("ascii")).decode("utf-8")
+        )
+    except (ValueError, json.JSONDecodeError):
+        return None
+    if payload.get("role") != "user":
+        return None
+    sub = payload.get("sub")
+    if not isinstance(sub, str) or not sub.startswith("user:"):
+        return None
+    expires_raw = payload.get("exp")
+    if not isinstance(expires_raw, str):
+        return None
+    try:
+        expires_at = datetime.fromisoformat(expires_raw)
+    except ValueError:
+        return None
+    if expires_at <= datetime.now(timezone.utc):
+        return None
+    try:
+        uid = int(sub.split(":", 1)[1])
+    except (ValueError, IndexError):
+        return None
+    reason = _user_access_block_reason(uid)
+    if reason:
+        return None
+    return {"user_id": uid}
+
+
+def _public_image_path(filename: str) -> str:
+    return f"/uploads/{filename}"
+
+
+def _ensure_media_table() -> None:
+    """Durable image storage in MySQL (Vercel local disk is ephemeral)."""
+    try:
+        if USE_SQLITE:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS media_files (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    filename TEXT NOT NULL,
+                    content_type TEXT NOT NULL DEFAULT 'image/jpeg',
+                    data BLOB NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                (),
+            )
+        else:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS media_files (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    filename VARCHAR(255) NOT NULL,
+                    content_type VARCHAR(128) NOT NULL DEFAULT 'image/jpeg',
+                    data LONGBLOB NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                (),
+            )
+    except Exception as exc:
+        LOGGER.warning("media_files ensure failed: %s", exc)
+
+
+def _store_media_bytes(content: bytes, filename: str, content_type: str = "image/jpeg") -> str:
+    """Persist image bytes in DB; return public path /api/media/{id}."""
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty image upload")
+    if len(content) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image too large (max 8MB)")
+    _ensure_media_table()
+    # Also write local copy for local/dev StaticFiles
+    try:
+        UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+        (UPLOAD_ROOT / filename).write_bytes(content)
+    except Exception as exc:
+        LOGGER.info("local upload skipped (read-only FS / Vercel): %s — using DB media", exc)
+
+    media_id, _ = execute_write(
+        "INSERT INTO media_files (filename, content_type, data) VALUES (%s, %s, %s)",
+        (filename, content_type or "image/jpeg", content),
+    )
+    if not media_id:
+        # MySQL lastrowid recovery
+        rows = fetch_all("SELECT id FROM media_files WHERE filename=%s ORDER BY id DESC LIMIT 1", (filename,))
+        if rows:
+            media_id = rows[0]["id"] if isinstance(rows[0], dict) else rows[0][0]
+    if not media_id:
+        # Fallback path to local filename (works only until cold start)
+        return _public_image_path(filename)
+    return f"/api/media/{int(media_id)}"
+
+
+
+def _normalize_cover_path(path: str | None) -> str:
+    if not path:
+        return ""
+    raw = str(path).strip()
+    if not raw:
+        return ""
+    if raw.startswith(("http://", "https://")):
+        return raw
+    # Already a public uploads path
+    if raw.startswith("/uploads/"):
+        return raw
+    # Legacy: story_card_images/... or assets/story_card_images/...
+    if "story_card_images/" in raw:
+        return _public_image_path(raw.split("/")[-1])
+    # Bare filename or uploads/filename without leading slash
+    if "/" not in raw or raw.startswith("uploads/"):
+        return _public_image_path(raw.split("/")[-1])
+    return raw
+
+
+def _ensure_default_write_screen() -> None:
+    rows = fetch_all("SELECT id FROM write_screen LIMIT 1")
+    if not rows:
+        execute_write(
+            "INSERT INTO write_screen (manage_tabs, story_tabs, filter_label, sort_label, empty_title, empty_cta) VALUES (%s, %s, %s, %s, %s, %s)",
+            (
+                "Drafts,Published",
+                "Stories,Series",
+                "Filter",
+                "Sort",
+                "Nothing here yet",
+                "Create story",
+            ),
+        )
+
+
+def _ensure_default_profile() -> None:
+    rows = fetch_all("SELECT id FROM profiles LIMIT 1")
+    if not rows:
+        execute_write(
+            "INSERT INTO profiles (display_name, username, following, followers, blocked, chapters_read, social_karma, day_streak) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            ("Guest User", "guest", 0, 0, 0, 0, 0, 0),
+        )
+
+
+def _available_story_images() -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    for file_path in sorted(UPLOAD_ROOT.glob("*")):
+        if not file_path.is_file():
+            continue
+        extension = file_path.suffix.lower()
+        if extension not in {".jpg", ".jpeg", ".png", ".webp"}:
+            continue
+        items.append(
+            {
+                "name": file_path.name,
+                "path": _public_image_path(file_path.name),
+            }
+        )
+    return items
+
+
+def _fetch_google_json(endpoint: str, query: dict[str, str]) -> dict[str, Any]:
+    url = f"{endpoint}?{urlencode(query)}"
+    with urlopen(url, timeout=10) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _verify_google_payload(payload: GoogleAuthRequest) -> dict[str, Any]:
+    """Verify Google id_token or access_token.
+
+    If GOOGLE_CLIENT_IDS is empty, audience is not enforced (dev-friendly).
+    Set GOOGLE_CLIENT_ID or GOOGLE_CLIENT_IDS in production to lock audiences.
+    """
+    def _check_audience(audience: str, token_info: dict[str, Any]) -> None:
+        if not GOOGLE_CLIENT_IDS:
+            LOGGER.warning(
+                "GOOGLE_CLIENT_ID(s) not set — accepting Google token without audience check (dev mode). "
+                "Set GOOGLE_CLIENT_IDS in backend .env for production."
+            )
+            return
+        if audience and audience not in GOOGLE_CLIENT_IDS:
+            LOGGER.warning(
+                "Google audience mismatch: aud=%s allowed=%s tokeninfo=%s",
+                audience,
+                GOOGLE_CLIENT_IDS,
+                token_info,
+            )
+            raise HTTPException(
+                status_code=401,
+                detail=(
+                    "Google audience mismatch. Add this client ID to GOOGLE_CLIENT_IDS on the backend: "
+                    f"{audience or '(empty)'}"
+                ),
+            )
+
+    if payload.id_token:
+        try:
+            token_info = _fetch_google_json(
+                "https://oauth2.googleapis.com/tokeninfo",
+                {"id_token": payload.id_token},
+            )
+        except Exception as exc:
+            LOGGER.exception("Google id_token verification failed")
+            raise HTTPException(
+                status_code=401,
+                detail=f"Google id_token verification failed: {exc}",
+            ) from exc
+        LOGGER.debug("Google tokeninfo (id_token): %s", token_info)
+        if token_info.get("error"):
+            raise HTTPException(
+                status_code=401,
+                detail=f"Invalid Google id_token: {token_info.get('error_description') or token_info.get('error')}",
+            )
+        audience = (
+            token_info.get("aud")
+            or token_info.get("audience")
+            or token_info.get("issued_to")
+            or ""
+        )
+        _check_audience(str(audience), token_info)
+
+        email = token_info.get("email", "")
+        subject = token_info.get("sub", "")
+        if not email or not subject:
+            raise HTTPException(status_code=401, detail="Invalid Google token (missing email/sub)")
+
+        return {
+            "email": email,
+            "subject": subject,
+            "display_name": token_info.get("name") or email.split("@")[0],
+            "photo_url": token_info.get("picture") or "",
+        }
+
+    if payload.access_token:
+        try:
+            token_info = _fetch_google_json(
+                "https://oauth2.googleapis.com/tokeninfo",
+                {"access_token": payload.access_token},
+            )
+        except Exception as exc:
+            LOGGER.exception("Google access_token verification failed")
+            raise HTTPException(
+                status_code=401,
+                detail=f"Google access_token verification failed: {exc}",
+            ) from exc
+        LOGGER.debug("Google tokeninfo (access_token): %s", token_info)
+        audience = (
+            token_info.get("aud")
+            or token_info.get("audience")
+            or token_info.get("issued_to")
+            or ""
+        )
+        _check_audience(str(audience), token_info)
+
+        try:
+            user_info = _fetch_google_json(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                {"access_token": payload.access_token},
+            )
+        except Exception as exc:
+            LOGGER.exception("Google userinfo failed")
+            raise HTTPException(
+                status_code=401,
+                detail=f"Google userinfo failed: {exc}",
+            ) from exc
+        LOGGER.debug("Google userinfo: %s", user_info)
+        email = user_info.get("email", "")
+        subject = user_info.get("id", "") or token_info.get("sub", "")
+        if not email or not subject:
+            raise HTTPException(status_code=401, detail="Invalid Google token (missing email/id)")
+
+        return {
+            "email": email,
+            "subject": subject,
+            "display_name": user_info.get("name") or email.split("@")[0],
+            "photo_url": user_info.get("picture") or "",
+        }
+
+    raise HTTPException(
+        status_code=400,
+        detail="Missing Google token. App must send id_token or access_token from Google Sign-In.",
+    )
+
+
+def _parse_optional_datetime(value: str | None) -> datetime | None:
+    if value is None or value.strip() == "":
+        return None
+    normalized = value.strip().replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid scheduled date") from exc
+
+
+def _serialize_datetime(value: datetime | str | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+def _record_chapter_revision(
+    chapter_id: int,
+    title: str,
+    content: str,
+    notes: str,
+    submission_status: str,
+    scheduled_for: datetime | None,
+) -> None:
+    scheduled_value = scheduled_for.isoformat() if isinstance(scheduled_for, datetime) else scheduled_for
+    execute_write(
+        """
+        INSERT INTO chapter_revisions (chapter_id, title, content, notes, submission_status, scheduled_for)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        (chapter_id, title, content, notes, submission_status, scheduled_value),
+    )
+
+
+@app.get("/")
+def healthcheck():
+    return {"message": "Novel Mobile backend is running."}
+
+
+@app.on_event("startup")
+def startup_initialize_database():
+    """Lightweight startup on Vercel; full schema ensures only when DB looks empty.
+
+    Heavy ensure_* loops (20+ MySQL round-trips) were the main cause of 504s when
+    many concurrent cold starts hit media/bootstrap at once.
+    """
+    try:
+        from .startup_tasks import run_startup_tasks
+
+        summary = run_startup_tasks()
+        LOGGER.info("Startup tasks summary: %s", summary)
+
+        on_vercel = bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV"))
+        book_count = 0
+        try:
+            books = fetch_all("SELECT COUNT(*) AS c FROM books")
+            if books:
+                r = books[0]
+                if isinstance(r, dict):
+                    book_count = int(r.get("c") or list(r.values())[0] or 0)
+                else:
+                    book_count = int(r[0])
+            LOGGER.info("DB ready books=%s", book_count)
+        except Exception as count_exc:
+            LOGGER.warning("Post-startup count check failed: %s", count_exc)
+
+        # On Vercel with a populated DB: skip the long ensure_* chain (already applied).
+        # Set FORCE_SCHEMA_ENSURES=1 once after a schema change if needed.
+        force_ensures = os.getenv("FORCE_SCHEMA_ENSURES", "").strip().lower() in ("1", "true", "yes")
+        skip_ensures = on_vercel and book_count > 0 and not force_ensures
+        if skip_ensures:
+            LOGGER.info("Skipping schema ensure chain on Vercel (books=%s)", book_count)
+        else:
+            ensure_fns = [
+                _ensure_password_hash_column,
+                _ensure_auth_profile_columns,
+                _ensure_profile_extra_columns,
+                _ensure_user_moderation_columns,
+                _ensure_support_request_columns,
+                _ensure_user_support_notifications_table,
+                _ensure_user_preferences_table,
+                _ensure_media_table,
+                _ensure_library_entries_table,
+                _ensure_book_likes_table,
+                _ensure_chapter_comments_table,
+                _ensure_author_follows_table,
+                _ensure_author_follows_columns,
+                _ensure_tag_follows_table,
+                _ensure_book_meta_columns,
+                _ensure_book_view_count_column,
+                _ensure_wall_posts_table,
+                _ensure_wall_post_likes_table,
+                _ensure_default_write_screen,
+                _ensure_default_profile,
+            ]
+            for fn in ensure_fns:
+                try:
+                    fn()
+                except Exception as col_exc:
+                    LOGGER.warning("startup ensure %s failed: %s", getattr(fn, "__name__", fn), col_exc)
+
+        try:
+            _content_version_row()
+        except Exception:
+            pass
+    except DB_INIT_EXCEPTIONS as exc:
+        LOGGER.exception("Automatic database initialization failed: %s", exc)
+    except Exception as exc:
+        LOGGER.exception("Unexpected error running startup tasks: %s", exc)
+
+
+
+@app.get("/favicon.ico")
+def favicon():
+    """Avoid noisy browser 404s on Vercel."""
+    from fastapi.responses import Response
+    # 1x1 transparent PNG
+    import base64
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    return Response(content=png, media_type="image/png")
+
+
+@app.get("/")
+def root():
+    return {
+        "ok": True,
+        "service": "novelhub-api",
+        "docs": "/docs",
+        "health": "/api/health",
+    }
+
+@app.get("/api/health")
+def health():
+    """Local/debug: confirm DB mode and row counts after auto-migrate/seed."""
+    try:
+        from . import database as db_mod
+        books = fetch_all("SELECT COUNT(*) AS c FROM books")
+        cats = fetch_all("SELECT COUNT(*) AS c FROM categories")
+        chs = fetch_all("SELECT COUNT(*) AS c FROM chapters")
+        def _c(rows):
+            if not rows:
+                return 0
+            r = rows[0]
+            if isinstance(r, dict):
+                return int(r.get("c") or list(r.values())[0] or 0)
+            return int(r[0])
+        import os as _os
+        return {
+            "ok": True,
+            "db_mode": "sqlite" if _live_use_sqlite() else "mysql",
+            "mysql_database": _os.getenv("MYSQL_DATABASE", "defaultdb"),
+            "sqlite_file": str(getattr(db_mod, "SQLITE_FILE", "")),
+            "books": _c(books),
+            "categories": _c(cats),
+            "chapters": _c(chs),
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@app.get("/api/content/version", response_model=VersionResponse)
+def get_content_version():
+    global _VERSION_CACHE, _VERSION_CACHE_AT
+    import time as _time
+    now = _time.time()
+    if _VERSION_CACHE is not None and (now - _VERSION_CACHE_AT) < _VERSION_CACHE_TTL:
+        return _VERSION_CACHE
+    row = _content_version_row()
+    _VERSION_CACHE = row if isinstance(row, dict) else {"value": str(row)}
+    _VERSION_CACHE_AT = now
+    return _VERSION_CACHE
+
+
+@app.post("/api/admin/login")
+def admin_login(payload: AdminLoginRequest):
+    if payload.username != ADMIN_USERNAME or payload.password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid admin credentials")
+
+    token = create_admin_token(payload.username)
+    return {
+        "token": token,
+        "username": payload.username,
+        "expires_in_hours": ADMIN_TOKEN_EXPIRES_HOURS,
+    }
+
+
+
+def _row_id(row: Any) -> int | None:
+    """Get numeric id from dict or sequence row."""
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        v = row.get("id")
+        if v is None:
+            try:
+                v = next(iter(row.values()))
+            except StopIteration:
+                return None
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return None
+    try:
+        return int(row[0])
+    except Exception:
+        return None
+
+
+def _find_user_id_by_email(email: str) -> int | None:
+    rows = fetch_all("SELECT id FROM app_users WHERE LOWER(email)=%s LIMIT 1", (email,))
+    if not rows:
+        return None
+    return _row_id(rows[0])
+
+
+@app.post("/api/auth/google")
+def authenticate_google(payload: GoogleAuthRequest):
+    # Schema columns already ensured at deploy/startup — skip on hot path (cold-start 504).
+    google_user = _verify_google_payload(payload)
+    email = (google_user.get("email") or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=401, detail="Google account has no email")
+
+    # Normalize stored email to lowercase for stable lookups
+    rows = fetch_all(
+        "SELECT id FROM app_users WHERE LOWER(email)=%s LIMIT 1",
+        (email,),
+    )
+    user_id = _row_id(rows[0]) if rows else None
+
+    if user_id is not None:
+        execute_write(
+            """
+            UPDATE app_users
+            SET provider=%s, provider_subject=%s,
+                photo_url=COALESCE(NULLIF(%s,''), photo_url),
+                email=%s, last_login_at=CURRENT_TIMESTAMP
+            WHERE id=%s
+            """,
+            (
+                "google",
+                google_user["subject"],
+                google_user["photo_url"],
+                email,
+                user_id,
+            ),
+        )
+    else:
+        user_id, _ = execute_write(
+            """
+            INSERT INTO app_users (email, provider, provider_subject, display_name, photo_url, profile_complete)
+            VALUES (%s, %s, %s, %s, %s, 0)
+            """,
+            (
+                email,
+                "google",
+                google_user["subject"],
+                google_user["display_name"],
+                google_user["photo_url"],
+            ),
+        )
+        # MySQL pure connector sometimes returns 0 lastrowid — resolve by email
+        if not user_id:
+            user_id = _find_user_id_by_email(email)
+        if not user_id:
+            raise HTTPException(
+                status_code=500,
+                detail="Google sign-in succeeded but user row could not be created. Check MYSQL_DATABASE=defaultdb.",
+            )
+
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=500, detail="Invalid user id after Google sign-in")
+
+    _assert_user_can_login(user_id)
+    # Load profile_complete so client can skip onboarding when already done
+    pc = 0
+    try:
+        prow = fetch_all(
+            """
+            SELECT COALESCE(profile_complete,0) AS pc,
+                   display_name, birth_date, gender, bio
+            FROM app_users WHERE id=%s LIMIT 1
+            """,
+            (user_id,),
+        )
+        if prow:
+            row = prow[0]
+            pc = int(_row_get(row, "pc") or 0)
+            has_birth = bool(str(_row_get(row, "birth_date") or "").strip())
+            has_gender = bool(str(_row_get(row, "gender") or "").strip())
+            # Only birth/gender mean real onboarding was done — not Google display_name
+            if not pc and (has_birth or has_gender):
+                pc = 1
+                try:
+                    execute_write(
+                        "UPDATE app_users SET profile_complete=1 WHERE id=%s",
+                        (user_id,),
+                    )
+                except Exception:
+                    pass
+    except Exception as exc:
+        LOGGER.warning("google auth profile_complete read: %s", exc)
+        # Column may be missing on Aiven until startup ALTER runs — create it
+        try:
+            _ensure_profile_extra_columns()
+        except Exception:
+            pass
+    return {
+        "id": user_id,
+        "email": google_user["email"],
+        "display_name": google_user["display_name"],
+        "photo_url": google_user["photo_url"],
+        "provider": "google",
+        "profile_complete": bool(pc),
+        "token": create_user_token(user_id),
+    }
+
+
+@app.post("/api/auth/email")
+def authenticate_email(payload: EmailAuthRequest):
+    """Sign-up / sign-in with email. Password required for new accounts; verified when hash exists."""
+    _ensure_password_hash_column()
+    email = payload.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Invalid email")
+
+    password = (payload.password or "").strip()
+    display_name = (
+        (payload.display_name or "").strip()
+        or (getattr(payload, "username", None) or "").strip()
+        or email.split("@")[0]
+    )
+
+    rows = fetch_all(
+        "SELECT id, password_hash, display_name FROM app_users WHERE LOWER(email)=%s LIMIT 1",
+        (email,),
+    )
+    user_id = _row_id(rows[0]) if rows else None
+
+    if user_id is not None:
+        stored_hash = _row_get(rows[0], "password_hash") or ""
+        if stored_hash:
+            if not password or not _verify_password(password, stored_hash):
+                raise HTTPException(status_code=401, detail="Invalid email or password")
+            execute_write(
+                """
+                UPDATE app_users
+                SET provider='email', display_name=%s, email=%s, last_login_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+                """,
+                (display_name, email, user_id),
+            )
+        elif password:
+            execute_write(
+                """
+                UPDATE app_users
+                SET provider='email', display_name=%s, email=%s, password_hash=%s,
+                    last_login_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+                """,
+                (display_name, email, _hash_password(password), user_id),
+            )
+        else:
+            execute_write(
+                """
+                UPDATE app_users
+                SET provider='email', display_name=%s, email=%s, last_login_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+                """,
+                (display_name, email, user_id),
+            )
+    else:
+        if not password or len(password) < 6:
+            raise HTTPException(
+                status_code=400,
+                detail="Password required (min 6 characters) to create an account",
+            )
+        pwd_hash = _hash_password(password)
+        user_id, _ = execute_write(
+            """
+            INSERT INTO app_users (email, provider, display_name, photo_url, password_hash)
+            VALUES (%s, 'email', %s, '', %s)
+            """,
+            (email, display_name, pwd_hash),
+        )
+        if not user_id:
+            user_id = _find_user_id_by_email(email)
+        if not user_id:
+            raise HTTPException(
+                status_code=500,
+                detail="Could not create user. Check MYSQL_DATABASE and app_users table.",
+            )
+
+    user_id = int(user_id)
+    _assert_user_can_login(user_id)
+    return {
+        "id": user_id,
+        "email": email,
+        "display_name": display_name,
+        "photo_url": "",
+        "provider": "email",
+        "token": create_user_token(user_id),
+    }
+
+
+
+@app.post("/api/auth/register")
+def register_user(payload: RegisterRequest):
+    """Create account (unverified). Sends email verification code. No session until verified."""
+    _ensure_password_hash_column()
+    _ensure_auth_profile_columns()
+    email = (payload.email or "").strip().lower()
+    username = (payload.username or "").strip().lstrip("@").lower()
+    password = (payload.password or "").strip()
+    display_name = (payload.display_name or "").strip() or username or email.split("@")[0]
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Valid email required")
+    if not username or len(username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+    ok, msg = _password_policy_ok(password)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    existing = fetch_all(
+        "SELECT id FROM app_users WHERE LOWER(email)=%s LIMIT 1",
+        (email,),
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered — please log in")
+    try:
+        uname_rows = fetch_all(
+            "SELECT id FROM app_users WHERE LOWER(username)=%s LIMIT 1",
+            (username,),
+        )
+        if uname_rows:
+            raise HTTPException(status_code=400, detail="Username already taken")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+    token = secrets.token_hex(16)
+    pwd_hash = _hash_password(password)
+    photo = (payload.photo_url or "").strip()
+    cover = (payload.cover_url or "").strip()
+    try:
+        user_id, _ = execute_write(
+            """
+            INSERT INTO app_users
+              (email, provider, display_name, photo_url, cover_url, password_hash,
+               username, email_verified, verification_token)
+            VALUES (%s, 'email', %s, %s, %s, %s, %s, 0, %s)
+            """,
+            (email, display_name, photo, cover, pwd_hash, username, token),
+        )
+    except Exception:
+        user_id, _ = execute_write(
+            """
+            INSERT INTO app_users (email, provider, display_name, photo_url, password_hash)
+            VALUES (%s, 'email', %s, %s, %s)
+            """,
+            (email, display_name, photo, pwd_hash),
+        )
+        try:
+            execute_write(
+                """
+                UPDATE app_users
+                SET username=%s, email_verified=0, verification_token=%s, cover_url=%s
+                WHERE id=%s
+                """,
+                (username, token, cover, user_id),
+            )
+        except Exception:
+            pass
+    try:
+        execute_write(
+            "UPDATE app_users SET profile_complete=1 WHERE id=%s",
+            (user_id,),
+        )
+    except Exception:
+        pass
+    sent = _send_verification_email(email, token, display_name)
+    return {
+        "ok": True,
+        "needs_verification": True,
+        "email": email,
+        "email_sent": sent,
+        "message": "Check your email for a verification code, then log in.",
+        # Dev fallback when SMTP fails (still return token only if send failed)
+        **({} if sent else {"dev_token": token}),
+    }
+
+
+@app.post("/api/auth/login")
+def login_user(payload: EmailAuthRequest):
+    """Login with username OR email + password. Fast path — no ALTER TABLE."""
+    ident = (payload.email or payload.username or "").strip()
+    password = (payload.password or "").strip()
+    if not ident or not password:
+        raise HTTPException(status_code=400, detail="Username/email and password required")
+
+    # Prefer simple SELECT first (email). Avoid username column if schema lag.
+    rows = None
+    try:
+        if "@" in ident:
+            rows = fetch_all(
+                """
+                SELECT id, password_hash, display_name, email, provider
+                FROM app_users WHERE LOWER(email)=%s LIMIT 1
+                """,
+                (ident.lower(),),
+            )
+        if not rows:
+            # try username column when present
+            try:
+                rows = fetch_all(
+                    """
+                    SELECT id, password_hash, display_name, email, provider
+                    FROM app_users WHERE LOWER(username)=%s LIMIT 1
+                    """,
+                    (ident.lower().lstrip("@"),),
+                )
+            except Exception:
+                rows = None
+        if not rows:
+            rows = fetch_all(
+                """
+                SELECT id, password_hash, display_name, email, provider
+                FROM app_users
+                WHERE LOWER(email)=%s OR LOWER(display_name)=%s
+                LIMIT 1
+                """,
+                (ident.lower(), ident.lower().lstrip("@")),
+            )
+    except Exception as exc:
+        LOGGER.exception("login query failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Login temporarily unavailable") from exc
+
+    if not rows:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    user = rows[0]
+    user_id = int(_row_get(user, "id"))
+    stored = _row_get(user, "password_hash") or ""
+    if not stored or not _verify_password(password, stored):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    provider = str(_row_get(user, "provider") or "email")
+    # Soft verification: only block if column exists AND explicitly 0
+    try:
+        vrows = fetch_all(
+            "SELECT COALESCE(email_verified, 1) AS email_verified FROM app_users WHERE id=%s LIMIT 1",
+            (user_id,),
+        )
+        verified = int(_row_get(vrows[0], "email_verified") if vrows else 1)
+        if provider == "email" and verified == 0:
+            raise HTTPException(
+                status_code=403,
+                detail="Email not verified. Check your inbox for the verification code.",
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # column missing — allow login
+    try:
+        _assert_user_can_login(user_id)
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+    try:
+        execute_write(
+            "UPDATE app_users SET last_login_at=CURRENT_TIMESTAMP WHERE id=%s",
+            (user_id,),
+        )
+    except Exception:
+        pass
+    token = create_user_token(user_id)
+    return {
+        "token": token,
+        "user_id": user_id,
+        "display_name": _row_get(user, "display_name") or "",
+        "email": _row_get(user, "email") or "",
+        "username": _row_get(user, "username") or "",
+        "provider": provider,
+    }
+
+
+@app.post("/api/auth/verify-email")
+def verify_email_post(payload: VerifyEmailRequest):
+    _ensure_auth_profile_columns()
+    token = (payload.token or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Token required")
+    rows = fetch_all(
+        "SELECT id, email FROM app_users WHERE verification_token=%s LIMIT 1",
+        (token,),
+    )
+    if not rows and payload.email:
+        rows = fetch_all(
+            "SELECT id, email FROM app_users WHERE LOWER(email)=%s AND verification_token=%s LIMIT 1",
+            (payload.email.strip().lower(), token),
+        )
+    if not rows:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+    user_id = int(_row_get(rows[0], "id"))
+    execute_write(
+        """
+        UPDATE app_users
+        SET email_verified=1, verification_token=NULL
+        WHERE id=%s
+        """,
+        (user_id,),
+    )
+    return {"ok": True, "message": "Email verified. You can log in now."}
+
+
+@app.get("/api/auth/verify-email")
+def verify_email_get(token: str = ""):
+    """Browser link from email."""
+    if not token:
+        return {"ok": False, "detail": "Missing token"}
+    try:
+        return verify_email_post(VerifyEmailRequest(token=token))
+    except HTTPException as exc:
+        return {"ok": False, "detail": exc.detail}
+
+
+@app.post("/api/auth/resend-verification")
+def resend_verification(payload: VerifyEmailRequest):
+    _ensure_auth_profile_columns()
+    email = (payload.email or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email required")
+    rows = fetch_all(
+        "SELECT id, display_name, COALESCE(email_verified,0) AS email_verified FROM app_users WHERE LOWER(email)=%s LIMIT 1",
+        (email,),
+    )
+    if not rows:
+        return {"ok": True, "message": "If that email exists, a code was sent."}
+    if int(_row_get(rows[0], "email_verified") or 0) == 1:
+        return {"ok": True, "message": "Email already verified — please log in."}
+    token = secrets.token_hex(16)
+    execute_write(
+        "UPDATE app_users SET verification_token=%s WHERE id=%s",
+        (token, int(_row_get(rows[0], "id"))),
+    )
+    sent = _send_verification_email(email, token, str(_row_get(rows[0], "display_name") or ""))
+    return {
+        "ok": True,
+        "email_sent": sent,
+        "message": "Verification code sent.",
+        **({} if sent else {"dev_token": token}),
+    }
+
+
+@app.post("/api/auth/guest")
+def authenticate_guest(_: GuestAuthRequest):
+    """Fallback guest login (device-scoped version is applied by auth_professional)."""
+    email = "guest@novel.app"
+    display_name = "Guest"
+    rows = fetch_all("SELECT id FROM app_users WHERE LOWER(email)=%s LIMIT 1", (email,))
+    user_id = _row_id(rows[0]) if rows else None
+    if user_id is not None:
+        execute_write(
+            """
+            UPDATE app_users
+            SET provider='guest', display_name=%s, last_login_at=CURRENT_TIMESTAMP,
+                is_deleted=0, is_banned=0, is_suspended=0, suspended_until=NULL
+            WHERE id=%s
+            """,
+            (display_name, user_id),
+        )
+    else:
+        try:
+            _ensure_user_moderation_columns()
+        except Exception:
+            pass
+        user_id, _ = execute_write(
+            """
+            INSERT INTO app_users (email, provider, display_name, photo_url)
+            VALUES (%s, 'guest', %s, '')
+            """,
+            (email, display_name),
+        )
+        if not user_id:
+            user_id = _find_user_id_by_email(email)
+        if not user_id:
+            raise HTTPException(status_code=500, detail="Could not create guest user")
+    user_id = int(user_id)
+    # Guests are never blocked by moderation leftovers
+    return {
+        "id": user_id,
+        "email": email,
+        "display_name": display_name,
+        "photo_url": "",
+        "provider": "guest",
+        "token": create_user_token(user_id),
+    }
+
+
+@app.get("/api/me")
+def get_me(user: dict[str, Any] = Depends(require_user)):
+    """Fast profile for app shell — few queries, no schema ensure on hot path."""
+    uid = user["user_id"]
+    try:
+        rows = fetch_all(
+            """SELECT id, email, username, display_name, photo_url, cover_url, bio, provider,
+                      gender, birth_date, country, facebook_url,
+                      COALESCE(profile_complete,0) AS profile_complete,
+                      COALESCE(is_author,0) AS is_author
+               FROM app_users WHERE id=%s LIMIT 1""",
+            (uid,),
+        )
+    except Exception:
+        rows = fetch_all(
+            "SELECT id, email, display_name, photo_url, cover_url, bio, provider, "
+            "COALESCE(profile_complete,0) AS profile_complete FROM app_users WHERE id=%s LIMIT 1",
+            (uid,),
+        )
+    if not rows:
+        raise HTTPException(status_code=404, detail="User not found")
+    u = rows[0]
+
+    # One round-trip for counts (instead of 4–6 sequential queries)
+    story_count = library_count = reading_list_count = completed_count = 0
+    followers = following = 0
+    try:
+        count_rows = fetch_all(
+            """
+            SELECT
+              (SELECT COUNT(*) FROM books WHERE user_id=%s) AS story_count,
+              (SELECT COUNT(*) FROM library_entries WHERE user_id=%s) AS library_count,
+              (SELECT COUNT(*) FROM reading_lists WHERE user_id=%s) AS reading_list_count,
+              (SELECT COUNT(*) FROM library_entries
+                 WHERE user_id=%s
+                   AND LOWER(COALESCE(reading_status,'')) IN ('completed','complete','finished','done')
+              ) AS completed_count
+            """,
+            (uid, uid, uid, uid),
+        )
+        if count_rows:
+            cr = count_rows[0]
+            story_count = int(_row_get(cr, "story_count") or 0)
+            library_count = int(_row_get(cr, "library_count") or 0)
+            reading_list_count = int(_row_get(cr, "reading_list_count") or 0)
+            completed_count = int(_row_get(cr, "completed_count") or 0)
+    except Exception as exc:
+        LOGGER.warning("get_me counts soft-fail: %s", exc)
+
+    try:
+        followers = _count_followers(uid)
+        following = _count_following(uid)
+    except Exception:
+        pass
+
+    display_name = _row_get(u, "display_name") or (_row_get(u, "email") or "Reader").split("@")[0]
+    username = "@" + display_name.lower().replace(" ", "")
+    return {
+        "id": _row_get(u, "id"),
+        "email": _row_get(u, "email") or "",
+        "display_name": display_name,
+        "username": _row_get(u, "username") or username,
+        "photo_url": _row_get(u, "photo_url") or "",
+        "avatar_url": _row_get(u, "photo_url") or "",
+        "cover_url": _row_get(u, "cover_url") or "",
+        "bio": _row_get(u, "bio") or "",
+        "provider": _row_get(u, "provider") or "",
+        "following": following,
+        "followers": followers,
+        "blocked": 0,
+        "chapters_read": completed_count,
+        "social_karma": story_count * 10,
+        "day_streak": 0,
+        "story_count": story_count,
+        "library_count": library_count,
+        "reading_list_count": reading_list_count,
+        "gender": _row_get(u, "gender") or "",
+        "birth_date": str(_row_get(u, "birth_date") or ""),
+        "country": _row_get(u, "country") or "",
+        "facebook_url": _row_get(u, "facebook_url") or "",
+        "profile_complete": bool(int(_row_get(u, "profile_complete") or 0)),
+        "is_author": bool(int(_row_get(u, "is_author") or 0)),
+    }
+
+
+@app.get("/api/users/search")
+def search_users(
+    query: str = Query(default=""),
+    limit: int = Query(default=30, ge=1, le=100),
+):
+    """Search public authors by display_name / email local-part. Mobile Profile search."""
+    q_raw = (query or "").strip()
+    if not q_raw:
+        rows = fetch_all(
+            """
+            SELECT id, email, display_name, photo_url, cover_url, bio
+            FROM app_users
+            ORDER BY id DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+    else:
+        like = "%" + q_raw + "%"
+        rows = fetch_all(
+            """
+            SELECT id, email, display_name, photo_url, cover_url, bio
+            FROM app_users
+            WHERE COALESCE(display_name, '') LIKE %s
+               OR COALESCE(email, '') LIKE %s
+            ORDER BY id DESC
+            LIMIT %s
+            """,
+            (like, like, limit),
+        )
+    items = []
+    for u in (rows or []):
+        display = _row_get(u, "display_name") or (_row_get(u, "email") or "Reader").split("@")[0]
+        username = "@" + display.lower().replace(" ", "")
+        items.append(
+            {
+                "id": u.get("id"),
+                "display_name": display,
+                "username": username,
+                "photo_url": u.get("photo_url") or "",
+                "cover_url": u.get("cover_url") or "",
+                "bio": u.get("bio") or "",
+            }
+        )
+    return {"items": items}
+
+
+@app.get("/api/users/{user_id}")
+def get_user_profile(user_id: int):
+    rows = fetch_all(
+        "SELECT id, email, username, display_name, photo_url, cover_url, bio, provider, gender, birth_date, country, facebook_url, COALESCE(profile_complete,0) AS profile_complete, COALESCE(is_author,0) AS is_author FROM app_users WHERE id=%s LIMIT 1",
+        (user_id,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="User not found")
+    u = rows[0]
+    story_count_rows = fetch_all(
+        "SELECT COUNT(*) AS c FROM books WHERE user_id=%s",
+        (user_id,),
+    )
+    library_count_rows = fetch_all(
+        "SELECT COUNT(*) AS c FROM library_entries WHERE user_id=%s",
+        (user_id,),
+    )
+    reading_list_count_rows = fetch_all(
+        "SELECT COUNT(*) AS c FROM reading_lists WHERE user_id=%s",
+        (user_id,),
+    )
+    completed_rows = fetch_all(
+        """
+        SELECT COUNT(*) AS c FROM library_entries
+        WHERE user_id=%s AND LOWER(reading_status) IN ('completed', 'complete', 'finished', 'done')
+        """,
+        (user_id,),
+    )
+    story_count = int(story_count_rows[0]["c"]) if story_count_rows else 0
+    library_count = int(library_count_rows[0]["c"]) if library_count_rows else 0
+    reading_list_count = int(reading_list_count_rows[0]["c"]) if reading_list_count_rows else 0
+    completed_count = int(completed_rows[0]["c"]) if completed_rows else 0
+    followers = _count_followers(user_id)
+    following = _count_following(user_id)
+    display_name = _row_get(u, "display_name") or (_row_get(u, "email") or "Reader").split("@")[0]
+    username = _row_get(u, "username") or ("@" + display_name.lower().replace(" ", ""))
+    return {
+        "id": _row_get(u, "id"),
+        "email": _row_get(u, "email") or "",
+        "display_name": display_name,
+        "username": username,
+        "photo_url": _row_get(u, "photo_url") or "",
+        "avatar_url": _row_get(u, "photo_url") or "",
+        "cover_url": _row_get(u, "cover_url") or "",
+        "bio": _row_get(u, "bio") or "",
+        "gender": _row_get(u, "gender") or "",
+        "birth_date": str(_row_get(u, "birth_date") or ""),
+        "country": _row_get(u, "country") or "",
+        "facebook_url": _row_get(u, "facebook_url") or "",
+        "profile_complete": bool(int(_row_get(u, "profile_complete") or 0)),
+        "is_author": bool(int(_row_get(u, "is_author") or 0)),
+        "provider": _row_get(u, "provider") or "",
+        "following": following,
+        "followers": followers,
+        "blocked": 0,
+        "chapters_read": completed_count,
+        "social_karma": story_count * 10,
+        "day_streak": 0,
+        "story_count": story_count,
+        "library_count": library_count,
+        "reading_list_count": reading_list_count,
+    }
+
+
+@app.put("/api/me")
+def update_me(
+    payload: ProfileUpdateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Persist profile fields into app_users (single UPDATE for cold-start speed)."""
+    uid = int(user["user_id"])
+    try:
+        _ensure_profile_extra_columns()
+    except Exception as exc:
+        LOGGER.warning("ensure profile cols: %s", exc)
+    if payload.username is not None:
+        try:
+            _ensure_auth_profile_columns()
+        except Exception as exc:
+            LOGGER.warning("ensure username column: %s", exc)
+
+    sets: list[str] = []
+    vals: list[Any] = []
+
+    def _queue(col: str, val: Any) -> None:
+        sets.append(f"{col}=%s")
+        vals.append(val)
+
+    if payload.display_name is not None:
+        _queue("display_name", payload.display_name.strip() or "Reader")
+    if payload.username is not None:
+        username = payload.username.strip().lstrip("@").lower()
+        if username:
+            try:
+                existing = fetch_all(
+                    "SELECT id FROM app_users WHERE LOWER(username)=%s AND id<>%s LIMIT 1",
+                    (username, uid),
+                )
+                if existing:
+                    raise HTTPException(status_code=409, detail="Username already taken")
+                _queue("username", username)
+            except HTTPException:
+                raise
+            except Exception as exc:
+                LOGGER.warning("update_me username skipped: %s", exc)
+    if payload.photo_url is not None:
+        _queue("photo_url", payload.photo_url)
+    if payload.cover_url is not None:
+        _queue("cover_url", payload.cover_url)
+    if payload.bio is not None:
+        _queue("bio", payload.bio)
+    if payload.gender is not None:
+        _queue("gender", payload.gender)
+    if payload.birth_date is not None:
+        _queue("birth_date", payload.birth_date)
+    if payload.country is not None:
+        _queue("country", payload.country)
+    if payload.facebook_url is not None:
+        _queue("facebook_url", payload.facebook_url)
+
+    want_complete = payload.profile_complete is True or (
+        payload.profile_complete is None
+        and payload.display_name is not None
+        and payload.birth_date is not None
+    )
+    if payload.profile_complete is False:
+        _queue("profile_complete", 0)
+    elif want_complete or payload.profile_complete is True:
+        _queue("profile_complete", 1)
+
+    if sets:
+        try:
+            execute_write(
+                f"UPDATE app_users SET {', '.join(sets)} WHERE id=%s",
+                (*vals, uid),
+            )
+        except Exception as exc:
+            LOGGER.exception("update_me batch failed: %s", exc)
+            for col, val in zip([s.split("=")[0] for s in sets], vals):
+                try:
+                    execute_write(f"UPDATE app_users SET {col}=%s WHERE id=%s", (val, uid))
+                except Exception as one_exc:
+                    LOGGER.warning("update_me set %s failed: %s", col, one_exc)
+                    raise HTTPException(
+                        status_code=503,
+                        detail=f"Could not save profile field: {col}",
+                    ) from one_exc
+
+    try:
+        rows = fetch_all(
+            """
+            SELECT id, email, username, display_name, photo_url, cover_url, bio, provider,
+                   gender, birth_date, country, facebook_url,
+                   COALESCE(profile_complete,0) AS profile_complete
+            FROM app_users WHERE id=%s LIMIT 1
+            """,
+            (uid,),
+        )
+    except Exception:
+        rows = fetch_all(
+            "SELECT id, email, username, display_name, photo_url, cover_url, bio, provider, COALESCE(profile_complete,0) AS profile_complete FROM app_users WHERE id=%s LIMIT 1",
+            (uid,),
+        )
+    u = rows[0] if rows else {}
+    pc = int(_row_get(u, "profile_complete") or 0)
+    LOGGER.info("update_me user=%s profile_complete=%s", uid, pc)
+    return {
+        "ok": True,
+        "id": _row_get(u, "id") or uid,
+        "email": _row_get(u, "email") or "",
+        "username": _row_get(u, "username") or "",
+        "display_name": _row_get(u, "display_name") or "Reader",
+        "photo_url": _row_get(u, "photo_url") or "",
+        "cover_url": _row_get(u, "cover_url") or "",
+        "bio": _row_get(u, "bio") or "",
+        "gender": _row_get(u, "gender") or "",
+        "birth_date": str(_row_get(u, "birth_date") or ""),
+        "country": _row_get(u, "country") or "",
+        "facebook_url": _row_get(u, "facebook_url") or "",
+        "profile_complete": bool(pc),
+    }
+
+
+
+
+@app.post("/api/me/link-email")
+def link_email_password(
+    payload: LinkEmailRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Attach email+password so Google users can also sign in with email."""
+    email = (payload.email or "").strip().lower()
+    username = (payload.username or "").strip().lstrip("@").lower()
+    password = payload.password or ""
+    if (email and "@" not in email) or (not email and not username) or len(password) < 6:
+        raise HTTPException(status_code=400, detail="Valid username/email and password (min 6) required")
+    try:
+        _ensure_password_hash_column()
+    except Exception:
+        pass
+    # Hash with same helper as email auth if present
+    try:
+        from passlib.hash import bcrypt
+        pw_hash = bcrypt.hash(password)
+    except Exception:
+        import hashlib
+        pw_hash = hashlib.sha256(password.encode()).hexdigest()
+    # Ensure email unique
+    if email:
+        existing = fetch_all(
+            "SELECT id FROM app_users WHERE LOWER(email)=%s AND id<>%s LIMIT 1",
+            (email, user["user_id"]),
+        )
+        if existing:
+            raise HTTPException(status_code=409, detail="Email already in use")
+    if username:
+        try:
+            existing = fetch_all(
+                "SELECT id FROM app_users WHERE LOWER(username)=%s AND id<>%s LIMIT 1",
+                (username, user["user_id"]),
+            )
+        except Exception:
+            _ensure_auth_profile_columns()
+            existing = fetch_all(
+                "SELECT id FROM app_users WHERE LOWER(username)=%s AND id<>%s LIMIT 1",
+                (username, user["user_id"]),
+            )
+        if existing:
+            raise HTTPException(status_code=409, detail="Username already taken")
+    fields = ["password_hash=%s"]
+    values: list[Any] = [pw_hash]
+    if email:
+        fields.append("email=%s")
+        values.append(email)
+    if username:
+        fields.append("username=%s")
+        values.append(username)
+    values.append(user["user_id"])
+    try:
+        execute_write(
+            f"UPDATE app_users SET {', '.join(fields)}, updated_at=CURRENT_TIMESTAMP WHERE id=%s",
+            tuple(values),
+        )
+    except Exception as exc:
+        LOGGER.warning("link-email failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Could not link email")
+    return {"ok": True, "email": email, "username": username}
+
+
+@app.api_route("/api/admin/session", methods=["GET", "POST"])
+def admin_session(_: dict[str, Any] = Depends(require_admin)):
+    """Validate admin Bearer token. Accepts GET or POST so clients can use either."""
+    return {"ok": True, "username": ADMIN_USERNAME}
+
+
+@app.get("/api/media/{media_id}")
+def get_media_file(media_id: int):
+    """Serve image bytes stored in MySQL (survives Vercel cold starts)."""
+    from fastapi.responses import Response
+
+    # Do not run schema ensure on every image request (cold-start stampede).
+    rows = fetch_all(
+        "SELECT filename, content_type, data FROM media_files WHERE id=%s LIMIT 1",
+        (media_id,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Media not found")
+    row = rows[0]
+    data = row["data"] if isinstance(row, dict) else row[2]
+    ctype = (row["content_type"] if isinstance(row, dict) else row[1]) or "image/jpeg"
+    if isinstance(data, memoryview):
+        data = data.tobytes()
+    if isinstance(data, str):
+        data = data.encode("latin-1")
+    return Response(content=bytes(data), media_type=str(ctype), headers={
+        "Cache-Control": "public, max-age=86400",
+    })
+
+
+@app.get("/api/story-images")
+def list_story_images():
+    return {"items": _available_story_images()}
+
+
+@app.post("/api/upload-image")
+async def upload_image(
+    file: UploadFile = File(...),
+    _: dict[str, Any] = Depends(require_admin),
+):
+    return await _save_uploaded_image(file)
+
+
+async def _save_uploaded_image(file: UploadFile) -> dict[str, str]:
+    extension = Path(file.filename or "upload").suffix.lower()
+    if extension not in {".jpg", ".jpeg", ".png", ".webp"}:
+        raise HTTPException(status_code=400, detail="Unsupported image format")
+
+    filename = f"{uuid4().hex}{extension}"
+    content = await file.read()
+    ctype = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+    }.get(extension, "image/jpeg")
+    path = _store_media_bytes(content, filename, ctype)
+    bump_content_version()
+    return {"path": path, "filename": filename, "url": path}
+
+
+@app.post("/api/write/upload-image")
+async def upload_writer_image(
+    file: UploadFile = File(...),
+    _user: dict[str, Any] = Depends(require_user),
+):
+    return await _save_uploaded_image(file)
+
+
+@app.post("/api/me/upload-image")
+async def upload_profile_image(
+    file: UploadFile = File(...),
+    _user: dict[str, Any] = Depends(require_user),
+):
+    return await _save_uploaded_image(file)
+
+
+@app.post("/api/support/upload-attachment")
+async def upload_support_attachment(file: UploadFile = File(...)):
+    extension = Path(file.filename or "upload").suffix.lower()
+    if extension not in {".jpg", ".jpeg", ".png", ".webp"}:
+        raise HTTPException(status_code=400, detail="Unsupported attachment format")
+
+    filename = f"support-{uuid4().hex}{extension}"
+    content = await file.read()
+    # Store bytes in durable media storage; Vercel's local filesystem is ephemeral.
+    path = _store_media_bytes(content, filename, "image/jpeg")
+    return {"path": path, "filename": filename}
+
+
+_BOOTSTRAP_CACHE: dict[str, Any] | None = None
+_BOOTSTRAP_CACHE_AT: float = 0.0
+_BOOTSTRAP_CACHE_TTL = 600.0  # seconds - warm instances stay fast longer
+
+# Ultra-light caches (per warm Vercel instance) - cuts DB hits on hot paths
+_VERSION_CACHE: dict[str, Any] | None = None
+_VERSION_CACHE_AT: float = 0.0
+_VERSION_CACHE_TTL = 15.0
+
+_TAGS_CACHE: dict[str, Any] | None = None
+_TAGS_CACHE_AT: float = 0.0
+_TAGS_CACHE_TTL = 120.0
+
+
+
+def _user_age_years(birth_date: str | None) -> int | None:
+    """Return age in full years from YYYY-MM-DD, or None if unknown."""
+    if not birth_date:
+        return None
+    try:
+        raw = str(birth_date).strip()[:10]
+        y, m, d = [int(x) for x in raw.split("-")]
+        from datetime import date
+        today = date.today()
+        age = today.year - y - ((today.month, today.day) < (m, d))
+        return max(0, age)
+    except Exception:
+        return None
+
+
+def _audience_allows(audience: str | None, age: int | None) -> bool:
+    """Filter books by content rating vs reader age.
+    All Ages → everyone
+    Teen (13+) → ages 13–18 inclusive
+    Mature (18+) → ages 18+
+    Unknown age → only All Ages (safe default)
+    """
+    a = (audience or "").strip().lower()
+    if not a or "all" in a:
+        return True
+    if age is None:
+        return False
+    if "13" in a or "teen" in a:
+        return 13 <= age <= 18
+    if "18" in a or "mature" in a or "adult" in a:
+        return age >= 18
+    return True
+
+
+@app.get("/api/bootstrap")
+def bootstrap(user: dict[str, Any] | None = Depends(optional_user)):
+    global _BOOTSTRAP_CACHE, _BOOTSTRAP_CACHE_AT
+    import time as _time
+    # Anonymous catalog can be cached; logged-in users get age/audience filtered view
+    now = _time.time()
+    if (
+        user is None
+        and _BOOTSTRAP_CACHE is not None
+        and (now - _BOOTSTRAP_CACHE_AT) < _BOOTSTRAP_CACHE_TTL
+    ):
+        return _BOOTSTRAP_CACHE
+
+    discover_tabs = [
+        row["name"]
+        for row in fetch_all(
+            "SELECT name FROM categories WHERE tab_group = 'discover' ORDER BY sort_order"
+        )
+    ]
+
+    explore_topics = fetch_all(
+        "SELECT name, topic_count FROM categories WHERE tab_group = 'explore' ORDER BY sort_order"
+    )
+
+    books = fetch_all(
+        """
+        SELECT b.id, b.user_id, b.title, b.author, b.description, b.cover_path, b.accent_hex, b.section_name,
+               b.status_text, b.rating, b.genre, b.cta_label,
+               COALESCE(b.primary_genre, b.genre) AS primary_genre,
+               COALESCE(b.secondary_genre, '') AS secondary_genre,
+               COALESCE(b.is_completed, 0) AS is_completed,
+               COALESCE(b.view_count, 0) AS view_count,
+               COALESCE(b.audience, 'All Ages') AS audience,
+               COALESCE(b.language, '') AS language,
+               u.photo_url AS author_photo_url,
+               COALESCE(u.country, '') AS author_country
+        FROM books b
+        LEFT JOIN app_users u ON u.id = b.user_id
+                WHERE LOWER(TRIM(COALESCE(b.status_text, 'draft'))) NOT LIKE 'draft%'
+                    AND LOWER(TRIM(COALESCE(b.status_text, ''))) NOT LIKE 'unpublish%'
+                    AND LOWER(TRIM(COALESCE(b.status_text, ''))) NOT IN ('private', 'unlisted')
+        ORDER BY b.sort_order ASC, b.id DESC
+        LIMIT 48
+        """
+    )
+
+    # One query for all home like counts (avoid N+1)
+    likes_map: dict[int, int] = {}
+    try:
+        _ensure_book_likes_table()
+        like_rows = fetch_all(
+            "SELECT book_id, COUNT(*) AS c FROM book_likes GROUP BY book_id"
+        )
+        for lr in like_rows or []:
+            bid = lr.get("book_id") if isinstance(lr, dict) else None
+            if bid is not None:
+                likes_map[int(bid)] = int(lr.get("c") or 0)
+    except Exception as exc:
+        LOGGER.warning("batch likes_map failed: %s", exc)
+
+    reader_age: int | None = None
+    reader_country = ""
+    if user and user.get("user_id"):
+        try:
+            urows = fetch_all(
+                "SELECT birth_date, country FROM app_users WHERE id=%s LIMIT 1",
+                (int(user["user_id"]),),
+            )
+            if urows:
+                reader_age = _user_age_years(_row_get(urows[0], "birth_date"))
+                reader_country = str(_row_get(urows[0], "country") or "").strip()
+        except Exception as exc:
+            LOGGER.warning("reader age/country: %s", exc)
+
+    # Age-gate by story audience
+    if user is not None:
+        books = [
+            b
+            for b in (books or [])
+            if _audience_allows(
+                str(_row_get(b, "audience") or b.get("audience") if isinstance(b, dict) else ""),
+                reader_age,
+            )
+        ]
+
+    # Prefer same-country authors near top when known
+    if reader_country:
+        try:
+            def _country_key(b: Any) -> int:
+                ac = str(_row_get(b, "author_country") or "").strip().lower()
+                return 0 if ac and ac == reader_country.lower() else 1
+            books = sorted(books or [], key=_country_key)
+        except Exception:
+            pass
+
+    def _card(book: Any) -> dict[str, Any]:
+        """Full card payload for home rails (author id + live likes)."""
+        bid = book["id"]
+        live = int(likes_map.get(int(bid), 0))
+        return {
+            "id": bid,
+            "user_id": book.get("user_id"),
+            "author_user_id": book.get("user_id"),
+            "author_photo_url": _normalize_cover_path(book.get("author_photo_url") or "") if book.get("author_photo_url") else "",
+            "title": book["title"],
+            "author": book["author"],
+            "description": book.get("description") or "",
+            "cover_path": _normalize_cover_path(book.get("cover_path")),
+            "accent_hex": book.get("accent_hex") or "#A1A1A1",
+            "section_name": book.get("section_name") or "",
+            "status_text": book.get("status_text") or "",
+            "rating": book.get("rating") or 0,
+            "genre": book.get("genre") or "",
+            "primary_genre": book.get("primary_genre") or book.get("genre") or "",
+            "secondary_genre": book.get("secondary_genre") or "",
+            "is_completed": book.get("is_completed") or 0,
+            "cta_label": book.get("cta_label") or "Read now",
+            "likes_count": live,
+            "likes": live,
+            "view_count": int(book.get("view_count") or 0),
+            "views": int(book.get("view_count") or 0),
+            "audience": book.get("audience") or "All Ages",
+            "language": book.get("language") or "",
+            "author_country": book.get("author_country") or "",
+        }
+
+    recently_updated = [
+        _card(book)
+        for book in books
+        if book["section_name"] == "recently_updated"
+    ]
+
+    recently_completed = [
+        _card(book)
+        for book in books
+        if book["section_name"] == "recently_completed"
+    ]
+
+    featured_book = {
+        "id": 0,
+        "title": "No featured story available",
+        "author": "",
+        "description": "",
+        "status_text": "",
+        "rating": 0,
+        "genre": "",
+        "cta": "Read now",
+        "cover_path": "",
+        "tags": [],
+    }
+
+    featured_candidates = [b for b in books if b["section_name"] == "featured"]
+    if not featured_candidates:
+        featured_candidates = books[:1]
+
+    if featured_candidates:
+        featured_raw = featured_candidates[0]
+        featured_book = {
+            "id": featured_raw["id"],
+            "user_id": featured_raw.get("user_id"),
+            "author_user_id": featured_raw.get("user_id"),
+            "title": featured_raw["title"],
+            "author": featured_raw["author"],
+            "description": featured_raw["description"],
+            "status_text": featured_raw["status_text"],
+            "rating": featured_raw["rating"],
+            "genre": featured_raw["genre"],
+            "cta": featured_raw["cta_label"],
+            "cover_path": _normalize_cover_path(featured_raw["cover_path"]),
+            "tags": _story_tags_for_book(featured_raw["id"]),
+            "likes_count": _live_book_likes_count(featured_raw["id"]),
+        }
+
+    # Library entries are user-specific and loaded via GET /api/library after auth.
+    # Bootstrap stays public (read-only discover content) so unauthenticated users can browse.
+    library_payload: list[dict[str, Any]] = []
+    if user and user.get("user_id"):
+        try:
+            lib_rows = fetch_all(
+                """
+                SELECT le.id, le.book_id, le.reading_status, le.updated_text, le.chapters,
+                       le.primary_genre, le.secondary_genre, le.sort_order,
+                       COALESCE(le.last_chapter_number, 1) AS last_chapter_number,
+                       COALESCE(le.last_paragraph_index, 0) AS last_paragraph_index,
+                       COALESCE(le.chapters_read, 0) AS chapters_read,
+                       b.title, b.author, b.cover_path, b.accent_hex, b.rating, b.genre,
+                       b.status_text, b.description, b.section_name, b.cta_label,
+                       COALESCE(b.primary_genre, b.genre) AS book_primary_genre,
+                       COALESCE(b.secondary_genre, '') AS book_secondary_genre,
+                       COALESCE(b.is_completed, 0) AS is_completed
+                FROM library_entries le
+                JOIN books b ON b.id = le.book_id
+                WHERE le.user_id = %s
+                ORDER BY le.sort_order ASC, le.id DESC
+                LIMIT 20
+                """,
+                (int(user["user_id"]),),
+            )
+            for row in lib_rows or []:
+                book_id = row.get("book_id") if isinstance(row, dict) else None
+                library_payload.append({
+                    "id": row.get("id"),
+                    "book_id": book_id,
+                    "reading_status": row.get("reading_status") or "Reading",
+                    "updated_text": row.get("updated_text") or "",
+                    "chapters": int(row.get("chapters") or 0),
+                    "last_chapter_number": int(row.get("last_chapter_number") or 1),
+                    "last_paragraph_index": int(row.get("last_paragraph_index") or 0),
+                    "chapters_read": int(row.get("chapters_read") or 0),
+                    "primary_genre": row.get("primary_genre") or row.get("book_primary_genre") or "",
+                    "secondary_genre": row.get("secondary_genre") or "",
+                    "book": {
+                        "id": book_id,
+                        "title": row.get("title") or "",
+                        "author": row.get("author") or "",
+                        "cover_path": _normalize_cover_path(row.get("cover_path") or ""),
+                        "accent_hex": row.get("accent_hex") or "#581845",
+                        "rating": float(row.get("rating") or 0),
+                        "genre": row.get("genre") or "",
+                        "status_text": row.get("status_text") or "",
+                        "description": (row.get("description") or "")[:240],
+                        "section_name": row.get("section_name") or "featured",
+                        "cta_label": row.get("cta_label") or "Continue",
+                        "primary_genre": row.get("book_primary_genre") or row.get("genre") or "",
+                        "secondary_genre": row.get("book_secondary_genre") or "",
+                        "is_completed": bool(row.get("is_completed")),
+                    },
+                })
+        except Exception as lib_exc:
+            LOGGER.warning("bootstrap library_entries failed: %s", lib_exc)
+
+    _ensure_default_write_screen()
+    _ensure_default_profile()
+
+    _ensure_default_write_screen()
+    _ensure_default_profile()
+
+    write_meta_rows = fetch_all(
+        "SELECT manage_tabs, story_tabs, filter_label, sort_label, empty_title, empty_cta FROM write_screen LIMIT 1"
+    )
+    if not write_meta_rows:
+        raise HTTPException(status_code=500, detail="Write metadata is missing")
+
+    write_meta = write_meta_rows[0]
+    write_screen = {
+        "manage_tabs": write_meta["manage_tabs"].split(","),
+        "story_tabs": write_meta["story_tabs"].split(","),
+        "filter_label": write_meta["filter_label"],
+        "sort_label": write_meta["sort_label"],
+        "empty_title": write_meta["empty_title"],
+        "empty_cta": write_meta["empty_cta"],
+    }
+
+    notifications = fetch_all(
+        "SELECT tab_name AS tab, title, message, created_at FROM notifications ORDER BY sort_order"
+    )
+
+    menu_rows = fetch_all(
+        "SELECT section_name, label, icon_name, route_name FROM menu_items ORDER BY section_order, sort_order"
+    )
+    menu_map = defaultdict(list)
+    for row in menu_rows:
+        menu_map[row["section_name"]].append(
+            {
+                "label": row["label"],
+                "icon": row["icon_name"],
+                "route": row["route_name"],
+            }
+        )
+
+    menu_sections = [
+        {"section": section, "items": items}
+        for section, items in menu_map.items()
+    ]
+
+    # Neutral profile shell — real stats come from /api/me and /api/users/{id}
+    profile_rows = fetch_all(
+        "SELECT display_name, username, following, followers, blocked, chapters_read, social_karma, day_streak FROM profiles LIMIT 1"
+    )
+    if profile_rows:
+        profile = profile_rows[0]
+    else:
+        profile = {
+            "display_name": "Reader",
+            "username": "@reader",
+            "following": 0,
+            "followers": 0,
+            "blocked": 0,
+            "chapters_read": 0,
+            "social_karma": 0,
+            "day_streak": 0,
+        }
+    # Do NOT inject global reading_lists into every profile (causes fake data).
+    # Client loads per-user lists via /api/reading-lists and /api/users/{id}/reading-lists.
+    profile_payload = {
+        **profile,
+        "following": 0,
+        "followers": 0,
+        "blocked": 0,
+        "chapters_read": 0,
+        "social_karma": 0,
+        "day_streak": 0,
+        "reading_lists": [],
+    }
+
+    achievement_rows = fetch_all(
+        """
+        SELECT group_name, title, subtitle, progress_label, badge_value, style
+        FROM achievements
+        ORDER BY group_order, sort_order
+        """
+    )
+    achievement_map = defaultdict(list)
+    for row in achievement_rows:
+        achievement_map[row["group_name"]].append(
+            {
+                "title": row["title"],
+                "subtitle": row["subtitle"],
+                "progress_label": row["progress_label"],
+                "badge_value": row["badge_value"],
+                "style": row["style"],
+            }
+        )
+
+    achievements = [
+        {"group_name": group_name, "items": items}
+        for group_name, items in achievement_map.items()
+    ]
+
+    payload = {
+        "discover_tabs": discover_tabs,
+        "recently_updated": recently_updated,
+        "recently_completed": recently_completed,
+        "discover_books": [_card(book) for book in books if str(book.get("title") or "").strip()],
+        "featured_book": featured_book,
+        "explore_topics": explore_topics,
+        "library_entries": library_payload,
+        "write_screen": write_screen,
+        "notifications": notifications,
+        "menu_sections": menu_sections,
+        "profile": profile_payload,
+        "achievements": achievements,
+    }
+    if user is None:
+        _BOOTSTRAP_CACHE = payload
+        _BOOTSTRAP_CACHE_AT = _time.time()
+    return payload
+
+
+@app.get("/api/search")
+def search_stories(
+    query: str = Query(default=""),
+    genre: str = Query(default=""),
+    min_rating: float = Query(default=0.0),
+    limit: int = Query(default=40, ge=1, le=100),
+):
+    """Fast search — lightweight cards, case-insensitive, no N+1 serialize."""
+    q_raw = (query or "").strip()
+    g = (genre or "").strip()
+
+    def _card(r: dict) -> dict:
+        return {
+            "id": r.get("id"),
+            "title": r.get("title") or "",
+            "author": r.get("author") or "",
+            "description": (r.get("description") or "")[:240],
+            "cover_path": _normalize_cover_path(r.get("cover_path") or ""),
+            "accent_hex": r.get("accent_hex") or "#6C63FF",
+            "status_text": r.get("status_text") or "",
+            "rating": float(r.get("rating") or 0),
+            "genre": r.get("genre") or "",
+            "primary_genre": r.get("primary_genre") or r.get("genre") or "",
+            "secondary_genre": r.get("secondary_genre") or "",
+            "is_completed": bool(int(r.get("is_completed") or 0)),
+            "section_name": r.get("section_name") or "featured",
+            "cta_label": r.get("cta_label") or "Read",
+            "author_user_id": r.get("user_id"),
+            "user_id": r.get("user_id"),
+        }
+
+    # Public-ish statuses: Ongoing / Completed / Published / empty (legacy)
+    # Draft / unpublished / private stay hidden from search.
+    status_ok = (
+        "LOWER(TRIM(COALESCE(status_text, ''))) NOT LIKE 'draft%' "
+        "AND LOWER(TRIM(COALESCE(status_text, ''))) NOT LIKE 'unpublish%' "
+        "AND LOWER(TRIM(COALESCE(status_text, ''))) NOT IN ('private', 'unlisted')"
+    )
+
+    if not q_raw and not g and min_rating <= 0:
+        rows = fetch_all(
+            f"""
+            SELECT id, user_id, title, author, description, cover_path, accent_hex,
+                   status_text, rating, genre,
+                   COALESCE(primary_genre, genre) AS primary_genre,
+                   COALESCE(secondary_genre, '') AS secondary_genre,
+                   COALESCE(is_completed, 0) AS is_completed,
+                   section_name, cta_label
+            FROM books
+            WHERE {status_ok}
+            ORDER BY id DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        return {"items": [_card(r) for r in (rows or [])]}
+
+    q = "%" + q_raw.lower() + "%"
+    try:
+        if g:
+            g_like = "%" + g.lower() + "%"
+            rows = fetch_all(
+                f"""
+                SELECT id, user_id, title, author, description, cover_path, accent_hex,
+                       status_text, rating, genre,
+                       COALESCE(primary_genre, genre) AS primary_genre,
+                       COALESCE(secondary_genre, '') AS secondary_genre,
+                       COALESCE(is_completed, 0) AS is_completed,
+                       section_name, cta_label
+                FROM books
+                WHERE (
+                        LOWER(COALESCE(title, '')) LIKE %s
+                     OR LOWER(COALESCE(author, '')) LIKE %s
+                     OR LOWER(COALESCE(description, '')) LIKE %s
+                     OR LOWER(COALESCE(genre, '')) LIKE %s
+                     OR LOWER(COALESCE(primary_genre, '')) LIKE %s
+                     OR LOWER(COALESCE(secondary_genre, '')) LIKE %s
+                )
+                  AND (
+                        LOWER(COALESCE(genre, '')) LIKE %s
+                     OR LOWER(COALESCE(primary_genre, '')) LIKE %s
+                     OR LOWER(COALESCE(secondary_genre, '')) LIKE %s
+                  )
+                  AND COALESCE(rating, 0) >= %s
+                  AND {status_ok}
+                ORDER BY COALESCE(rating, 0) DESC, id DESC
+                LIMIT %s
+                """,
+                (q, q, q, q, q, q, g_like, g_like, g_like, min_rating, limit),
+            )
+        else:
+            rows = fetch_all(
+                f"""
+                SELECT id, user_id, title, author, description, cover_path, accent_hex,
+                       status_text, rating, genre,
+                       COALESCE(primary_genre, genre) AS primary_genre,
+                       COALESCE(secondary_genre, '') AS secondary_genre,
+                       COALESCE(is_completed, 0) AS is_completed,
+                       section_name, cta_label
+                FROM books
+                WHERE (
+                        LOWER(COALESCE(title, '')) LIKE %s
+                     OR LOWER(COALESCE(author, '')) LIKE %s
+                     OR LOWER(COALESCE(description, '')) LIKE %s
+                     OR LOWER(COALESCE(genre, '')) LIKE %s
+                     OR LOWER(COALESCE(primary_genre, '')) LIKE %s
+                     OR LOWER(COALESCE(secondary_genre, '')) LIKE %s
+                )
+                  AND COALESCE(rating, 0) >= %s
+                  AND {status_ok}
+                ORDER BY COALESCE(rating, 0) DESC, id DESC
+                LIMIT %s
+                """,
+                (q, q, q, q, q, q, min_rating, limit),
+            )
+    except Exception as exc:
+        LOGGER.exception("search failed: %s", exc)
+        # Last-resort simpler query
+        rows = fetch_all(
+            """
+            SELECT id, user_id, title, author, description, cover_path, accent_hex,
+                   status_text, rating, genre, section_name, cta_label
+            FROM books
+            WHERE LOWER(COALESCE(title, '')) LIKE %s
+               OR LOWER(COALESCE(author, '')) LIKE %s
+            ORDER BY id DESC
+            LIMIT %s
+            """,
+            (q, q, limit),
+        )
+        for r in rows or []:
+            r.setdefault("primary_genre", r.get("genre") or "")
+            r.setdefault("secondary_genre", "")
+            r.setdefault("is_completed", 0)
+
+    return {"items": [_card(r) for r in (rows or [])]}
+
+
+
+
+@app.get("/api/me/activity")
+def get_my_activity(user: dict[str, Any] = Depends(require_user)):
+    """Actions performed BY the current user — read only from DB tables."""
+    uid = int(user["user_id"])
+    items: list[dict[str, Any]] = []
+    try:
+        _ensure_book_likes_table()
+    except Exception:
+        pass
+    try:
+        _ensure_author_follows_table()
+    except Exception:
+        pass
+    try:
+        _ensure_library_entries_table()
+    except Exception:
+        pass
+    try:
+        execute_write(
+            "CREATE TABLE IF NOT EXISTS book_shares (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, book_id INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)",
+            (),
+        ) if _live_use_sqlite() else execute_write(
+            "CREATE TABLE IF NOT EXISTS book_shares (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, book_id INT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            (),
+        )
+    except Exception:
+        pass
+
+    def push(typ: str, act_id: Any, title: str, message: str, book_id: Any = None, cover: Any = "", created_at: Any = None) -> None:
+        items.append({
+            "id": f"{typ}-{act_id}",
+            "type": typ,
+            "title": title,
+            "message": message or typ.title(),
+            "created_at": _serialize_db_datetime(created_at) if created_at is not None else str(act_id or ""),
+            "book_id": book_id,
+            "cover_path": _normalize_cover_path(cover or ""),
+        })
+
+    # Likes
+    try:
+        rows = fetch_all(
+            """
+            SELECT bl.id AS act_id, bl.book_id, b.title, b.cover_path,
+                   bl.created_at AS created_at
+            FROM book_likes bl
+            LEFT JOIN books b ON b.id = bl.book_id
+            WHERE bl.user_id=%s
+            ORDER BY bl.id DESC LIMIT 40
+            """,
+            (uid,),
+        ) or []
+        for r in rows:
+            push("like", _row_get(r, "act_id"), f"You liked {_row_get(r,'title') or 'a story'}", "Like",
+                 _row_get(r, "book_id"), _row_get(r, "cover_path") or "",
+                 created_at=_row_get(r, "created_at"))
+    except Exception as exc:
+        LOGGER.warning("my activity likes: %s", exc)
+
+    # Shares
+    try:
+        rows = fetch_all(
+            """
+            SELECT s.id AS act_id, s.book_id, s.created_at, b.title, b.cover_path
+            FROM book_shares s LEFT JOIN books b ON b.id=s.book_id
+            WHERE s.user_id=%s ORDER BY s.id DESC LIMIT 40
+            """,
+            (uid,),
+        ) or []
+        for r in rows:
+            push("share", _row_get(r, "act_id"), f"You shared {_row_get(r, 'title') or 'a story'}",
+                 "Share", _row_get(r, "book_id"), _row_get(r, "cover_path") or "",
+                 created_at=_row_get(r, "created_at"))
+    except Exception as exc:
+        LOGGER.warning("my activity shares: %s", exc)
+
+    # Reviews
+    try:
+        rows = fetch_all(
+            """
+            SELECT r.id AS act_id, r.book_id, r.rating, r.comment, b.title, b.cover_path
+            FROM book_reviews r
+            LEFT JOIN books b ON b.id = r.book_id
+            WHERE r.user_id=%s
+            ORDER BY r.id DESC LIMIT 40
+            """,
+            (uid,),
+        ) or []
+        for r in rows:
+            body = (str(_row_get(r, "comment") or ""))[:120]
+            push("review", _row_get(r, "act_id"), f"You reviewed {_row_get(r,'title') or 'a story'}",
+                 body or f"Rating {_row_get(r,'rating')}",
+                 _row_get(r, "book_id"), _row_get(r, "cover_path") or "")
+    except Exception as exc:
+        LOGGER.warning("my activity reviews: %s", exc)
+
+    # Follows
+    try:
+        rows = fetch_all(
+            """
+            SELECT f.id AS act_id, f.author_id,
+                   COALESCE(u.display_name, u.email, 'someone') AS name
+            FROM author_follows f
+            LEFT JOIN app_users u ON u.id = f.author_id
+            WHERE f.user_id=%s
+            ORDER BY f.id DESC LIMIT 40
+            """,
+            (uid,),
+        ) or []
+        for r in rows:
+            items.append({
+                "id": f"follow-{_row_get(r,'act_id')}",
+                "type": "follow",
+                "title": f"You followed {_row_get(r,'name') or 'someone'}",
+                "message": "Follow",
+                "created_at": str(_row_get(r, "act_id") or ""),
+                "actor_user_id": _row_get(r, "author_id"),
+                "book_id": None,
+                "cover_path": "",
+            })
+    except Exception as exc:
+        LOGGER.warning("my activity follows: %s", exc)
+
+    # Comments
+    try:
+        rows = fetch_all(
+            """
+            SELECT cc.id AS act_id, cc.body, c.story_id AS book_id, b.title, b.cover_path
+            FROM chapter_comments cc
+            LEFT JOIN chapters c ON c.id = cc.chapter_id
+            LEFT JOIN books b ON b.id = c.story_id
+            WHERE cc.user_id=%s
+            ORDER BY cc.id DESC LIMIT 40
+            """,
+            (uid,),
+        ) or []
+        for r in rows:
+            body = (str(_row_get(r, "body") or ""))[:120]
+            push("comment", _row_get(r, "act_id"), f"You commented on {_row_get(r,'title') or 'a story'}",
+                 body or "Comment", _row_get(r, "book_id"), _row_get(r, "cover_path") or "")
+    except Exception as exc:
+        LOGGER.warning("my activity comments: %s", exc)
+
+    # Library
+    try:
+        rows = fetch_all(
+            """
+            SELECT le.id AS act_id, le.book_id, b.title, b.cover_path
+            FROM library_entries le
+            LEFT JOIN books b ON b.id = le.book_id
+            WHERE le.user_id=%s
+            ORDER BY le.id DESC LIMIT 40
+            """,
+            (uid,),
+        ) or []
+        for r in rows:
+            push("save", _row_get(r, "act_id"), f"You saved {_row_get(r,'title') or 'a story'}",
+                 "Library", _row_get(r, "book_id"), _row_get(r, "cover_path") or "")
+    except Exception as exc:
+        LOGGER.warning("my activity library: %s", exc)
+
+    # Reading list items
+    try:
+        rows = fetch_all(
+            """
+            SELECT rli.id AS act_id, rli.book_id, b.title, b.cover_path, rl.name AS list_name
+            FROM reading_list_items rli
+            INNER JOIN reading_lists rl ON rl.id = rli.reading_list_id
+            LEFT JOIN books b ON b.id = rli.book_id
+            WHERE rl.user_id=%s
+            ORDER BY rli.id DESC LIMIT 40
+            """,
+            (uid,),
+        ) or []
+        for r in rows:
+            push("save", _row_get(r, "act_id"), f"You saved {_row_get(r,'title') or 'a story'}",
+                 f"List: {_row_get(r,'list_name') or 'Reading list'}",
+                 _row_get(r, "book_id"), _row_get(r, "cover_path") or "")
+    except Exception as exc:
+        LOGGER.warning("my activity lists: %s", exc)
+
+    LOGGER.info("my activity user=%s items=%s", uid, len(items))
+    return {"items": items[:100]}
+
+
+@app.post("/api/books/{book_id}/share")
+def record_book_share(book_id: int, user: dict[str, Any] = Depends(require_user)):
+    if not fetch_all("SELECT id FROM books WHERE id=%s LIMIT 1", (book_id,)):
+        raise HTTPException(status_code=404, detail="Story not found")
+    try:
+        execute_write(
+            "INSERT INTO book_shares (user_id, book_id) VALUES (%s, %s)",
+            (int(user["user_id"]), book_id),
+        )
+    except Exception as exc:
+        LOGGER.warning("record share failed: %s", exc)
+    return {"ok": True}
+
+
+@app.get("/api/notifications/admin")
+def get_admin_notifications(user: dict[str, Any] = Depends(require_user)):
+    """System / admin announcements for the in-app Admin notifications tab."""
+    items: list[dict[str, Any]] = []
+    try:
+        rows = fetch_all(
+            """
+            SELECT id, tab_name AS tab, title, message, created_at
+            FROM notifications
+            WHERE LOWER(COALESCE(tab_name, '')) IN ('admin', 'system', 'announcement', 'all')
+               OR LOWER(COALESCE(title, '')) LIKE '%%admin%%'
+            ORDER BY id DESC
+            LIMIT 50
+            """
+        )
+        for r in rows or []:
+            items.append({
+                "id": f"admin-{_row_get(r, 'id')}",
+                "tab": _row_get(r, "tab") or "Admin",
+                "type": "admin",
+                "title": _row_get(r, "title") or "Announcement",
+                "message": _row_get(r, "message") or "",
+                "created_at": _serialize_db_datetime(_row_get(r, "created_at")),
+            })
+    except Exception as exc:
+        LOGGER.warning("admin notifications: %s", exc)
+        try:
+            rows = fetch_all(
+                """
+                SELECT id, tab_name AS tab, title, message, created_at
+                FROM notifications
+                ORDER BY sort_order, id DESC
+                LIMIT 50
+                """
+            )
+            for r in rows or []:
+                items.append({
+                    "id": f"admin-{_row_get(r, 'id')}",
+                    "tab": _row_get(r, "tab") or "Admin",
+                    "type": "admin",
+                    "title": _row_get(r, "title") or "Announcement",
+                    "message": _row_get(r, "message") or "",
+                    "created_at": str(_row_get(r, "created_at") or ""),
+                })
+        except Exception as exc2:
+            LOGGER.warning("admin notifications fallback: %s", exc2)
+    return {"items": items}
+
+
+@app.get("/api/notifications")
+def get_notifications(
+    tab: str = Query(default=""),
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Fast notifications for signed-in user (JOIN-based, no N+1 / no DDL)."""
+    uid = int(user["user_id"])
+    items: list[dict[str, Any]] = []
+
+    try:
+        likes = fetch_all(
+            """
+            SELECT bl.id, bl.user_id, bl.book_id, b.title, b.cover_path,
+                   COALESCE(u.display_name, 'Someone') AS actor_name,
+                   COALESCE(u.photo_url, '') AS actor_photo
+            FROM book_likes bl
+            JOIN books b ON b.id = bl.book_id
+            LEFT JOIN app_users u ON u.id = bl.user_id
+            WHERE bl.user_id != %s
+              AND (b.user_id=%s OR (
+                    LOWER(COALESCE(b.author,'')) = LOWER((SELECT COALESCE(display_name,'') FROM app_users WHERE id=%s LIMIT 1))
+                  ))
+            ORDER BY bl.id DESC LIMIT 25
+            """,
+            (uid, uid, uid),
+        )
+        for row in likes or []:
+            aname = _row_get(row, "actor_name") or "Someone"
+            title = _row_get(row, "title") or "your story"
+            items.append({
+                "id": f"like-{_row_get(row, 'id')}",
+                "tab": "Story",
+                "type": "like",
+                "title": f"{aname} liked {title}",
+                "message": f'{aname} liked your book "{title}"',
+                "created_at": str(_row_get(row, "id") or ""),
+                "actor_name": aname,
+                "actor_photo": _row_get(row, "actor_photo") or "",
+                "book_id": _row_get(row, "book_id"),
+                "cover_path": _normalize_cover_path(_row_get(row, "cover_path") or ""),
+            })
+    except Exception as exc:
+        LOGGER.warning("notifications likes: %s", exc)
+
+    try:
+        shares = fetch_all(
+            """
+            SELECT s.id, s.user_id, s.book_id, s.created_at, b.title, b.cover_path,
+                   COALESCE(u.display_name, 'Someone') AS actor_name,
+                   COALESCE(u.photo_url, '') AS actor_photo
+            FROM book_shares s JOIN books b ON b.id=s.book_id
+            LEFT JOIN app_users u ON u.id=s.user_id
+            WHERE s.user_id != %s AND (b.user_id=%s OR LOWER(COALESCE(b.author,'')) = LOWER((SELECT COALESCE(display_name,'') FROM app_users WHERE id=%s LIMIT 1)))
+            ORDER BY s.id DESC LIMIT 25
+            """,
+            (uid, uid, uid),
+        )
+        for row in shares or []:
+            actor = _row_get(row, "actor_name") or "Someone"
+            title = _row_get(row, "title") or "your story"
+            items.append({
+                "id": f"share-{_row_get(row, 'id')}",
+                "tab": "Story",
+                "type": "share",
+                "title": f"{actor} shared {title}",
+                "message": f'{actor} shared your book "{title}"',
+                "created_at": _serialize_db_datetime(_row_get(row, "created_at")),
+                "actor_name": actor,
+                "actor_photo": _row_get(row, "actor_photo") or "",
+                "book_id": _row_get(row, "book_id"),
+                "cover_path": _normalize_cover_path(_row_get(row, "cover_path") or ""),
+            })
+    except Exception as exc:
+        LOGGER.warning("notifications shares: %s", exc)
+
+    try:
+        comments = fetch_all(
+            """
+            SELECT cc.id, cc.user_id, cc.body, cc.created_at,
+                   COALESCE(cc.book_id, c.story_id) AS book_id,
+                   b.title AS book_title, b.cover_path,
+                   COALESCE(u.display_name, 'Someone') AS actor_name,
+                   COALESCE(u.photo_url, '') AS actor_photo
+            FROM chapter_comments cc
+            LEFT JOIN chapters c ON c.id = cc.chapter_id
+            JOIN books b ON b.id = COALESCE(cc.book_id, c.story_id)
+            LEFT JOIN app_users u ON u.id = cc.user_id
+            WHERE cc.user_id != %s
+              AND (b.user_id=%s OR LOWER(COALESCE(b.author,'')) = LOWER((SELECT COALESCE(display_name,'') FROM app_users WHERE id=%s LIMIT 1)))
+            ORDER BY cc.id DESC LIMIT 25
+            """,
+            (uid, uid, uid),
+        )
+        for row in comments or []:
+            aname = _row_get(row, "actor_name") or "Someone"
+            btitle = _row_get(row, "book_title") or "your story"
+            body = (_row_get(row, "body") or "")[:160]
+            items.append({
+                "id": f"comment-{_row_get(row, 'id')}",
+                "tab": "Story",
+                "type": "comment",
+                "title": f"{aname} commented on {btitle}",
+                "message": body or f"New comment on {btitle}",
+                "created_at": _serialize_db_datetime(_row_get(row, "created_at")),
+                "actor_name": aname,
+                "actor_photo": _row_get(row, "actor_photo") or "",
+                "book_id": _row_get(row, "book_id"),
+                "cover_path": _normalize_cover_path(_row_get(row, "cover_path") or ""),
+            })
+    except Exception as exc:
+        LOGGER.warning("notifications comments: %s", exc)
+
+    try:
+        reviews = fetch_all(
+            """
+            SELECT r.id, r.user_id, r.book_id, r.rating, r.comment AS body, r.created_at,
+                   b.title, b.cover_path,
+                   COALESCE(u.display_name, 'Someone') AS actor_name,
+                   COALESCE(u.photo_url, '') AS actor_photo
+            FROM book_reviews r
+            JOIN books b ON b.id = r.book_id
+            LEFT JOIN app_users u ON u.id = r.user_id
+            WHERE r.user_id != %s
+              AND (b.user_id=%s OR LOWER(COALESCE(b.author,'')) = LOWER((SELECT COALESCE(display_name,'') FROM app_users WHERE id=%s LIMIT 1)))
+            ORDER BY r.id DESC LIMIT 25
+            """,
+            (uid, uid, uid),
+        )
+        for row in reviews or []:
+            aname = _row_get(row, "actor_name") or "Someone"
+            title = _row_get(row, "title") or "your story"
+            body = (_row_get(row, "body") or "")[:160]
+            items.append({
+                "id": f"review-{_row_get(row, 'id')}",
+                "tab": "Story",
+                "type": "review",
+                "title": f"{aname} reviewed {title}",
+                "message": body or f"Rated {_row_get(row, 'rating') or ''}/5",
+                "created_at": _serialize_db_datetime(_row_get(row, "created_at")),
+                "actor_name": aname,
+                "actor_photo": _row_get(row, "actor_photo") or "",
+                "book_id": _row_get(row, "book_id"),
+                "cover_path": _normalize_cover_path(_row_get(row, "cover_path") or ""),
+            })
+    except Exception as exc:
+        LOGGER.warning("notifications reviews: %s", exc)
+
+    try:
+        follows = fetch_all(
+            """
+            SELECT f.id, f.user_id AS follower_id, f.created_at,
+                   COALESCE(u.display_name, 'Someone') AS actor_name,
+                   COALESCE(u.photo_url, '') AS actor_photo
+            FROM author_follows f
+            LEFT JOIN app_users u ON u.id = f.user_id
+            WHERE f.author_id=%s AND f.user_id != %s
+            ORDER BY f.id DESC LIMIT 25
+            """,
+            (uid, uid),
+        )
+        for row in follows or []:
+            aname = _row_get(row, "actor_name") or "Someone"
+            items.append({
+                "id": f"follow-{_row_get(row, 'id')}",
+                "tab": "Community",
+                "type": "follow",
+                "title": f"{aname} started following you",
+                "message": f"{aname} is now following you",
+                "created_at": _serialize_db_datetime(_row_get(row, "created_at")),
+                "actor_name": aname,
+                "actor_photo": _row_get(row, "actor_photo") or "",
+            })
+    except Exception as exc:
+        LOGGER.warning("notifications follows: %s", exc)
+
+    # Others saved my books to library
+    try:
+        saves = fetch_all(
+            """
+            SELECT le.id, le.user_id, le.book_id, b.title, b.cover_path,
+                   COALESCE(le.updated_text, '') AS updated_text,
+                   COALESCE(u.display_name, 'Someone') AS actor_name,
+                   COALESCE(u.photo_url, '') AS actor_photo
+            FROM library_entries le
+            JOIN books b ON b.id = le.book_id
+            LEFT JOIN app_users u ON u.id = le.user_id
+            WHERE le.user_id != %s
+              AND (b.user_id=%s OR LOWER(COALESCE(b.author,'')) = LOWER((SELECT COALESCE(display_name,'') FROM app_users WHERE id=%s LIMIT 1)))
+            ORDER BY le.id DESC LIMIT 25
+            """,
+            (uid, uid, uid),
+        )
+        for row in saves or []:
+            aname = _row_get(row, "actor_name") or "Someone"
+            title = _row_get(row, "title") or "your story"
+            items.append({
+                "id": f"save-{_row_get(row, 'id')}",
+                "tab": "Story",
+                "type": "save",
+                "title": f"{aname} saved {title}",
+                "message": f'{aname} saved your book "{title}"',
+                "created_at": str(_row_get(row, "updated_text") or _row_get(row, "id") or ""),
+                "actor_name": aname,
+                "actor_photo": _row_get(row, "actor_photo") or "",
+                "book_id": _row_get(row, "book_id"),
+                "cover_path": _normalize_cover_path(_row_get(row, "cover_path") or ""),
+            })
+    except Exception as exc:
+        LOGGER.warning("notifications saves: %s", exc)
+
+    try:
+        wall = fetch_all(
+            """
+            SELECT w.id, w.user_id, w.body, w.created_at,
+                   COALESCE(u.display_name, 'Someone') AS actor_name,
+                   COALESCE(u.photo_url, '') AS actor_photo
+            FROM wall_posts w
+            LEFT JOIN app_users u ON u.id = w.user_id
+            WHERE w.target_user_id=%s AND w.user_id != %s
+            ORDER BY w.id DESC LIMIT 20
+            """,
+            (uid, uid),
+        )
+        for row in wall or []:
+            aname = _row_get(row, "actor_name") or "Someone"
+            body = (_row_get(row, "body") or "")[:160]
+            items.append({
+                "id": f"wall-{_row_get(row, 'id')}",
+                "tab": "Community",
+                "type": "wall",
+                "title": f"{aname} posted on your wall",
+                "message": body or "New wall post",
+                "created_at": _serialize_db_datetime(_row_get(row, "created_at")),
+                "actor_name": aname,
+                "actor_photo": _row_get(row, "actor_photo") or "",
+            })
+    except Exception as exc:
+        LOGGER.warning("notifications wall: %s", exc)
+
+    # Support / Contact Us admin replies
+    try:
+        _ensure_user_support_notifications_table()
+        srows = fetch_all(
+            """
+            SELECT id, support_request_id, title, message, is_read, created_at
+            FROM user_support_notifications
+            WHERE user_id=%s
+            ORDER BY id DESC LIMIT 30
+            """,
+            (uid,),
+        )
+        for row in srows or []:
+            items.append({
+                "id": f"support-{_row_get(row, 'id')}",
+                "tab": "System",
+                "type": "support_reply",
+                "title": _row_get(row, "title") or "Support reply",
+                "message": _row_get(row, "message") or "",
+                "created_at": _serialize_db_datetime(_row_get(row, "created_at")),
+                "support_request_id": _row_get(row, "support_request_id"),
+                "is_read": bool(int(_row_get(row, "is_read") or 0)),
+                "actor_name": "Support Team",
+                "actor_photo": "",
+            })
+    except Exception as exc:
+        LOGGER.warning("notifications support: %s", exc)
+
+    items.sort(key=lambda it: str(it.get("created_at") or it.get("id") or ""), reverse=True)
+    tab_f = (tab or "").strip().lower()
+    if tab_f:
+        items = [i for i in items if str(i.get("tab", "")).lower() == tab_f]
+        LOGGER.info("notifications user=%s items=%s", uid, len(items))
+    return {"items": items[:80]}
+
+
+
+
+def _ensure_user_preferences_table() -> None:
+    try:
+        if _live_use_sqlite():
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS user_preferences (
+                    user_id INTEGER PRIMARY KEY,
+                    prefs_json TEXT NOT NULL DEFAULT '{}',
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                (),
+            )
+        else:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS user_preferences (
+                    user_id INT PRIMARY KEY,
+                    prefs_json TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                (),
+            )
+    except Exception as exc:
+        LOGGER.warning("user_preferences table: %s", exc)
+
+
+@app.get("/api/me/preferences")
+def get_my_preferences(user: dict[str, Any] = Depends(require_user)):
+    uid = int(user["user_id"])
+    _ensure_user_preferences_table()
+    try:
+        rows = fetch_all("SELECT prefs_json FROM user_preferences WHERE user_id=%s LIMIT 1", (uid,))
+        if rows:
+            raw = _row_get(rows[0], "prefs_json") or "{}"
+            try:
+                data = json.loads(raw) if isinstance(raw, str) else (raw or {})
+            except Exception:
+                data = {}
+            if isinstance(data, dict):
+                return data
+    except Exception as exc:
+        LOGGER.warning("get preferences: %s", exc)
+    return {
+        "notifications": {"reading_reminders": True, "new_releases": True, "recommendations": False, "marketing": False, "system": True},
+        "language": "en",
+        "favourite_genres": [],
+        "content_warnings": {},
+        "cookies": {"essential": True, "analytics": True, "marketing": False, "functional": True},
+    }
+
+
+@app.put("/api/me/preferences")
+def put_my_preferences(payload: dict[str, Any] = Body(default={}), user: dict[str, Any] = Depends(require_user)):
+    uid = int(user["user_id"])
+    _ensure_user_preferences_table()
+    current: dict[str, Any] = {}
+    try:
+        rows = fetch_all("SELECT prefs_json FROM user_preferences WHERE user_id=%s LIMIT 1", (uid,))
+        if rows:
+            raw = _row_get(rows[0], "prefs_json") or "{}"
+            try:
+                current = json.loads(raw) if isinstance(raw, str) else dict(raw or {})
+            except Exception:
+                current = {}
+    except Exception:
+        current = {}
+    for k, v in (payload or {}).items():
+        if isinstance(v, dict) and isinstance(current.get(k), dict):
+            merged = dict(current.get(k) or {})
+            merged.update(v)
+            current[k] = merged
+        else:
+            current[k] = v
+    blob = json.dumps(current)
+    try:
+        if _live_use_sqlite():
+            execute_write(
+                """
+                INSERT INTO user_preferences (user_id, prefs_json, updated_at)
+                VALUES (%s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id) DO UPDATE SET prefs_json=excluded.prefs_json, updated_at=CURRENT_TIMESTAMP
+                """,
+                (uid, blob),
+            )
+        else:
+            execute_write(
+                """
+                INSERT INTO user_preferences (user_id, prefs_json, updated_at)
+                VALUES (%s, %s, CURRENT_TIMESTAMP)
+                ON DUPLICATE KEY UPDATE prefs_json=VALUES(prefs_json), updated_at=CURRENT_TIMESTAMP
+                """,
+                (uid, blob),
+            )
+    except Exception as exc:
+        LOGGER.warning("put preferences: %s", exc)
+        try:
+            execute_write("DELETE FROM user_preferences WHERE user_id=%s", (uid,))
+            execute_write("INSERT INTO user_preferences (user_id, prefs_json) VALUES (%s, %s)", (uid, blob))
+        except Exception as exc2:
+            LOGGER.warning("put preferences fallback: %s", exc2)
+            raise HTTPException(status_code=500, detail="Could not save preferences")
+    return current
+
+
+@app.get("/api/me/reading-stats")
+def get_my_reading_stats(user: dict[str, Any] = Depends(require_user)):
+    uid = int(user["user_id"])
+    books_read = 0
+    streak = 0
+    top_genres: list[dict[str, Any]] = []
+    try:
+        rows = fetch_all(
+            """
+            SELECT COUNT(*) AS c FROM library_entries
+            WHERE user_id=%s AND LOWER(COALESCE(reading_status,'')) IN ('completed','complete','finished')
+            """,
+            (uid,),
+        )
+        if rows:
+            books_read = int(_row_get(rows[0], "c") or 0)
+    except Exception:
+        try:
+            rows = fetch_all("SELECT COUNT(*) AS c FROM library_entries WHERE user_id=%s", (uid,))
+            books_read = int(_row_get(rows[0], "c") or 0) if rows else 0
+        except Exception:
+            books_read = 0
+    try:
+        rows = fetch_all(
+            """
+            SELECT COALESCE(b.primary_genre, b.genre, 'General') AS g, COUNT(*) AS c
+            FROM library_entries le
+            JOIN books b ON b.id = le.book_id
+            WHERE le.user_id=%s
+            GROUP BY g ORDER BY c DESC LIMIT 5
+            """,
+            (uid,),
+        )
+        for r in rows or []:
+            top_genres.append({"name": _row_get(r, "g") or "General", "count": int(_row_get(r, "c") or 0)})
+    except Exception:
+        pass
+    return {
+        "books_read": books_read,
+        "pages_read": books_read * 180,
+        "current_streak": streak,
+        "month_books": min(books_read, 6) if books_read else 0,
+        "goal_pct": 75 if books_read else 0,
+        "top_genres": top_genres,
+        "reading_time_label": "",
+    }
+
+
+
+@app.get("/api/support/requests")
+def list_my_support_requests(user: dict[str, Any] = Depends(require_user)):
+    """Logged-in user's contact tickets + admin replies (conversation history)."""
+    _ensure_support_request_columns()
+    uid = int(user["user_id"])
+    email = (user.get("email") or "").strip().lower()
+    try:
+        rows = fetch_all(
+            """
+            SELECT id, email, first_name, issue, subject, description, device_type,
+                   attachment_path, status, created_at, admin_reply, user_id, replied_at
+            FROM support_requests
+            WHERE user_id=%s OR (email IS NOT NULL AND LOWER(email)=%s)
+            ORDER BY created_at DESC, id DESC
+            """,
+            (uid, email or "__none__"),
+        )
+    except Exception as exc:
+        LOGGER.warning("list_my_support_requests failed: %s", exc)
+        rows = []
+    items = []
+    for r in rows or []:
+        rid = _row_get(r, "id")
+        items.append({
+            "id": rid,
+            "ticket_id": f"#CNT-{rid}",
+            "topic": _row_get(r, "issue") or _row_get(r, "subject") or "General",
+            "subject": _row_get(r, "subject") or "",
+            "message": _row_get(r, "description") or "",
+            "status": (_row_get(r, "status") or "open").lower(),
+            "created_at": str(_row_get(r, "created_at") or ""),
+            "updated_at": str(_row_get(r, "replied_at") or _row_get(r, "created_at") or ""),
+            "admin_reply": _row_get(r, "admin_reply") or "",
+            "email": _row_get(r, "email") or "",
+            "username": _row_get(r, "first_name") or "",
+        })
+    return {"items": items}
+
+
+@app.post("/api/support/requests")
+def create_support_request(
+    payload: SupportRequestCreateRequest,
+    user: dict[str, Any] | None = Depends(optional_user),
+):
+    _ensure_support_request_columns()
+    uid = None
+    try:
+        if user and user.get("user_id"):
+            uid = int(user["user_id"])
+    except Exception:
+        uid = None
+    # Try insert with user_id first; fall back without if column missing mid-deploy
+    try:
+        request_id, affected = execute_write(
+            """
+            INSERT INTO support_requests (
+                email, first_name, issue, subject, description,
+                device_type, attachment_path, status, user_id
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'open', %s)
+            """,
+            (
+                payload.email,
+                payload.first_name,
+                payload.issue,
+                payload.subject,
+                payload.description,
+                payload.device_type,
+                payload.attachment_path,
+                uid,
+            ),
+        )
+    except Exception:
+        request_id, affected = execute_write(
+            """
+            INSERT INTO support_requests (
+                email, first_name, issue, subject, description,
+                device_type, attachment_path, status
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'open')
+            """,
+            (
+                payload.email,
+                payload.first_name,
+                payload.issue,
+                payload.subject,
+                payload.description,
+                payload.device_type,
+                payload.attachment_path,
+            ),
+        )
+    if affected == 0:
+        raise HTTPException(status_code=400, detail="Failed to create support request")
+    bump_content_version()
+    return {"ok": True, "id": request_id}
+
+
+@app.get("/api/chat/messages")
+def get_chat_messages(user: dict[str, Any] = Depends(require_user)):
+    rows = fetch_all(
+        """
+        SELECT id, user_id, sender, message, created_at
+        FROM chat_messages
+        WHERE user_id=%s
+        ORDER BY created_at ASC, id ASC
+        """,
+        (user["user_id"],),
+    )
+    return {
+        "items": [
+            {
+                "id": row["id"],
+                "sender": row["sender"],
+                "message": row["message"],
+                "created_at": _serialize_db_datetime(row["created_at"]),
+            }
+            for row in rows
+        ]
+    }
+
+
+@app.post("/api/chat/messages")
+def create_chat_message(
+    payload: ChatMessageCreateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    row_id, _ = execute_write(
+        "INSERT INTO chat_messages (user_id, sender, message) VALUES (%s, %s, %s)",
+        (user["user_id"], "user", message),
+    )
+    return {"ok": True, "id": row_id}
+
+
+@app.get("/api/admin/chat/conversations")
+def admin_chat_conversations(_: dict[str, Any] = Depends(require_admin)):
+    rows = fetch_all(
+        """
+        SELECT u.id AS user_id, u.display_name, u.email,
+               COUNT(cm.id) AS message_count,
+               MAX(cm.created_at) AS last_message_at
+        FROM chat_messages cm
+        JOIN app_users u ON u.id = cm.user_id
+        GROUP BY u.id, u.display_name, u.email
+        ORDER BY last_message_at DESC, u.id DESC
+        LIMIT 500
+        """
+    )
+    return {"items": rows}
+
+
+@app.get("/api/admin/chat/conversations/{user_id}")
+def admin_chat_messages(user_id: int, _: dict[str, Any] = Depends(require_admin)):
+    rows = fetch_all(
+        """
+        SELECT id, user_id, sender, message, created_at
+        FROM chat_messages
+        WHERE user_id=%s
+        ORDER BY created_at ASC, id ASC
+        """,
+        (user_id,),
+    )
+    return {"items": rows}
+
+
+@app.post("/api/admin/chat/conversations/{user_id}")
+def admin_send_chat_message(
+    user_id: int,
+    payload: ChatMessageCreateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    if not fetch_all("SELECT id FROM app_users WHERE id=%s LIMIT 1", (user_id,)):
+        raise HTTPException(status_code=404, detail="User not found")
+    row_id, _ = execute_write(
+        "INSERT INTO chat_messages (user_id, sender, message) VALUES (%s, %s, %s)",
+        (user_id, "admin", message),
+    )
+    return {"ok": True, "id": row_id}
+
+
+
+@app.post("/api/admin/purge-user")
+def admin_purge_user(payload: dict[str, Any], admin: dict[str, Any] = Depends(require_admin)):
+    """Delete all data for an email (Aiven console alternative). Body: {"email": "..."}"""
+    email = str(payload.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="email required")
+    rows = fetch_all("SELECT id FROM app_users WHERE LOWER(email)=%s LIMIT 1", (email,))
+    if not rows:
+        return {"ok": True, "deleted": False, "reason": "user not found"}
+    uid = int(_row_get(rows[0], "id") or 0)
+    if not uid:
+        return {"ok": True, "deleted": False}
+    tables = [
+        ("book_likes", "user_id"),
+        ("book_reviews", "user_id"),
+        ("author_follows", "user_id"),
+        ("chapter_comments", "user_id"),
+        ("library_entries", "user_id"),
+        ("chat_messages", "user_id"),
+        ("wall_posts", "user_id"),
+        ("support_requests", "user_id"),
+    ]
+    deleted = {}
+    for table, col in tables:
+        try:
+            _, n = execute_write(f"DELETE FROM {table} WHERE {col}=%s", (uid,))
+            deleted[table] = n
+        except Exception as exc:
+            deleted[table] = str(exc)
+    try:
+        # Unfollow this user as author
+        execute_write("DELETE FROM author_follows WHERE author_id=%s", (uid,))
+    except Exception:
+        pass
+    try:
+        _, n = execute_write("DELETE FROM app_users WHERE id=%s", (uid,))
+        deleted["app_users"] = n
+    except Exception as exc:
+        deleted["app_users"] = str(exc)
+    return {"ok": True, "deleted": True, "user_id": uid, "details": deleted}
+
+
+@app.get("/api/admin/chat/{target_user_id}")
+def admin_get_chat_messages(target_user_id: int, admin: dict[str, Any] = Depends(require_admin)):
+    """Admin reads a user's support chat thread."""
+    rows = fetch_all(
+        """
+        SELECT id, user_id, sender, message, created_at
+        FROM chat_messages
+        WHERE user_id=%s
+        ORDER BY created_at ASC, id ASC
+        """,
+        (target_user_id,),
+    )
+    return {
+        "items": [
+            {
+                "id": row["id"],
+                "sender": row["sender"],
+                "message": row["message"],
+                "created_at": _serialize_db_datetime(row["created_at"]),
+            }
+            for row in (rows or [])
+        ]
+    }
+
+
+@app.post("/api/admin/chat/{target_user_id}")
+def admin_reply_chat(
+    target_user_id: int,
+    payload: ChatMessageCreateRequest,
+    admin: dict[str, Any] = Depends(require_admin),
+):
+    """Admin sends a reply into a user's chat thread."""
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    row_id, _ = execute_write(
+        "INSERT INTO chat_messages (user_id, sender, message) VALUES (%s, %s, %s)",
+        (target_user_id, "admin", message),
+    )
+    return {"ok": True, "id": row_id}
+
+
+
+_LIBRARY_ENTRIES_TABLE_READY = False
+
+
+def _ensure_library_entries_table() -> None:
+    """Ensure library_entries exists with user_id + reading_status (MySQL/SQLite)."""
+    global _LIBRARY_ENTRIES_TABLE_READY
+    if _LIBRARY_ENTRIES_TABLE_READY:
+        return
+    try:
+        if _live_use_sqlite():
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS library_entries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    book_id INTEGER NOT NULL,
+                    reading_status TEXT DEFAULT 'Reading',
+                    updated_text TEXT DEFAULT '',
+                    chapters INTEGER DEFAULT 0,
+                    primary_genre TEXT DEFAULT '',
+                    secondary_genre TEXT DEFAULT '',
+                    sort_order INTEGER DEFAULT 999
+                )
+                """,
+                (),
+            )
+        else:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS library_entries (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    book_id INT NOT NULL,
+                    reading_status VARCHAR(64) DEFAULT 'Reading',
+                    updated_text VARCHAR(255) DEFAULT '',
+                    chapters INT DEFAULT 0,
+                    primary_genre VARCHAR(128) DEFAULT '',
+                    secondary_genre VARCHAR(128) DEFAULT '',
+                    sort_order INT DEFAULT 999,
+                    INDEX (user_id),
+                    INDEX (book_id)
+                )
+                """,
+                (),
+            )
+        
+        # Reading resume fields
+        for col_sql in (
+            ("last_chapter_number", "INTEGER DEFAULT 1"),
+            ("last_paragraph_index", "INTEGER DEFAULT 0"),
+            ("chapters_read", "INTEGER DEFAULT 0"),
+            ("created_at", "TIMESTAMP NULL"),
+            ("updated_at", "TIMESTAMP NULL"),
+        ):
+            col, typ = col_sql
+            try:
+                if _live_use_sqlite():
+                    execute_write(f"ALTER TABLE library_entries ADD COLUMN {col} {typ}")
+                else:
+                    execute_write(f"ALTER TABLE library_entries ADD COLUMN {col} {typ}")
+            except Exception:
+                pass
+
+        _LIBRARY_ENTRIES_TABLE_READY = True
+    except Exception as exc:
+        LOGGER.warning("library_entries ensure failed: %s", exc)
+
+
+@app.get("/api/library")
+def get_library_entries(user: dict[str, Any] = Depends(require_user)):
+    _ensure_library_entries_table()
+    try:
+        rows = fetch_all(
+            """
+            SELECT le.id, le.reading_status, le.updated_text, le.chapters, le.primary_genre,
+                   le.secondary_genre,
+                   COALESCE(le.last_chapter_number, 1) AS last_chapter_number,
+                   COALESCE(le.last_paragraph_index, 0) AS last_paragraph_index,
+                   COALESCE(le.chapters_read, 0) AS chapters_read,
+                   b.id AS book_id, b.title, b.author, b.cover_path, b.accent_hex,
+                   b.description, b.status_text, b.rating, b.user_id AS author_user_id, b.primary_genre AS book_genre
+            FROM library_entries le
+            JOIN books b ON b.id = le.book_id
+            WHERE le.user_id = %s
+            ORDER BY le.id DESC
+            """,
+            (user["user_id"],),
+        )
+    except Exception as exc:
+        LOGGER.warning("library query with progress cols failed: %s", exc)
+        rows = fetch_all(
+            """
+            SELECT le.id, le.reading_status, le.updated_text, le.chapters, le.primary_genre,
+                   le.secondary_genre,
+                   b.id AS book_id, b.title, b.author, b.cover_path, b.accent_hex,
+                   b.description, b.status_text, b.rating, b.user_id AS author_user_id, b.primary_genre AS book_genre
+            FROM library_entries le
+            JOIN books b ON b.id = le.book_id
+            WHERE le.user_id = %s
+            ORDER BY le.id DESC
+            """,
+            (user["user_id"],),
+        )
+    seen_books: set[int] = set()
+    items: list[dict[str, Any]] = []
+    for row in rows or []:
+        book_id = int(_row_get(row, "book_id") or 0)
+        if book_id in seen_books:
+            continue
+        seen_books.add(book_id)
+        items.append({
+            "id": _row_get(row, "id"),
+            "book": {
+                "id": book_id,
+                "title": _row_get(row, "title"),
+                "author": _row_get(row, "author"),
+                "cover_path": _normalize_cover_path(_row_get(row, "cover_path") or ""),
+                "accent_hex": _row_get(row, "accent_hex"),
+                "description": _row_get(row, "description") or "",
+                "status_text": _row_get(row, "status_text") or "",
+                "rating": float(_row_get(row, "rating") or 0),
+                "author_user_id": _row_get(row, "author_user_id"),
+                "primary_genre": _row_get(row, "book_genre") or _row_get(row, "primary_genre") or "",
+            },
+            "reading_status": _row_get(row, "reading_status"),
+            "updated_text": _row_get(row, "updated_text"),
+            "chapters": _row_get(row, "chapters"),
+            "last_chapter_number": int(_row_get(row, "last_chapter_number") or 1),
+            "last_paragraph_index": int(_row_get(row, "last_paragraph_index") or 0),
+            "chapters_read": int(_row_get(row, "chapters_read") or 0),
+            "primary_genre": _row_get(row, "primary_genre"),
+            "secondary_genre": _row_get(row, "secondary_genre"),
+        })
+    return {"items": items}
+
+
+@app.post("/api/library")
+def create_library_entry(
+    payload: LibraryCreateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    _ensure_library_entries_table()
+    """Upsert one library row per (user, book). Never create duplicates."""
+    uid = int(user["user_id"])
+    bid = int(payload.book_id)
+    # Authors must not get Continue Reading / Completed for their own books.
+    try:
+        own = fetch_all(
+            "SELECT id FROM books WHERE id=%s AND user_id=%s LIMIT 1",
+            (bid, uid),
+        )
+        if own:
+            return {"ok": True, "skipped": True, "reason": "own_book"}
+    except Exception as exc:
+        LOGGER.warning("own-book library check failed: %s", exc)
+    new_status = (payload.reading_status or "Reading").strip() or "Reading"
+
+    existing = fetch_all(
+        "SELECT id, reading_status FROM library_entries WHERE user_id=%s AND book_id=%s ORDER BY id ASC",
+        (uid, bid),
+    )
+    if existing:
+        keep_id = int(_row_get(existing[0], "id") or 0)
+        for extra in existing[1:]:
+            eid = int(_row_get(extra, "id") or 0)
+            if eid and eid != keep_id:
+                try:
+                    execute_write(
+                        "DELETE FROM library_entries WHERE id=%s AND user_id=%s",
+                        (eid, uid),
+                    )
+                except Exception:
+                    pass
+        # Always apply the requested status (user can toggle Ongoing <-> Completed)
+        status_to_set = new_status
+        lcn = payload.last_chapter_number if payload.last_chapter_number is not None else 1
+        lpi = payload.last_paragraph_index if payload.last_paragraph_index is not None else 0
+        cr = payload.chapters_read if payload.chapters_read is not None else 0
+        try:
+            execute_write(
+                """
+                UPDATE library_entries
+                SET reading_status=%s, updated_text=%s, chapters=%s, primary_genre=%s, secondary_genre=%s,
+                    last_chapter_number=%s, last_paragraph_index=%s, chapters_read=%s
+                WHERE id=%s
+                """,
+                (
+                    status_to_set,
+                    payload.updated_text,
+                    payload.chapters,
+                    payload.primary_genre,
+                    payload.secondary_genre,
+                    lcn,
+                    lpi,
+                    cr,
+                    keep_id,
+                ),
+            )
+        except Exception:
+            execute_write(
+                """
+                UPDATE library_entries
+                SET reading_status=%s, updated_text=%s, chapters=%s, primary_genre=%s, secondary_genre=%s
+                WHERE id=%s
+                """,
+                (
+                    status_to_set,
+                    payload.updated_text,
+                    payload.chapters,
+                    payload.primary_genre,
+                    payload.secondary_genre,
+                    keep_id,
+                ),
+            )
+        bump_content_version()
+        return {"ok": True, "id": keep_id, "updated": True}
+
+    lcn = payload.last_chapter_number if payload.last_chapter_number is not None else 1
+    lpi = payload.last_paragraph_index if payload.last_paragraph_index is not None else 0
+    cr = payload.chapters_read if payload.chapters_read is not None else 0
+    try:
+        entry_id, affected = execute_write(
+            """
+            INSERT INTO library_entries (user_id, book_id, reading_status, updated_text, chapters, primary_genre, secondary_genre, sort_order,
+                last_chapter_number, last_paragraph_index, chapters_read)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 999, %s, %s, %s)
+            """,
+            (
+                uid,
+                bid,
+                new_status,
+                payload.updated_text,
+                payload.chapters,
+                payload.primary_genre,
+                payload.secondary_genre,
+                lcn,
+                lpi,
+                cr,
+            ),
+        )
+    except Exception:
+        entry_id, affected = execute_write(
+            """
+            INSERT INTO library_entries (user_id, book_id, reading_status, updated_text, chapters, primary_genre, secondary_genre, sort_order)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 999)
+            """,
+            (
+                uid,
+                bid,
+                new_status,
+                payload.updated_text,
+                payload.chapters,
+                payload.primary_genre,
+                payload.secondary_genre,
+            ),
+        )
+    if affected == 0 and not entry_id:
+        raise HTTPException(status_code=400, detail="Failed to create library entry")
+    bump_content_version()
+    return {"ok": True, "id": entry_id}
+
+
+@app.put("/api/library/{entry_id}")
+def update_library_entry(
+    entry_id: int,
+    payload: LibraryUpdateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    current_rows = fetch_all(
+        "SELECT * FROM library_entries WHERE id=%s AND user_id=%s",
+        (entry_id, user["user_id"]),
+    )
+    if not current_rows:
+        raise HTTPException(status_code=404, detail="Library entry not found")
+
+    current = current_rows[0]
+    _, affected = execute_write(
+        """
+        UPDATE library_entries
+        SET reading_status=%s,
+            updated_text=%s,
+            chapters=%s,
+            primary_genre=%s,
+            secondary_genre=%s,
+            last_chapter_number=%s,
+            last_paragraph_index=%s,
+            chapters_read=%s
+        WHERE id=%s AND user_id=%s
+        """,
+        (
+            payload.reading_status or current["reading_status"],
+            payload.updated_text or current["updated_text"],
+            payload.chapters if payload.chapters is not None else current["chapters"],
+            payload.primary_genre or current["primary_genre"],
+            payload.secondary_genre or current["secondary_genre"],
+            payload.last_chapter_number if payload.last_chapter_number is not None else current.get("last_chapter_number", 1),
+            payload.last_paragraph_index if payload.last_paragraph_index is not None else current.get("last_paragraph_index", 0),
+            payload.chapters_read if payload.chapters_read is not None else current.get("chapters_read", 0),
+            entry_id,
+            user["user_id"],
+        ),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=400, detail="Failed to update library entry")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.delete("/api/library/{entry_id}")
+def delete_library_entry(entry_id: int, user: dict[str, Any] = Depends(require_user)):
+    _, affected = execute_write(
+        "DELETE FROM library_entries WHERE id=%s AND user_id=%s",
+        (entry_id, user["user_id"]),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Library entry not found")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.get("/api/reading-lists")
+def get_public_reading_lists(user: dict[str, Any] = Depends(require_user)):
+    rows = fetch_all(
+        """
+        SELECT id, profile_id, name, story_count, cover_path, sort_order
+        FROM reading_lists
+        WHERE user_id = %s
+        ORDER BY sort_order, id
+        """,
+        (user["user_id"],),
+    )
+    items = []
+    for row in rows:
+        lid = _row_get(row, "id")
+        covers = []
+        try:
+            item_rows = fetch_all(
+                """
+                SELECT b.cover_path FROM reading_list_items rli
+                JOIN books b ON b.id = rli.book_id
+                WHERE rli.reading_list_id=%s
+                LIMIT 4
+                """,
+                (lid,),
+            )
+            for ir in item_rows:
+                pth = _normalize_cover_path(_row_get(ir, "cover_path") or "")
+                if pth:
+                    covers.append(pth)
+        except Exception:
+            pass
+        items.append({
+            **(dict(row) if not isinstance(row, dict) else row),
+            "cover_path": _normalize_cover_path(_row_get(row, "cover_path")),
+            "covers": covers,
+        })
+    return {"items": items}
+
+
+@app.post("/api/reading-lists")
+def create_public_reading_list(
+    payload: ReadingListCreateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    name = (payload.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Reading list name is required")
+    row_id, _ = execute_write(
+        """
+        INSERT INTO reading_lists (user_id, profile_id, name, story_count, cover_path, sort_order)
+        VALUES (%s, 1, %s, %s, %s, %s)
+        """,
+        (
+            user["user_id"],
+            name,
+            payload.story_count,
+            _normalize_cover_path(payload.cover_path),
+            payload.sort_order,
+        ),
+    )
+    bump_content_version()
+    return {"ok": True, "id": row_id}
+
+
+@app.get("/api/reading-lists/{reading_list_id}")
+def get_reading_list_detail(
+    reading_list_id: int,
+    user: dict[str, Any] = Depends(require_user),
+):
+    rows = fetch_all(
+        "SELECT id, profile_id, user_id, name, story_count, cover_path, sort_order FROM reading_lists WHERE id=%s AND (user_id=%s OR user_id IS NULL)",
+        (reading_list_id, user["user_id"]),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Reading list not found")
+
+    items = fetch_all(
+        "SELECT r.id, r.book_id, b.title, b.author, b.cover_path, b.genre, r.created_at FROM reading_list_items r JOIN books b ON b.id = r.book_id WHERE r.reading_list_id=%s ORDER BY r.created_at DESC",
+        (reading_list_id,),
+    )
+    return {
+        **rows[0],
+        "cover_path": _normalize_cover_path(_row_get(rows[0], "cover_path")),
+        "items": [
+            {
+                **item,
+                "cover_path": _normalize_cover_path(_row_get(item, "cover_path")),
+            }
+            for item in items
+        ],
+    }
+
+
+@app.post("/api/reading-lists/{reading_list_id}/items")
+def add_reading_list_item(
+    reading_list_id: int,
+    payload: dict[str, Any],
+    user: dict[str, Any] = Depends(require_user),
+):
+    rows = fetch_all(
+        "SELECT id FROM reading_lists WHERE id=%s AND (user_id=%s OR user_id IS NULL)",
+        (reading_list_id, user["user_id"]),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Reading list not found")
+
+    book_id = int(payload.get("book_id", 0))
+    book_rows = fetch_all("SELECT id FROM books WHERE id=%s", (book_id,))
+    if not book_rows:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    # Idempotent: if already on this list, return success (no duplicate)
+    existing = fetch_all(
+        "SELECT id FROM reading_list_items WHERE reading_list_id=%s AND book_id=%s LIMIT 1",
+        (reading_list_id, book_id),
+    )
+    if existing:
+        return {
+            "ok": True,
+            "id": int(_row_get(existing[0], "id") or 0),
+            "already_exists": True,
+        }
+
+    item_id, _ = execute_write(
+        "INSERT INTO reading_list_items (reading_list_id, book_id) VALUES (%s, %s)",
+        (reading_list_id, book_id),
+    )
+    execute_write(
+        "UPDATE reading_lists SET story_count = story_count + 1 WHERE id=%s",
+        (reading_list_id,),
+    )
+    bump_content_version()
+    return {"ok": True, "id": item_id, "already_exists": False}
+
+
+@app.delete("/api/reading-lists/{reading_list_id}/items/{item_id}")
+def remove_reading_list_item(
+    reading_list_id: int,
+    item_id: int,
+    user: dict[str, Any] = Depends(require_user),
+):
+    rows = fetch_all(
+        "SELECT id FROM reading_lists WHERE id=%s AND (user_id=%s OR user_id IS NULL)",
+        (reading_list_id, user["user_id"]),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Reading list not found")
+
+    _, affected = execute_write(
+        "DELETE FROM reading_list_items WHERE id=%s AND reading_list_id=%s",
+        (item_id, reading_list_id),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+    execute_write(
+        "UPDATE reading_lists SET story_count = GREATEST(0, story_count - 1) WHERE id=%s",
+        (reading_list_id,),
+    )
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.delete("/api/reading-lists/{reading_list_id}")
+def delete_reading_list(
+    reading_list_id: int,
+    user: dict[str, Any] = Depends(require_user),
+):
+    _, affected = execute_write(
+        "DELETE FROM reading_lists WHERE id=%s AND (user_id=%s OR user_id IS NULL)",
+        (reading_list_id, user["user_id"]),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Reading list not found")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.get("/api/write/stories")
+def get_writer_stories(user: dict[str, Any] = Depends(require_user)):
+    """Fast path for Manage Stories / Profile.
+
+    Do NOT call full `_serialize_book` here — it runs tags/likes/reviews
+    queries per row (N+1) and was taking 100s+ on Vercel cold MySQL, so the
+    Flutter client timed out at 30s and showed an empty list after create.
+    """
+    # Keep SELECT minimal — only columns that always exist on books
+    rows = fetch_all(
+        """
+        SELECT id, user_id, title, author, description, genre, status_text,
+                             cover_path, accent_hex, content_warnings,
+                             (SELECT COUNT(*) FROM chapters c
+                                WHERE c.story_id=books.id
+                                    AND LOWER(COALESCE(c.submission_status, 'draft')) IN
+                                            ('published', 'submitted', 'ongoing', 'completed')) AS published_chapter_count,
+                             (SELECT COUNT(*) FROM chapters c
+                                WHERE c.story_id=books.id
+                                    AND LOWER(COALESCE(c.submission_status, 'draft')) NOT IN
+                                            ('published', 'submitted', 'ongoing', 'completed')) AS draft_chapter_count
+        FROM books
+        WHERE user_id = %s
+        ORDER BY id DESC
+        """,
+        (user["user_id"],),
+    )
+    items: list[dict[str, Any]] = []
+    for row in rows or []:
+        status = str(_row_get(row, "status_text") or "Draft")
+        genre = str(_row_get(row, "genre") or "")
+        items.append(
+            {
+                "id": _row_get(row, "id"),
+                "user_id": _row_get(row, "user_id"),
+                "author_user_id": _row_get(row, "user_id"),
+                "title": _row_get(row, "title") or "Untitled",
+                "author": _row_get(row, "author") or "",
+                "description": _row_get(row, "description") or "",
+                "genre": genre,
+                "primary_genre": genre,
+                "status_text": status,
+                "cover_path": _normalize_cover_path(_row_get(row, "cover_path")),
+                "accent_hex": _row_get(row, "accent_hex") or "#A1A1A1",
+                "content_warnings": str(
+                    _row_get(row, "content_warnings") or ""
+                ).strip(),
+                "cta_label": "Read now",
+                "rating": 0.0,
+                "tags": [],
+                "likes_count": 0,
+                "reviews_count": 0,
+                "published_chapter_count": int(_row_get(row, "published_chapter_count") or 0),
+                "draft_chapter_count": int(_row_get(row, "draft_chapter_count") or 0),
+            }
+        )
+    return {"items": items}
+
+
+@app.get("/api/write/stories/{story_id}/chapters")
+def get_story_chapters(story_id: int):
+    story_rows = fetch_all("SELECT id FROM books WHERE id=%s", (story_id,))
+    if not story_rows:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    rows = fetch_all(
+        """
+        SELECT id, story_id, chapter_number, title, content, notes, submission_status, scheduled_for,
+               sort_order, created_at, updated_at
+        FROM chapters
+        WHERE story_id=%s
+        ORDER BY chapter_number, sort_order, id
+        """,
+        (story_id,),
+    )
+    items = []
+    for row in rows:
+        title = str(_row_get(row, "title") or "").strip()
+        number = int(_row_get(row, "chapter_number") or 0)
+        # Avoid "Chapter 1 Chapter 1" when title is only the chapter label
+        lower_t = title.lower()
+        is_label_only = (not title) or (
+            lower_t.startswith("chapter")
+            and lower_t.replace("chapter", "").replace(" ", "").isdigit()
+        )
+        if is_label_only:
+            title = f"Chapter {number}" if number else (title or "Chapter")
+        items.append(
+            {
+                **row,
+                "title": title,
+                "scheduled_for": _serialize_datetime(_row_get(row, "scheduled_for")),
+                "created_at": _serialize_datetime(_row_get(row, "created_at")),
+                "updated_at": _serialize_datetime(_row_get(row, "updated_at")),
+            }
+        )
+    return {"items": items}
+
+
+@app.get("/api/write/chapters/{chapter_id}/revisions")
+def get_story_chapter_revisions(chapter_id: int):
+    rows = fetch_all(
+        """
+        SELECT id, chapter_id, title, notes, submission_status, scheduled_for, created_at
+        FROM chapter_revisions
+        WHERE chapter_id=%s
+        ORDER BY created_at DESC, id DESC
+        """,
+        (chapter_id,),
+    )
+    return {
+        "items": [
+            {
+                **row,
+                "scheduled_for": _serialize_datetime(_row_get(row, "scheduled_for")),
+                "created_at": _serialize_datetime(_row_get(row, "created_at")),
+            }
+            for row in rows
+        ]
+    }
+
+
+def _word_count(text: str) -> int:
+    return len([w for w in str(text or "").split() if w.strip()])
+
+
+def _promote_author_and_maybe_publish(user_id: int, story_id: int, chapter_content: str) -> None:
+    """A user becomes an author after publishing one non-empty chapter.
+    If story is Completed/Published and has a >=50-word chapter, keep visible.
+    If story is Draft/Ongoing without enough content, stays private.
+    """
+    words = _word_count(chapter_content)
+    if words > 0:
+        try:
+            execute_write(
+                "UPDATE app_users SET is_author=1, is_author_active=1 WHERE id=%s",
+                (user_id,),
+            )
+        except Exception:
+            try:
+                execute_write("UPDATE app_users SET is_author=1 WHERE id=%s", (user_id,))
+            except Exception:
+                pass
+    # Visibility: only Completed/Published stories with >=50 word chapter are public
+    try:
+        rows = fetch_all("SELECT status_text FROM books WHERE id=%s LIMIT 1", (story_id,))
+        st = str((rows[0].get("status_text") if rows else "") or "").lower()
+        if st in ("completed", "complete", "published") and words >= 50:
+            execute_write(
+                "UPDATE books SET status_text=%s, section_name=%s WHERE id=%s",
+                ("Published" if "publish" in st or st == "published" else "Completed", "recently_updated", story_id),
+            )
+        elif st in ("completed", "complete", "published") and words < 50:
+            # Not enough content — keep private
+            execute_write(
+                "UPDATE books SET status_text=%s WHERE id=%s",
+                ("Draft", story_id),
+            )
+    except Exception as exc:
+        LOGGER.warning("promote visibility failed: %s", exc)
+
+
+@app.post("/api/write/stories/{story_id}/chapters")
+def create_story_chapter(story_id: int, payload: ChapterCreateRequest):
+    try:
+        story_rows = fetch_all("SELECT id FROM books WHERE id=%s", (story_id,))
+        if not story_rows:
+            raise HTTPException(status_code=404, detail="Story not found")
+
+        chapter_number = payload.chapter_number
+        if chapter_number is None:
+            next_rows = fetch_all(
+                "SELECT COALESCE(MAX(chapter_number), 0) + 1 AS next_chapter FROM chapters WHERE story_id=%s",
+                (story_id,),
+            )
+            chapter_number = int(next_rows[0]["next_chapter"]) if next_rows else 1
+
+        
+        # Block duplicate chapter titles within the same story (case-insensitive)
+        title_norm = (payload.title or "").strip()
+        if title_norm:
+            dup = fetch_all(
+                """
+                SELECT id FROM chapters
+                WHERE story_id=%s AND LOWER(TRIM(title))=LOWER(%s)
+                LIMIT 1
+                """,
+                (story_id, title_norm),
+            )
+            if dup:
+                raise HTTPException(
+                    status_code=400,
+                    detail="A chapter with this title already exists in this story. Change the title to continue.",
+                )
+
+        submission_status = (payload.submission_status or "published").strip() or "published"
+        scheduled_for = _parse_optional_datetime(payload.scheduled_for)
+        scheduled_value = (
+            scheduled_for.isoformat() if isinstance(scheduled_for, datetime) else scheduled_for
+        )
+        row_id, _ = execute_write(
+            """
+            INSERT INTO chapters (
+                story_id, chapter_number, title, content, notes, submission_status, scheduled_for, sort_order
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                story_id,
+                chapter_number,
+                payload.title or "Untitled",
+                payload.content or "",
+                payload.notes or "",
+                submission_status,
+                scheduled_value,
+                chapter_number,
+            ),
+        )
+        try:
+            import os as _os
+            # Skip revision log on Vercel cold path — shaves multi-second writes
+            if not (_os.getenv("VERCEL") or _os.getenv("VERCEL_ENV")):
+                _record_chapter_revision(
+                    row_id,
+                    payload.title or "Untitled",
+                    payload.content or "",
+                    payload.notes or "",
+                    submission_status,
+                    scheduled_for,
+                )
+        except Exception as rev_exc:
+            LOGGER.warning("Chapter revision log failed (non-fatal): %s", rev_exc)
+        try:
+            # Promote author + visibility rules
+            owner = fetch_all("SELECT user_id FROM books WHERE id=%s LIMIT 1", (story_id,))
+            uid = int(owner[0]["user_id"]) if owner and owner[0].get("user_id") else None
+            if uid:
+                _promote_author_and_maybe_publish(uid, story_id, payload.content or "")
+        except Exception as promo_exc:
+            LOGGER.warning("chapter create promote: %s", promo_exc)
+        bump_content_version()
+        return {"ok": True, "id": row_id}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        LOGGER.exception("create_story_chapter failed for story %s: %s", story_id, exc)
+        raise HTTPException(status_code=500, detail=f"Failed to create chapter: {exc}") from exc
+
+
+@app.put("/api/write/chapters/{chapter_id}")
+def update_story_chapter(chapter_id: int, payload: ChapterUpdateRequest):
+    rows = fetch_all("SELECT * FROM chapters WHERE id=%s", (chapter_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    current = rows[0]
+    next_title = payload.title or current["title"]
+    # Unique title within same story (allow keeping own title)
+    title_norm = (next_title or "").strip()
+    if title_norm:
+        story_id = int(_row_get(current, "story_id") or 0)
+        dup = fetch_all(
+            """
+            SELECT id FROM chapters
+            WHERE story_id=%s AND LOWER(TRIM(title))=LOWER(%s) AND id!=%s
+            LIMIT 1
+            """,
+            (story_id, title_norm, chapter_id),
+        )
+        if dup:
+            raise HTTPException(
+                status_code=400,
+                detail="A chapter with this title already exists in this story. Change the title to continue.",
+            )
+    next_content = payload.content if payload.content is not None else current["content"]
+    next_notes = payload.notes if payload.notes is not None else _row_get(current, "notes", "")
+    next_status = (payload.submission_status or _row_get(current, "submission_status") or "draft").strip() or "draft"
+    next_scheduled_for = (
+        _parse_optional_datetime(payload.scheduled_for)
+        if payload.scheduled_for is not None
+        else _row_get(current, "scheduled_for")
+    )
+    # Normalize scheduled_for for both SQLite (TEXT) and MySQL (DATETIME).
+    scheduled_value = next_scheduled_for
+    if isinstance(scheduled_value, datetime):
+        scheduled_value = scheduled_value.isoformat()
+
+    execute_write(
+        """
+        UPDATE chapters
+        SET chapter_number=%s, title=%s, content=%s, notes=%s, submission_status=%s,
+            scheduled_for=%s, sort_order=%s
+        WHERE id=%s
+        """,
+        (
+            payload.chapter_number
+            if payload.chapter_number is not None
+            else current["chapter_number"],
+            next_title,
+            next_content,
+            next_notes,
+            next_status,
+            scheduled_value,
+            payload.chapter_number
+            if payload.chapter_number is not None
+            else current["sort_order"],
+            chapter_id,
+        ),
+    )
+    # Do not treat SQLite rowcount==0 as failure: identical values still succeed.
+    _record_chapter_revision(
+        chapter_id,
+        next_title,
+        next_content,
+        next_notes,
+        next_status,
+        next_scheduled_for if isinstance(next_scheduled_for, datetime) else (
+            _parse_optional_datetime(str(next_scheduled_for)) if next_scheduled_for else None
+        ),
+    )
+    try:
+        owner = fetch_all("SELECT user_id FROM books WHERE id=%s LIMIT 1", (_row_get(current, "story_id"),))
+        uid = int(owner[0]["user_id"]) if owner and owner[0].get("user_id") else None
+        if uid:
+            _promote_author_and_maybe_publish(uid, int(_row_get(current, "story_id")), next_content or "")
+    except Exception as promo_exc:
+        LOGGER.warning("chapter update promote: %s", promo_exc)
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.delete("/api/write/chapters/{chapter_id}")
+def delete_story_chapter(chapter_id: int):
+    _, affected = execute_write("DELETE FROM chapters WHERE id=%s", (chapter_id,))
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    bump_content_version()
+    return {"ok": True}
+
+
+def _ensure_tags_exist(names: list[str]) -> list[int]:
+    normalized = [name.strip().lstrip('#') for name in names if name.strip()]
+    if not normalized:
+        return []
+
+    placeholders = ",".join(["%s"] * len(normalized))
+    existing = fetch_all(
+        f"SELECT id, name FROM tags WHERE name IN ({placeholders})",
+        tuple(normalized),
+    )
+    name_to_id = {row["name"]: row["id"] for row in existing}
+    for name in normalized:
+        if name not in name_to_id:
+            execute_write(
+                "INSERT INTO tags (name) VALUES (%s)",
+                (name,),
+            )
+
+    all_rows = fetch_all(
+        f"SELECT id, name FROM tags WHERE name IN ({placeholders})",
+        tuple(normalized),
+    )
+    return [row["id"] for row in all_rows]
+
+
+def _set_story_tags(story_id: int, tag_names: list[str]) -> None:
+    """Attach up to 3 *existing* admin-created hashtags to a story.
+    Authors cannot invent new tags — only select from the admin tag list.
+    """
+    if tag_names is None:
+        return
+    normalized = [n.strip().lstrip("#") for n in tag_names if n and str(n).strip()]
+    if not normalized:
+        execute_write("DELETE FROM book_tags WHERE book_id=%s", (story_id,))
+        return
+    # Cap at 3 hashtags per book
+    normalized = normalized[:3]
+    existing = []
+    try:
+        all_tags = fetch_all("SELECT id, name FROM tags LIMIT 500") or []
+        by_lower = {
+            str(_row_get(t, "name") or "").strip().lower(): t for t in all_tags
+        }
+        for n in normalized:
+            hit = by_lower.get(n.lower())
+            if hit is not None:
+                existing.append(hit)
+    except Exception as exc:
+        LOGGER.warning("tag match failed: %s", exc)
+        placeholders = ",".join(["%s"] * len(normalized))
+        existing = fetch_all(
+            f"SELECT id, name FROM tags WHERE name IN ({placeholders})",
+            tuple(normalized),
+        ) or []
+    tag_ids = []
+    for row in existing:
+        tid = _row_get(row, "id")
+        if tid is not None:
+            tag_ids.append(tid)
+    execute_write("DELETE FROM book_tags WHERE book_id=%s", (story_id,))
+    for tag_id in tag_ids:
+        try:
+            if _live_use_sqlite():
+                execute_write(
+                    "INSERT OR IGNORE INTO book_tags (book_id, tag_id) VALUES (%s, %s)",
+                    (story_id, tag_id),
+                )
+            else:
+                execute_write(
+                    "INSERT IGNORE INTO book_tags (book_id, tag_id) VALUES (%s, %s)",
+                    (story_id, tag_id),
+                )
+        except Exception:
+            pass
+
+
+def _story_tags_for_book(book_id: int) -> list[str]:
+    rows = fetch_all(
+        "SELECT t.name FROM tags t JOIN book_tags bt ON bt.tag_id = t.id WHERE bt.book_id=%s ORDER BY t.name",
+        (book_id,),
+    )
+    return [row["name"] for row in rows]
+
+
+def _row_get(row: Any, key: str, default: Any = None) -> Any:
+    if isinstance(row, dict):
+        return row.get(key, default)
+    try:
+        return row[key]
+    except (KeyError, IndexError):
+        return default
+
+
+
+
+def _ensure_book_meta_columns() -> None:
+    """Best-effort audience/language columns on books."""
+    for sql in (
+        "ALTER TABLE books ADD COLUMN audience VARCHAR(64) NULL",
+        "ALTER TABLE books ADD COLUMN language VARCHAR(64) NULL",
+    ):
+        try:
+            execute_write(sql, ())
+        except Exception:
+            pass
+
+
+def _ensure_book_view_count_column() -> None:
+    """Add books.view_count if missing (MySQL / SQLite)."""
+    try:
+        rows = fetch_all("SELECT view_count FROM books LIMIT 1")
+        _ = rows
+    except Exception:
+        try:
+            execute_write("ALTER TABLE books ADD COLUMN view_count INT NOT NULL DEFAULT 0")
+        except Exception:
+            try:
+                execute_write("ALTER TABLE books ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0")
+            except Exception as exc:
+                LOGGER.warning("ensure view_count column: %s", exc)
+
+
+def _live_book_reviews_count(book_id: int | None) -> int:
+    if not book_id:
+        return 0
+    try:
+        rows = fetch_all(
+            "SELECT COUNT(*) AS c FROM book_reviews WHERE book_id=%s",
+            (int(book_id),),
+        )
+        if rows:
+            return int(_row_get(rows[0], "c") or 0)
+    except Exception as exc:
+        LOGGER.warning("live reviews_count failed for book %s: %s", book_id, exc)
+    return 0
+
+
+def _increment_book_views(book_id: int) -> int:
+    """Bump view_count and return new value."""
+    _ensure_book_view_count_column()
+    try:
+        execute_write(
+            "UPDATE books SET view_count = COALESCE(view_count, 0) + 1 WHERE id=%s",
+            (int(book_id),),
+        )
+        rows = fetch_all("SELECT view_count FROM books WHERE id=%s", (int(book_id),))
+        if rows:
+            return int(_row_get(rows[0], "view_count") or 0)
+    except Exception as exc:
+        LOGGER.warning("increment views failed for book %s: %s", book_id, exc)
+    return 0
+
+
+def _live_book_likes_count(book_id: int | None) -> int:
+    """Count likes from book_likes table (source of truth)."""
+    if book_id is None:
+        return 0
+    try:
+        _ensure_book_likes_table()
+        count_rows = fetch_all(
+            "SELECT COUNT(*) AS c FROM book_likes WHERE book_id=%s",
+            (int(book_id),),
+        )
+        return int(count_rows[0]["c"]) if count_rows else 0
+    except Exception as exc:
+        LOGGER.warning("live likes_count failed for book %s: %s", book_id, exc)
+        return 0
+
+
+
+def _serialize_book_light(row: Any) -> dict[str, Any]:
+    """List-card serialization — no per-row COUNT/tag queries (fast)."""
+    data = dict(row) if not isinstance(row, dict) else dict(row)
+    cover = _normalize_cover_path(_row_get(row, "cover_path") or "")
+    return {
+        "id": _row_get(row, "id"),
+        "user_id": _row_get(row, "user_id"),
+        "author_user_id": _row_get(row, "user_id") or data.get("author_user_id"),
+        "title": _row_get(row, "title") or data.get("title") or "Untitled",
+        "author": _row_get(row, "author") or data.get("author") or "Author",
+        "description": (_row_get(row, "description") or data.get("description") or "")[:400],
+        "genre": _row_get(row, "genre") or data.get("genre") or "",
+        "cover_path": cover,
+        "accent_hex": _row_get(row, "accent_hex") or data.get("accent_hex") or "#00A88E",
+        "status_text": _row_get(row, "status_text") or data.get("status_text") or "",
+        "rating": _row_get(row, "rating") or data.get("rating") or "",
+        "primary_genre": _row_get(row, "primary_genre") or data.get("primary_genre") or "",
+        "secondary_genre": _row_get(row, "secondary_genre") or data.get("secondary_genre") or "",
+        "is_completed": bool(_row_get(row, "is_completed") or data.get("is_completed") or 0),
+        "likes_count": 0,
+        "reviews_count": 0,
+        "view_count": int(_row_get(row, "view_count") or data.get("view_count") or 0),
+        "tags": [],
+    }
+
+
+def _serialize_book(row: Any) -> dict[str, Any]:
+    data = dict(row) if not isinstance(row, dict) else dict(row)
+    book_id = _row_get(row, "id")
+    live_likes = _live_book_likes_count(book_id)
+    live_reviews = _live_book_reviews_count(book_id)
+    try:
+        view_count = int(_row_get(row, "view_count") or data.get("view_count") or 0)
+    except Exception:
+        view_count = 0
+    # Author photo: prefer join column, then nested keys
+    author_photo = (
+        _row_get(row, "author_photo_url")
+        or data.get("author_photo_url")
+        or data.get("photo_url")
+        or ""
+    )
+    if author_photo:
+        author_photo = _normalize_cover_path(str(author_photo))
+    warnings = str(
+        _row_get(row, "content_warnings")
+        or data.get("content_warnings")
+        or data.get("content_warning")
+        or ""
+    ).strip()
+    last_updated = (
+        _serialize_datetime(_row_get(row, "updated_at"))
+        if _row_get(row, "updated_at") is not None
+        else str(data.get("last_updated") or data.get("updated_at") or "")
+    )
+    return {
+        **data,
+        "cover_path": _normalize_cover_path(_row_get(row, "cover_path")),
+        "author_user_id": _row_get(row, "user_id") or data.get("author_user_id"),
+        "author_photo_url": author_photo or "",
+        "content_warnings": warnings,
+        "content_warning": warnings,  # alias for clients
+        "last_updated": last_updated,
+        "tags": _story_tags_for_book(book_id),
+        "likes_count": live_likes,
+        "likes": live_likes,  # alias used by some clients
+        "view_count": view_count,
+        "views": view_count,
+        "reviews_count": live_reviews,
+        "review_count": live_reviews,
+    }
+
+
+
+
+@app.post("/api/write/stories")
+def create_writer_story(
+    payload: StoryCreateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    tags_clean = [str(t).strip().lstrip("#") for t in (payload.tags or []) if str(t).strip()]
+    # Tags optional on create — author can add later in settings
+    cover = _normalize_cover_path(payload.cover_path or "")
+    warnings = (payload.content_warnings or "").strip()
+    title = (payload.title or "").strip() or "Untitled Story"
+    author = (payload.author or "").strip() or "Author"
+    description = (payload.description or "").strip()
+    genre = (payload.genre or "").strip() or "Romance"
+    # Draft by default. Visible to others only when status is Published/Completed
+    # (requires at least one chapter with >= 50 words — enforced on chapter save / Complete).
+    raw_status = (payload.status_text or "Draft").strip() or "Draft"
+    sl = raw_status.lower()
+    if sl in ("publish", "published", "live", "public"):
+        status = "Published"
+    elif sl in ("complete", "completed"):
+        status = "Completed"
+    elif sl in ("ongoing", "reading"):
+        status = "Ongoing"
+    elif sl in ("draft", "private", "unpublished"):
+        status = "Draft"
+    else:
+        status = "Draft"
+    story_id, _ = execute_write(
+        """
+        INSERT INTO books (
+            user_id, title, author, description, cover_path, accent_hex, section_name,
+            status_text, rating, genre, primary_genre, cta_label, sort_order, content_warnings
+        )
+        VALUES (%s, %s, %s, %s, %s, '#557E7A', 'recently_updated', %s, 0.0, %s, %s, 'Read now', 999, %s)
+        """,
+        (
+            user["user_id"],
+            title,
+            author,
+            description,
+            cover,
+            status,
+            genre,
+            genre,
+            warnings,
+        ),
+    )
+    _set_story_tags(story_id, payload.tags)
+    if status == "Published":
+        try:
+            execute_write(
+                "UPDATE books SET section_name=%s, sort_order=%s WHERE id=%s",
+                ("recently_updated", 0, story_id),
+            )
+        except Exception:
+            pass
+    try:
+        _ensure_book_meta_columns()
+        aud = (payload.audience or "").strip() or "All Ages"
+        lang = (payload.language or "").strip()
+        execute_write(
+            "UPDATE books SET audience=%s, language=%s WHERE id=%s",
+            (aud, lang, story_id),
+        )
+    except Exception as _meta_exc:
+        LOGGER.warning("create story meta save: %s", _meta_exc)
+    # Author flag is set when first chapter with >= 50 words is saved (see chapter endpoints).
+    bump_content_version()
+    return {"ok": True, "id": story_id, "status_text": status}
+
+
+@app.put("/api/write/stories/{story_id}")
+def update_writer_story(
+    story_id: int,
+    payload: StoryUpdateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    rows = fetch_all(
+        "SELECT * FROM books WHERE id=%s AND (user_id=%s OR user_id IS NULL)",
+        (story_id, user["user_id"]),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    current = rows[0]
+    next_warnings = (
+        payload.content_warnings.strip()
+        if payload.content_warnings is not None
+        else (_row_get(current, "content_warnings") or "")
+    )
+    next_cover = (
+        _normalize_cover_path(payload.cover_path)
+        if payload.cover_path is not None
+        else _row_get(current, "cover_path")
+    )
+    next_status = _row_get(current, "status_text") or "Draft"
+    if payload.status_text is not None:
+        st = payload.status_text.strip() or "Draft"
+        if st.lower() in ("publish", "published", "live", "public"):
+            st = "Published"
+        next_status = st
+    _ensure_book_meta_columns()
+    next_audience = (
+        (payload.audience if payload.audience is not None else None)
+        or _row_get(current, "audience")
+        or ""
+    )
+    next_language = (
+        (payload.language if payload.language is not None else None)
+        or _row_get(current, "language")
+        or ""
+    )
+    try:
+        _, affected = execute_write(
+            """
+            UPDATE books
+            SET title=%s, author=%s, description=%s, genre=%s, primary_genre=%s,
+                cover_path=%s, user_id=%s, content_warnings=%s, status_text=%s,
+                audience=%s, language=%s
+            WHERE id=%s
+            """,
+            (
+                payload.title or _row_get(current, "title"),
+                payload.author or _row_get(current, "author"),
+                payload.description if payload.description is not None else _row_get(current, "description"),
+                payload.genre or _row_get(current, "genre"),
+                payload.genre or _row_get(current, "primary_genre") or _row_get(current, "genre"),
+                next_cover,
+                user["user_id"],
+                next_warnings,
+                next_status,
+                next_audience,
+                next_language,
+                story_id,
+            ),
+        )
+    except Exception:
+        _, affected = execute_write(
+            """
+            UPDATE books
+            SET title=%s, author=%s, description=%s, genre=%s, primary_genre=%s, cover_path=%s, user_id=%s, content_warnings=%s, status_text=%s
+            WHERE id=%s
+            """,
+            (
+                payload.title or _row_get(current, "title"),
+                payload.author or _row_get(current, "author"),
+                payload.description if payload.description is not None else _row_get(current, "description"),
+                payload.genre or _row_get(current, "genre"),
+                payload.genre or _row_get(current, "primary_genre") or _row_get(current, "genre"),
+                next_cover,
+                user["user_id"],
+                next_warnings,
+                next_status,
+                story_id,
+            ),
+        )
+    if affected == 0:
+        raise HTTPException(status_code=400, detail="Failed to update story")
+
+    if payload.tags is not None:
+        _set_story_tags(story_id, payload.tags)
+
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.get("/api/write/stories/{story_id}")
+def get_writer_story(story_id: int, user: dict[str, Any] = Depends(require_user)):
+    _ensure_book_meta_columns()
+    try:
+        rows = fetch_all(
+            """
+            SELECT id, user_id, title, author, description, genre, cover_path, accent_hex,
+                   status_text, rating, content_warnings, audience, language
+            FROM books WHERE id=%s LIMIT 1
+            """,
+            (story_id,),
+        )
+    except Exception:
+        rows = fetch_all(
+            "SELECT id, user_id, title, author, description, genre, cover_path, accent_hex, status_text, rating, content_warnings FROM books WHERE id=%s LIMIT 1",
+            (story_id,),
+        )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Story not found")
+    story = dict(rows[0]) if not isinstance(rows[0], dict) else dict(rows[0])
+    # Owner-only
+    try:
+        if int(_row_get(rows[0], "user_id") or 0) != int(user["user_id"]):
+            raise HTTPException(status_code=403, detail="Not your story")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+    out = {
+        "id": _row_get(rows[0], "id"),
+        "user_id": _row_get(rows[0], "user_id"),
+        "title": _row_get(rows[0], "title") or "",
+        "author": _row_get(rows[0], "author") or "",
+        "description": _row_get(rows[0], "description") or "",
+        "genre": _row_get(rows[0], "genre") or "",
+        "cover_path": _normalize_cover_path(_row_get(rows[0], "cover_path")),
+        "accent_hex": _row_get(rows[0], "accent_hex") or "#A1A1A1",
+        "status_text": _row_get(rows[0], "status_text") or "Draft",
+        "content_warnings": str(_row_get(rows[0], "content_warnings") or ""),
+        "audience": str(_row_get(rows[0], "audience") or story.get("audience") or ""),
+        "language": str(_row_get(rows[0], "language") or story.get("language") or ""),
+        "tags": _story_tags_for_book(int(story_id)),
+    }
+    return out
+
+
+@app.get("/api/books/{book_id}")
+def get_public_book(book_id: int):
+    """Public book detail — never 500; degrade gracefully if optional cols/joins fail."""
+    try:
+        _ensure_book_view_count_column()
+    except Exception:
+        pass
+    try:
+        rows = fetch_all(
+            """
+            SELECT b.id, b.user_id, b.title, b.author, b.description, b.genre, b.cover_path,
+                   b.accent_hex, b.status_text, b.rating, b.content_warnings,
+                   COALESCE(b.view_count, 0) AS view_count,
+                   u.photo_url AS author_photo_url,
+                   u.display_name AS author_display_name
+            FROM books b
+            LEFT JOIN app_users u ON u.id = b.user_id
+            WHERE b.id=%s
+            """,
+            (book_id,),
+        )
+    except Exception as exc:
+        LOGGER.warning("get_public_book join failed, fallback: %s", exc)
+        rows = fetch_all(
+            """
+            SELECT id, user_id, title, author, description, genre, cover_path,
+                   accent_hex, status_text, rating, content_warnings
+            FROM books WHERE id=%s
+            """,
+            (book_id,),
+        )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Book not found")
+    status = str(_row_get(rows[0], "status_text") or "").strip().lower()
+    if (
+        status.startswith("draft")
+        or status.startswith("unpublish")
+        or status in ("private", "unlisted")
+    ):
+        raise HTTPException(status_code=404, detail="Book not found")
+    try:
+        new_views = _increment_book_views(book_id)
+    except Exception:
+        new_views = int(_row_get(rows[0], "view_count") or 0)
+    try:
+        data = _serialize_book(rows[0])
+    except Exception as ser_exc:
+        LOGGER.warning("serialize_book failed for %s: %s", book_id, ser_exc)
+        r = rows[0]
+        data = {
+            "id": _row_get(r, "id"),
+            "title": _row_get(r, "title") or "",
+            "author": _row_get(r, "author") or "",
+            "description": _row_get(r, "description") or "",
+            "genre": _row_get(r, "genre") or "",
+            "cover_path": _normalize_cover_path(_row_get(r, "cover_path") or ""),
+            "status_text": _row_get(r, "status_text") or "",
+            "rating": float(_row_get(r, "rating") or 0),
+            "content_warnings": _row_get(r, "content_warnings") or "",
+            "author_user_id": _row_get(r, "user_id"),
+            "tags": [],
+            "likes_count": 0,
+            "view_count": new_views,
+        }
+    data["view_count"] = new_views
+    data["views"] = new_views
+    disp = str(_row_get(rows[0], "author_display_name") or "").strip()
+    book_author = str(data.get("author") or "").strip()
+    if disp and (
+        not book_author
+        or book_author.lower() in ("author", "unknown", "untitled")
+    ):
+        data["author"] = disp
+    elif disp and book_author:
+        # Prefer profile display name for readers
+        data["author"] = disp
+    data["author_display_name"] = disp or book_author
+    return data
+
+
+@app.get("/api/tags")
+def list_tags(q: str | None = None):
+    global _TAGS_CACHE, _TAGS_CACHE_AT
+    import time as _time
+    if not q:
+        now = _time.time()
+        if _TAGS_CACHE is not None and (now - _TAGS_CACHE_AT) < _TAGS_CACHE_TTL:
+            return _TAGS_CACHE
+
+    # Self-heal: if tags table empty, seed defaults (admin hashtags)
+    try:
+        cnt_rows = fetch_all("SELECT COUNT(*) AS c FROM tags")
+        c = 0
+        if cnt_rows:
+            r = cnt_rows[0]
+            c = int(r.get("c") if isinstance(r, dict) else r[0] or 0)
+        if c == 0:
+            from .startup_tasks import DEFAULT_TAGS
+            for name in DEFAULT_TAGS:
+                try:
+                    execute_write(
+                        "INSERT INTO tags (name) VALUES (%s)",
+                        (name,),
+                    )
+                except Exception:
+                    pass
+            bump_content_version()
+    except Exception as _seed_exc:
+        LOGGER.warning("list_tags auto-seed: %s", _seed_exc)
+
+    if q:
+        like = f"%{q.strip().lstrip('#')}%"
+        rows = fetch_all(
+            """
+            SELECT t.id, t.name,
+                   (SELECT COUNT(*) FROM book_tags bt WHERE bt.tag_id = t.id) AS book_count
+            FROM tags t
+            WHERE t.name LIKE %s
+            ORDER BY t.name LIMIT 20
+            """,
+            (like,),
+        )
+    else:
+        rows = fetch_all(
+            """
+            SELECT t.id, t.name,
+                   (SELECT COUNT(*) FROM book_tags bt WHERE bt.tag_id = t.id) AS book_count
+            FROM tags t
+            ORDER BY book_count DESC, t.name LIMIT 100
+            """
+        )
+    payload = {
+        "items": [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "book_count": int(row.get("book_count") or 0),
+            }
+            for row in rows
+        ]
+    }
+    if not q:
+        _TAGS_CACHE = payload
+        _TAGS_CACHE_AT = _time.time()
+    return payload
+
+
+
+@app.get("/api/tags/{tag_name:path}/books")
+def list_books_by_tag(tag_name: str):
+    """Return published books that have the given hashtag (admin-created tags only)."""
+    from urllib.parse import unquote
+    clean = unquote(tag_name or "").strip().lstrip("#")
+    rows = fetch_all(
+        """
+        SELECT b.* FROM books b
+        JOIN book_tags bt ON bt.book_id = b.id
+        JOIN tags t ON t.id = bt.tag_id
+        WHERE t.name = %s
+          AND LOWER(COALESCE(b.status_text, 'draft')) NOT IN ('draft', 'unpublished', 'private')
+        ORDER BY b.id DESC
+        LIMIT 100
+        """,
+        (clean,),
+    )
+    return {"items": [_serialize_book(row) for row in rows], "tag": clean}
+
+
+def _ensure_tag_follows_table() -> None:
+    """Users following hashtags (for notifications / personalization)."""
+    try:
+        if _live_use_sqlite():
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS tag_follows (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    tag_id INTEGER NOT NULL,
+                    notify INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, tag_id)
+                )
+                """,
+                (),
+            )
+        else:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS tag_follows (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    tag_id INT NOT NULL,
+                    notify TINYINT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_tag_follow (user_id, tag_id),
+                    INDEX idx_tag_follows_tag (tag_id)
+                )
+                """,
+                (),
+            )
+    except Exception as exc:
+        LOGGER.warning("tag_follows ensure failed: %s", exc)
+
+
+def _resolve_tag_id(tag_name: str) -> int | None:
+    clean = (tag_name or "").strip().lstrip("#")
+    if not clean:
+        return None
+    rows = fetch_all("SELECT id FROM tags WHERE name=%s LIMIT 1", (clean,))
+    if rows:
+        return int(_row_get(rows[0], "id") or 0) or None
+    # Case-insensitive fallback
+    rows = fetch_all("SELECT id FROM tags WHERE LOWER(name)=LOWER(%s) LIMIT 1", (clean,))
+    if rows:
+        return int(_row_get(rows[0], "id") or 0) or None
+    return None
+
+
+def _tag_follower_count(tag_id: int) -> int:
+    try:
+        rows = fetch_all(
+            "SELECT COUNT(*) AS c FROM tag_follows WHERE tag_id=%s",
+            (tag_id,),
+        )
+        return int(_row_get(rows[0], "c") or 0) if rows else 0
+    except Exception:
+        return 0
+
+
+@app.post("/api/tags/{tag_name:path}/follow")
+def follow_tag(tag_name: str, user: dict[str, Any] = Depends(require_user)):
+    """Follow a hashtag so it can power recommendations / notify later."""
+    _ensure_tag_follows_table()
+    tag_id = _resolve_tag_id(tag_name)
+    if not tag_id:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    uid = int(user["user_id"])
+    if _live_use_sqlite():
+        execute_write(
+            "INSERT OR IGNORE INTO tag_follows (user_id, tag_id, notify) VALUES (%s, %s, 0)",
+            (uid, tag_id),
+        )
+    else:
+        execute_write(
+            "INSERT IGNORE INTO tag_follows (user_id, tag_id, notify) VALUES (%s, %s, 0)",
+            (uid, tag_id),
+        )
+    return {
+        "ok": True,
+        "following": True,
+        "tag": tag_name.strip().lstrip("#"),
+        "followers": _tag_follower_count(tag_id),
+    }
+
+
+@app.get("/api/tags/{tag_name:path}/follow")
+def check_tag_follow(tag_name: str, user: dict[str, Any] = Depends(require_user)):
+    _ensure_tag_follows_table()
+    tag_id = _resolve_tag_id(tag_name)
+    if not tag_id:
+        return {"following": False, "notify": False, "followers": 0}
+    rows = fetch_all(
+        "SELECT id, notify FROM tag_follows WHERE user_id=%s AND tag_id=%s LIMIT 1",
+        (int(user["user_id"]), tag_id),
+    )
+    following = bool(rows)
+    notify = bool(int(_row_get(rows[0], "notify") or 0)) if rows else False
+    return {
+        "following": following,
+        "notify": notify,
+        "followers": _tag_follower_count(tag_id),
+    }
+
+
+@app.delete("/api/tags/{tag_name:path}/follow")
+def unfollow_tag(tag_name: str, user: dict[str, Any] = Depends(require_user)):
+    _ensure_tag_follows_table()
+    tag_id = _resolve_tag_id(tag_name)
+    if not tag_id:
+        return {"ok": True, "following": False, "followers": 0}
+    execute_write(
+        "DELETE FROM tag_follows WHERE user_id=%s AND tag_id=%s",
+        (int(user["user_id"]), tag_id),
+    )
+    return {
+        "ok": True,
+        "following": False,
+        "tag": tag_name.strip().lstrip("#"),
+        "followers": _tag_follower_count(tag_id),
+    }
+
+
+@app.post("/api/tags/{tag_name:path}/notify")
+def set_tag_notify(
+    tag_name: str,
+    payload: dict[str, Any] | None = None,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Toggle notification preference for a followed hashtag (auto-follows if needed)."""
+    _ensure_tag_follows_table()
+    tag_id = _resolve_tag_id(tag_name)
+    if not tag_id:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    uid = int(user["user_id"])
+    body = payload or {}
+    want = body.get("notify", True)
+    notify_val = 1 if want in (True, 1, "1", "true", "True") else 0
+    # Ensure follow row exists
+    if _live_use_sqlite():
+        execute_write(
+            "INSERT OR IGNORE INTO tag_follows (user_id, tag_id, notify) VALUES (%s, %s, %s)",
+            (uid, tag_id, notify_val),
+        )
+    else:
+        execute_write(
+            "INSERT IGNORE INTO tag_follows (user_id, tag_id, notify) VALUES (%s, %s, %s)",
+            (uid, tag_id, notify_val),
+        )
+    execute_write(
+        "UPDATE tag_follows SET notify=%s WHERE user_id=%s AND tag_id=%s",
+        (notify_val, uid, tag_id),
+    )
+    return {
+        "ok": True,
+        "following": True,
+        "notify": bool(notify_val),
+        "tag": tag_name.strip().lstrip("#"),
+    }
+
+
+@app.get("/api/me/followed-tags")
+def list_my_followed_tags(user: dict[str, Any] = Depends(require_user)):
+    _ensure_tag_follows_table()
+    rows = fetch_all(
+        """
+        SELECT t.id, t.name, tf.notify,
+               (SELECT COUNT(*) FROM book_tags bt WHERE bt.tag_id = t.id) AS book_count
+        FROM tag_follows tf
+        JOIN tags t ON t.id = tf.tag_id
+        WHERE tf.user_id = %s
+        ORDER BY t.name
+        """,
+        (int(user["user_id"]),),
+    )
+    return {
+        "items": [
+            {
+                "id": _row_get(r, "id"),
+                "name": _row_get(r, "name"),
+                "notify": bool(int(_row_get(r, "notify") or 0)),
+                "book_count": int(_row_get(r, "book_count") or 0),
+            }
+            for r in (rows or [])
+        ]
+    }
+
+
+
+
+@app.get("/api/me/followers")
+def list_my_followers(user: dict[str, Any] = Depends(require_user)):
+    """People who follow the current user."""
+    _ensure_author_follows_table()
+    uid = int(user["user_id"])
+    try:
+        rows = fetch_all(
+            """
+            SELECT u.id, u.display_name, u.photo_url, u.bio
+            FROM author_follows f
+            JOIN app_users u ON u.id = f.user_id
+            WHERE f.author_id=%s
+            ORDER BY f.id DESC LIMIT 100
+            """,
+            (uid,),
+        ) or []
+    except Exception as exc:
+        LOGGER.warning("list_my_followers: %s", exc)
+        rows = []
+    return {
+        "items": [
+            {
+                "id": _row_get(r, "id"),
+                "display_name": _row_get(r, "display_name") or "Reader",
+                "photo_url": _row_get(r, "photo_url") or "",
+                "bio": _row_get(r, "bio") or "",
+            }
+            for r in rows
+        ]
+    }
+
+
+@app.get("/api/me/following")
+def list_my_following(user: dict[str, Any] = Depends(require_user)):
+    """Authors the current user follows."""
+    _ensure_author_follows_table()
+    uid = int(user["user_id"])
+    try:
+        rows = fetch_all(
+            """
+            SELECT u.id, u.display_name, u.photo_url, u.bio
+            FROM author_follows f
+            JOIN app_users u ON u.id = f.author_id
+            WHERE f.user_id=%s
+            ORDER BY f.id DESC LIMIT 100
+            """,
+            (uid,),
+        ) or []
+    except Exception as exc:
+        LOGGER.warning("list_my_following: %s", exc)
+        rows = []
+    return {
+        "items": [
+            {
+                "id": _row_get(r, "id"),
+                "display_name": _row_get(r, "display_name") or "Reader",
+                "photo_url": _row_get(r, "photo_url") or "",
+                "bio": _row_get(r, "bio") or "",
+            }
+            for r in rows
+        ]
+    }
+
+
+@app.get("/api/users/{user_id}/followers")
+def list_user_followers(user_id: int):
+    _ensure_author_follows_table()
+    try:
+        rows = fetch_all(
+            """
+            SELECT u.id, u.display_name, u.photo_url, u.bio
+            FROM author_follows f
+            JOIN app_users u ON u.id = f.user_id
+            WHERE f.author_id=%s
+            ORDER BY f.id DESC LIMIT 100
+            """,
+            (user_id,),
+        ) or []
+    except Exception:
+        rows = []
+    return {
+        "items": [
+            {
+                "id": _row_get(r, "id"),
+                "display_name": _row_get(r, "display_name") or "Reader",
+                "photo_url": _row_get(r, "photo_url") or "",
+                "bio": _row_get(r, "bio") or "",
+            }
+            for r in rows
+        ]
+    }
+
+
+@app.get("/api/users/{user_id}/following")
+def list_user_following(user_id: int):
+    _ensure_author_follows_table()
+    try:
+        rows = fetch_all(
+            """
+            SELECT u.id, u.display_name, u.photo_url, u.bio
+            FROM author_follows f
+            JOIN app_users u ON u.id = f.author_id
+            WHERE f.user_id=%s
+            ORDER BY f.id DESC LIMIT 100
+            """,
+            (user_id,),
+        ) or []
+    except Exception:
+        rows = []
+    return {
+        "items": [
+            {
+                "id": _row_get(r, "id"),
+                "display_name": _row_get(r, "display_name") or "Reader",
+                "photo_url": _row_get(r, "photo_url") or "",
+                "bio": _row_get(r, "bio") or "",
+            }
+            for r in rows
+        ]
+    }
+
+@app.get("/api/me/reviews")
+def list_my_reviews(user: dict[str, Any] = Depends(require_user)):
+    """Reviews this user WROTE on stories (Profile > Reviews tab)."""
+    try:
+        rows = fetch_all(
+            """
+            SELECT r.id, r.rating, r.comment, r.created_at, r.book_id, r.user_id AS reviewer_id,
+                   b.title, b.author, b.cover_path, b.accent_hex, b.primary_genre, b.status_text,
+                   u.display_name AS reviewer_name, u.photo_url AS reviewer_photo
+            FROM book_reviews r
+            LEFT JOIN books b ON b.id = r.book_id
+            LEFT JOIN app_users u ON u.id = r.user_id
+            WHERE r.user_id = %s
+            ORDER BY r.id DESC
+            LIMIT 100
+            """,
+            (user["user_id"],),
+        )
+    except Exception as exc:
+        LOGGER.warning("list_my_reviews (written) failed: %s", exc)
+        rows = []
+    items = []
+    for row in (rows or []):
+        comment = _row_get(row, "comment") or ""
+        rating = int(_row_get(row, "rating") or 0)
+        book_id = _row_get(row, "book_id")
+        items.append({
+            "id": _row_get(row, "id"),
+            "rating": rating,
+            "comment": comment,
+            "body": comment,
+            "created_at": str(_row_get(row, "created_at") or ""),
+            "reviewer_name": _row_get(row, "reviewer_name") or "Reader",
+            "reviewer_photo": _row_get(row, "reviewer_photo") or "",
+            "user_id": _row_get(row, "reviewer_id"),
+            "book_id": book_id,
+            "book_title": _row_get(row, "title") or "Story",
+            "book_author": _row_get(row, "author") or "",
+            "cover_path": _normalize_cover_path(_row_get(row, "cover_path") or ""),
+            "plot": min(5, max(1, rating or 1)),
+            "writing_style": min(5, max(1, rating or 1)),
+            "grammar": min(5, max(1, max(1, (rating or 1) - 1))),
+            "book": {
+                "id": book_id,
+                "title": _row_get(row, "title") or "Story",
+                "author": _row_get(row, "author") or "",
+                "cover_path": _normalize_cover_path(_row_get(row, "cover_path") or ""),
+                "accent_hex": _row_get(row, "accent_hex") or "#A1A1A1",
+                "primary_genre": _row_get(row, "primary_genre") or "",
+                "status_text": _row_get(row, "status_text") or "",
+            },
+        })
+    return {"items": items}
+
+
+@app.get("/api/books/{book_id}/reviews")
+def list_book_reviews(
+    book_id: int,
+    user: dict[str, Any] | None = Depends(optional_user),
+):
+    try:
+        rows = fetch_all(
+            """
+            SELECT r.id, r.user_id, r.rating, r.comment, r.created_at,
+                   r.title, r.plot_rating, r.style_rating, r.tech_rating,
+                   u.display_name, u.photo_url
+            FROM book_reviews r
+            JOIN app_users u ON u.id = r.user_id
+            WHERE r.book_id=%s
+            ORDER BY r.created_at DESC
+            """,
+            (book_id,),
+        )
+    except Exception:
+        rows = fetch_all(
+            """
+            SELECT r.id, r.user_id, r.rating, r.comment, r.created_at,
+                   u.display_name
+            FROM book_reviews r
+            JOIN app_users u ON u.id = r.user_id
+            WHERE r.book_id=%s
+            ORDER BY r.created_at DESC
+            """,
+            (book_id,),
+        )
+    viewer_id = int(user["user_id"]) if user else None
+    items = []
+    for row in rows or []:
+        comment = str(_row_get(row, "comment") or "")
+        title = str(_row_get(row, "title") or "").strip()
+        if not title and "\n\n" in comment:
+            parts = comment.split("\n\n", 1)
+            title = parts[0].strip()
+            comment = parts[1].strip() if len(parts) > 1 else comment
+        items.append(
+            {
+                "id": _row_get(row, "id"),
+                "user_id": _row_get(row, "user_id"),
+                "rating": _row_get(row, "rating"),
+                "comment": comment,
+                "title": title,
+                "plot_rating": _row_get(row, "plot_rating"),
+                "style_rating": _row_get(row, "style_rating"),
+                "tech_rating": _row_get(row, "tech_rating"),
+                "created_at": _row_get(row, "created_at"),
+                "display_name": _row_get(row, "display_name") or "Reader",
+                "photo_url": _row_get(row, "photo_url") or "",
+                "is_mine": viewer_id is not None and int(_row_get(row, "user_id") or 0) == viewer_id,
+            }
+        )
+    return {"items": items}
+
+
+@app.post("/api/books/{book_id}/reviews")
+def create_book_review(
+    book_id: int,
+    payload: ReviewCreateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    # Owner cannot review own book
+    owner_rows = fetch_all("SELECT user_id FROM books WHERE id=%s LIMIT 1", (book_id,))
+    owner_id = int(_row_get(owner_rows[0], "user_id") or 0) if owner_rows else 0
+    if owner_id and owner_id == int(user["user_id"]):
+        raise HTTPException(status_code=400, detail="You cannot review your own story")
+    # One review per user per book
+    existing = fetch_all(
+        "SELECT id FROM book_reviews WHERE book_id=%s AND user_id=%s LIMIT 1",
+        (book_id, user["user_id"]),
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="You already reviewed this book")
+    if payload.rating < 1 or payload.rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+    title = (payload.title or "").strip()
+    body = (payload.comment or "").strip()
+    # Any length allowed (rating is required; comment optional/short OK)
+    plot = int(payload.plot_rating or payload.rating)
+    style = int(payload.style_rating or payload.rating)
+    tech = int(payload.tech_rating or payload.rating)
+    for v in (plot, style, tech):
+        if v < 1 or v > 5:
+            raise HTTPException(status_code=400, detail="Ratings must be between 1 and 5")
+    # Review columns are provisioned during application startup. Do not run
+    # ALTER TABLE on the request path: MySQL metadata locks can make a review
+    # save successfully while the client times out waiting for the response.
+    stored_comment = body if not title else f"{title}\n\n{body}"
+    try:
+        execute_write(
+            """
+            INSERT INTO book_reviews
+              (book_id, user_id, rating, comment, title, plot_rating, style_rating, tech_rating)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (book_id, user["user_id"], payload.rating, stored_comment, title or None, plot, style, tech),
+        )
+    except Exception:
+        execute_write(
+            "INSERT INTO book_reviews (book_id, user_id, rating, comment) VALUES (%s, %s, %s, %s)",
+            (book_id, user["user_id"], payload.rating, stored_comment),
+        )
+    # Update book average rating
+    try:
+        rows = fetch_all(
+            "SELECT AVG(rating) AS avg_r FROM book_reviews WHERE book_id=%s",
+            (book_id,),
+        )
+        avg = float(_row_get(rows[0], "avg_r") or 0) if rows else 0.0
+        execute_write("UPDATE books SET rating=%s WHERE id=%s", (round(avg, 2), book_id))
+    except Exception:
+        pass
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.put("/api/books/{book_id}/reviews/mine")
+def update_my_book_review(
+    book_id: int,
+    payload: ReviewCreateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Edit the current user's review on a book."""
+    uid = int(user["user_id"])
+    existing = fetch_all(
+        "SELECT id FROM book_reviews WHERE book_id=%s AND user_id=%s LIMIT 1",
+        (book_id, uid),
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Review not found")
+    rid = int(_row_get(existing[0], "id") or 0)
+    if payload.rating < 1 or payload.rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+    title = (payload.title or "").strip()
+    body = (payload.comment or "").strip()
+    stored_comment = body if not title else f"{title}\n\n{body}"
+    plot = int(payload.plot_rating or payload.rating)
+    style = int(payload.style_rating or payload.rating)
+    tech = int(payload.tech_rating or payload.rating)
+    try:
+        execute_write(
+            """
+            UPDATE book_reviews
+            SET rating=%s, comment=%s, title=%s, plot_rating=%s, style_rating=%s, tech_rating=%s
+            WHERE id=%s AND user_id=%s
+            """,
+            (payload.rating, stored_comment, title or None, plot, style, tech, rid, uid),
+        )
+    except Exception:
+        execute_write(
+            "UPDATE book_reviews SET rating=%s, comment=%s WHERE id=%s AND user_id=%s",
+            (payload.rating, stored_comment, rid, uid),
+        )
+    try:
+        rows = fetch_all(
+            "SELECT AVG(rating) AS avg_r FROM book_reviews WHERE book_id=%s",
+            (book_id,),
+        )
+        avg = float(_row_get(rows[0], "avg_r") or 0) if rows else 0.0
+        execute_write("UPDATE books SET rating=%s WHERE id=%s", (round(avg, 2), book_id))
+    except Exception:
+        pass
+    bump_content_version()
+    return {"ok": True, "id": rid}
+
+
+@app.delete("/api/books/{book_id}/reviews/mine")
+def delete_my_book_review(
+    book_id: int,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Delete the current user's review on a book."""
+    uid = int(user["user_id"])
+    existing = fetch_all(
+        "SELECT id FROM book_reviews WHERE book_id=%s AND user_id=%s LIMIT 1",
+        (book_id, uid),
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Review not found")
+    rid = int(_row_get(existing[0], "id") or 0)
+    execute_write(
+        "DELETE FROM book_reviews WHERE id=%s AND user_id=%s",
+        (rid, uid),
+    )
+    try:
+        rows = fetch_all(
+            "SELECT AVG(rating) AS avg_r FROM book_reviews WHERE book_id=%s",
+            (book_id,),
+        )
+        avg = float(_row_get(rows[0], "avg_r") or 0) if rows else 0.0
+        execute_write("UPDATE books SET rating=%s WHERE id=%s", (round(avg, 2), book_id))
+    except Exception:
+        pass
+    bump_content_version()
+    return {"ok": True}
+
+
+_CHAPTER_COMMENTS_TABLE_READY = False
+
+
+def _ensure_chapter_comments_table() -> None:
+    """Memoized schema ensure — runs once per serverless instance."""
+    global _CHAPTER_COMMENTS_TABLE_READY
+    if _CHAPTER_COMMENTS_TABLE_READY:
+        return
+    try:
+        if _live_use_sqlite():
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS chapter_comments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    chapter_id INTEGER NOT NULL,
+                    book_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    body TEXT NOT NULL,
+                    paragraph_index INTEGER DEFAULT -1,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                (),
+            )
+            try:
+                execute_write(
+                    "ALTER TABLE chapter_comments ADD COLUMN paragraph_index INTEGER DEFAULT -1",
+                    (),
+                )
+            except Exception:
+                pass
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS chapter_comment_likes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    comment_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(comment_id, user_id)
+                )
+                """,
+                (),
+            )
+        else:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS chapter_comments (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    chapter_id INT NOT NULL,
+                    book_id INT NOT NULL,
+                    user_id INT NOT NULL,
+                    body TEXT NOT NULL,
+                    paragraph_index INT DEFAULT -1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (chapter_id),
+                    INDEX (book_id),
+                    INDEX (user_id),
+                    INDEX (paragraph_index)
+                )
+                """,
+                (),
+            )
+            try:
+                execute_write(
+                    "ALTER TABLE chapter_comments ADD COLUMN paragraph_index INT DEFAULT -1",
+                    (),
+                )
+            except Exception:
+                pass
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS chapter_comment_likes (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    comment_id INT NOT NULL,
+                    user_id INT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_comment_like (comment_id, user_id),
+                    INDEX (comment_id)
+                )
+                """,
+                (),
+            )
+    except Exception as exc:
+        LOGGER.warning("chapter_comments ensure failed: %s", exc)
+
+    _CHAPTER_COMMENTS_TABLE_READY = True
+
+def _resolve_chapter_id(book_id: int, chapter_number: int) -> int | None:
+    rows = fetch_all(
+        "SELECT id FROM chapters WHERE story_id=%s AND chapter_number=%s ORDER BY id LIMIT 1",
+        (book_id, chapter_number),
+    )
+    if not rows:
+        try:
+            rows = fetch_all(
+                "SELECT id FROM chapters WHERE book_id=%s AND chapter_number=%s ORDER BY id LIMIT 1",
+                (book_id, chapter_number),
+            )
+        except Exception:
+            rows = []
+    if not rows:
+        return None
+    return int(rows[0]["id"])
+
+
+def _serialize_comment_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Null-safe serializer for chapter comments (app_users has no username column)."""
+    try:
+        name = (
+            (row.get("display_name") if isinstance(row, dict) else None)
+            or (row.get("username") if isinstance(row, dict) else None)
+            or "Reader"
+        )
+        avatar = ""
+        if isinstance(row, dict):
+            avatar = row.get("photo_url") or row.get("avatar_url") or ""
+        created = row.get("created_at") if isinstance(row, dict) else None
+        return {
+            "id": row.get("id") if isinstance(row, dict) else None,
+            "chapter_id": row.get("chapter_id") if isinstance(row, dict) else None,
+            "book_id": row.get("book_id") if isinstance(row, dict) else None,
+            "user_id": row.get("user_id") if isinstance(row, dict) else None,
+            "body": (row.get("body") or "") if isinstance(row, dict) else "",
+            "paragraph_index": int(row.get("paragraph_index") if row.get("paragraph_index") is not None else -1) if isinstance(row, dict) else -1,
+            "display_name": name,
+            "username": "",
+            "photo_url": avatar,
+            "created_at": str(created) if created is not None else "",
+        }
+    except Exception:
+        return {
+            "id": None,
+            "chapter_id": None,
+            "book_id": None,
+            "user_id": None,
+            "body": "",
+            "display_name": "Reader",
+            "username": "",
+            "photo_url": "",
+            "created_at": "",
+        }
+
+
+@app.get("/api/books/{book_id}/chapters/{chapter_number}/comments")
+def list_chapter_comments(
+    book_id: int,
+    chapter_number: int,
+    user: dict[str, Any] | None = Depends(optional_user),
+):
+    """Public list of comments for a chapter (by book + chapter number)."""
+    try:
+        _ensure_chapter_comments_table()
+        chapter_id = _resolve_chapter_id(book_id, chapter_number)
+        if chapter_id is None:
+            return {"items": []}
+        rows = fetch_all(
+            """
+            SELECT c.id, c.chapter_id, c.book_id, c.user_id, c.body,
+                   COALESCE(c.paragraph_index, -1) AS paragraph_index,
+                   c.created_at, u.display_name, u.photo_url
+            FROM chapter_comments c
+            LEFT JOIN app_users u ON u.id = c.user_id
+            WHERE c.chapter_id = %s
+            ORDER BY c.created_at DESC, c.id DESC
+            """,
+            (chapter_id,),
+        )
+        items = [_serialize_comment_row(r) for r in (rows or [])]
+        for item in items:
+            like_rows = fetch_all(
+                "SELECT COUNT(*) AS c FROM chapter_comment_likes WHERE comment_id=%s",
+                (item.get("id"),),
+            )
+            item["like_count"] = int(_row_get(like_rows[0], "c") or 0) if like_rows else 0
+            item["liked"] = bool(
+                user
+                and fetch_all(
+                    "SELECT id FROM chapter_comment_likes WHERE comment_id=%s AND user_id=%s LIMIT 1",
+                    (item.get("id"), user["user_id"]),
+                )
+            )
+        counts: dict[str, int] = {}
+        chapter_items: list[dict[str, Any]] = []
+        for it in items:
+            pi = int(it.get("paragraph_index") if it.get("paragraph_index") is not None else -1)
+            if pi >= 0:
+                key = str(pi)
+                counts[key] = counts.get(key, 0) + 1
+            else:
+                # Chapter-level only (not tied to a paragraph)
+                chapter_items.append(it)
+        return {
+            "items": items,  # full list (paragraph UI filters by index)
+            "chapter_items": chapter_items,  # chapter comments sheet only
+            "paragraph_counts": counts,
+            "chapter_count": len(chapter_items),
+        }
+    except Exception as exc:
+        LOGGER.exception("list_chapter_comments failed: %s", exc)
+        return {"items": [], "error": "Failed to load comments"}
+
+
+@app.post("/api/books/{book_id}/chapters/{chapter_number}/comments")
+def create_chapter_comment(
+    book_id: int,
+    chapter_number: int,
+    payload: ChapterCommentCreateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Post a comment on a chapter. Requires auth. Owner cannot comment own story."""
+    _ensure_chapter_comments_table()
+    owner_rows = fetch_all("SELECT user_id FROM books WHERE id=%s LIMIT 1", (book_id,))
+    owner_id = int(_row_get(owner_rows[0], "user_id") or 0) if owner_rows else 0
+    if owner_id and owner_id == int(user["user_id"]):
+        raise HTTPException(status_code=400, detail="You cannot comment on your own story")
+    body = (payload.body or "").strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Comment cannot be empty")
+    if len(body) > 4000:
+        raise HTTPException(status_code=400, detail="Comment is too long")
+    chapter_id = _resolve_chapter_id(book_id, chapter_number)
+    if chapter_id is None:
+        # Auto-create a stub chapter row so comments can still attach when
+        # the reader opened content without a DB chapter id.
+        execute_write(
+            """
+            INSERT INTO chapters (story_id, chapter_number, title, content, sort_order)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (book_id, chapter_number, f"Chapter {chapter_number}", "", chapter_number),
+        )
+        chapter_id = _resolve_chapter_id(book_id, chapter_number)
+        if chapter_id is None:
+            raise HTTPException(status_code=404, detail="Chapter not found")
+    try:
+        pidx = payload.paragraph_index
+        if pidx is None:
+            pidx = -1
+        try:
+            pidx = int(pidx)
+        except Exception:
+            pidx = -1
+        execute_write(
+            """
+            INSERT INTO chapter_comments (chapter_id, book_id, user_id, body, paragraph_index)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (chapter_id, book_id, user["user_id"], body, pidx),
+        )
+        bump_content_version()
+        rows = fetch_all(
+            """
+            SELECT c.id, c.chapter_id, c.book_id, c.user_id, c.body, c.created_at,
+                   COALESCE(c.paragraph_index, -1) AS paragraph_index,
+                   u.display_name, u.photo_url
+            FROM chapter_comments c
+            LEFT JOIN app_users u ON u.id = c.user_id
+            WHERE c.chapter_id = %s AND c.user_id = %s
+            ORDER BY c.id DESC
+            LIMIT 1
+            """,
+            (chapter_id, user["user_id"]),
+        )
+        item = _serialize_comment_row(rows[0]) if rows else {"ok": True, "body": body, "display_name": "You"}
+        return {"ok": True, "item": item}
+    except Exception as exc:
+        LOGGER.exception("create_chapter_comment failed: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Failed to post comment: {exc}")
+
+
+
+
+@app.get("/api/books/{book_id}/comments")
+def list_book_comments(
+    book_id: int,
+    user: dict[str, Any] | None = Depends(optional_user),
+):
+    """Whole-story comments only (not chapter / paragraph comments)."""
+    try:
+        _ensure_chapter_comments_table()
+        rows = fetch_all(
+            """
+            SELECT c.id, c.chapter_id, c.book_id, c.user_id, c.body,
+                   COALESCE(c.paragraph_index, -1) AS paragraph_index,
+                   c.created_at, u.display_name, u.photo_url
+            FROM chapter_comments c
+            LEFT JOIN app_users u ON u.id = c.user_id
+            WHERE c.book_id = %s
+              AND (c.chapter_id IS NULL OR c.chapter_id = 0)
+              AND COALESCE(c.paragraph_index, -1) < 0
+            ORDER BY c.created_at DESC, c.id DESC
+            """,
+            (book_id,),
+        )
+        items = [_serialize_comment_row(r) for r in (rows or [])]
+        for item in items:
+            like_rows = fetch_all(
+                "SELECT COUNT(*) AS c FROM chapter_comment_likes WHERE comment_id=%s",
+                (item.get("id"),),
+            )
+            item["like_count"] = int(_row_get(like_rows[0], "c") or 0) if like_rows else 0
+            item["liked"] = bool(
+                user
+                and fetch_all(
+                    "SELECT id FROM chapter_comment_likes WHERE comment_id=%s AND user_id=%s LIMIT 1",
+                    (item.get("id"), user["user_id"]),
+                )
+            )
+        return {"items": items}
+    except Exception as exc:
+        LOGGER.exception("list_book_comments failed: %s", exc)
+        return {"items": [], "error": "Failed to load comments"}
+
+
+@app.post("/api/books/{book_id}/comments")
+def create_book_comment(
+    book_id: int,
+    payload: ChapterCommentCreateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Post a comment on the whole story (story detail page)."""
+    _ensure_chapter_comments_table()
+    owner_rows = fetch_all("SELECT user_id FROM books WHERE id=%s LIMIT 1", (book_id,))
+    owner_id = int(_row_get(owner_rows[0], "user_id") or 0) if owner_rows else 0
+    if owner_id and owner_id == int(user["user_id"]):
+        raise HTTPException(status_code=400, detail="You cannot comment on your own story")
+    body = (payload.body or "").strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Comment cannot be empty")
+    if len(body) > 4000:
+        raise HTTPException(status_code=400, detail="Comment is too long")
+    # Ensure chapter_id can be NULL for story-level comments (MySQL).
+    try:
+        from .database import USE_SQLITE as _us
+        if not _us:
+            execute_write(
+                "ALTER TABLE chapter_comments MODIFY chapter_id INT NULL",
+                (),
+            )
+    except Exception:
+        pass
+    execute_write(
+        """
+        INSERT INTO chapter_comments (chapter_id, book_id, user_id, body, paragraph_index)
+        VALUES (NULL, %s, %s, %s, %s)
+        """,
+        (book_id, user["user_id"], body, -1),
+    )
+    bump_content_version()
+    rows = fetch_all(
+        """
+        SELECT c.id, c.chapter_id, c.book_id, c.user_id, c.body, c.created_at,
+               COALESCE(c.paragraph_index, -1) AS paragraph_index,
+               u.display_name, u.photo_url
+        FROM chapter_comments c
+        LEFT JOIN app_users u ON u.id = c.user_id
+        WHERE c.book_id = %s AND c.user_id = %s
+          AND (c.chapter_id IS NULL OR c.chapter_id = 0)
+        ORDER BY c.id DESC
+        LIMIT 1
+        """,
+        (book_id, user["user_id"]),
+    )
+    item = _serialize_comment_row(rows[0]) if rows else {"ok": True, "body": body}
+    item["like_count"] = 0
+    item["liked"] = False
+    return item
+
+
+@app.post("/api/chapter-comments/{comment_id}/like")
+def toggle_chapter_comment_like(
+    comment_id: int,
+    user: dict[str, Any] = Depends(require_user),
+):
+    _ensure_chapter_comments_table()
+    if not fetch_all("SELECT id FROM chapter_comments WHERE id=%s LIMIT 1", (comment_id,)):
+        raise HTTPException(status_code=404, detail="Comment not found")
+    current = fetch_all(
+        "SELECT id FROM chapter_comment_likes WHERE comment_id=%s AND user_id=%s LIMIT 1",
+        (comment_id, user["user_id"]),
+    )
+    if current:
+        execute_write(
+            "DELETE FROM chapter_comment_likes WHERE comment_id=%s AND user_id=%s",
+            (comment_id, user["user_id"]),
+        )
+        liked = False
+    else:
+        execute_write(
+            "INSERT INTO chapter_comment_likes (comment_id, user_id) VALUES (%s, %s)",
+            (comment_id, user["user_id"]),
+        )
+        liked = True
+    counts = fetch_all(
+        "SELECT COUNT(*) AS c FROM chapter_comment_likes WHERE comment_id=%s",
+        (comment_id,),
+    )
+    return {
+        "ok": True,
+        "liked": liked,
+        "like_count": int(_row_get(counts[0], "c") or 0) if counts else 0,
+    }
+
+
+
+@app.put("/api/chapter-comments/{comment_id}")
+def update_chapter_comment(
+    comment_id: int,
+    payload: ChapterCommentCreateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Edit own comment only (story / chapter / paragraph)."""
+    _ensure_chapter_comments_table()
+    rows = fetch_all(
+        "SELECT id, user_id FROM chapter_comments WHERE id=%s LIMIT 1",
+        (comment_id,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    owner = int(_row_get(rows[0], "user_id") or 0)
+    if owner != int(user["user_id"]):
+        raise HTTPException(status_code=403, detail="You can only edit your own comment")
+    body = (payload.body or "").strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Comment cannot be empty")
+    if len(body) > 4000:
+        raise HTTPException(status_code=400, detail="Comment is too long")
+    execute_write(
+        "UPDATE chapter_comments SET body=%s WHERE id=%s AND user_id=%s",
+        (body, comment_id, user["user_id"]),
+    )
+    bump_content_version()
+    out = fetch_all(
+        """
+        SELECT c.id, c.chapter_id, c.book_id, c.user_id, c.body, c.created_at,
+               COALESCE(c.paragraph_index, -1) AS paragraph_index,
+               u.display_name, u.photo_url
+        FROM chapter_comments c
+        LEFT JOIN app_users u ON u.id = c.user_id
+        WHERE c.id = %s LIMIT 1
+        """,
+        (comment_id,),
+    )
+    item = _serialize_comment_row(out[0]) if out else {"ok": True, "id": comment_id, "body": body}
+    return item
+
+
+@app.delete("/api/chapter-comments/{comment_id}")
+def delete_chapter_comment(
+    comment_id: int,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Delete own comment only."""
+    _ensure_chapter_comments_table()
+    rows = fetch_all(
+        "SELECT id, user_id FROM chapter_comments WHERE id=%s LIMIT 1",
+        (comment_id,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    owner = int(_row_get(rows[0], "user_id") or 0)
+    if owner != int(user["user_id"]):
+        raise HTTPException(status_code=403, detail="You can only delete your own comment")
+    try:
+        execute_write("DELETE FROM chapter_comment_likes WHERE comment_id=%s", (comment_id,))
+    except Exception:
+        pass
+    execute_write(
+        "DELETE FROM chapter_comments WHERE id=%s AND user_id=%s",
+        (comment_id, user["user_id"]),
+    )
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.get("/api/chapters/{chapter_id}/comments")
+def list_comments_by_chapter_id(chapter_id: int):
+    try:
+        _ensure_chapter_comments_table()
+        rows = fetch_all(
+            """
+            SELECT c.id, c.chapter_id, c.book_id, c.user_id, c.body,
+                   COALESCE(c.paragraph_index, -1) AS paragraph_index,
+                   c.created_at, u.display_name, u.photo_url
+            FROM chapter_comments c
+            LEFT JOIN app_users u ON u.id = c.user_id
+            WHERE c.chapter_id = %s
+            ORDER BY c.created_at DESC, c.id DESC
+            """,
+            (chapter_id,),
+        )
+        items = [_serialize_comment_row(r) for r in (rows or [])]
+        counts: dict[str, int] = {}
+        for it in items:
+            pi = int(it.get("paragraph_index") if it.get("paragraph_index") is not None else -1)
+            if pi >= 0:
+                key = str(pi)
+                counts[key] = counts.get(key, 0) + 1
+        return {"items": items, "paragraph_counts": counts}
+    except Exception as exc:
+        LOGGER.exception("list_comments_by_chapter_id failed: %s", exc)
+        return {"items": []}
+
+
+_AUTHOR_FOLLOWS_TABLE_READY = False
+
+
+_AUTHOR_FOLLOWS_READY = False
+
+def _ensure_author_follows_table() -> None:
+    global _AUTHOR_FOLLOWS_READY
+    if _AUTHOR_FOLLOWS_READY:
+        return
+    """Memoized schema ensure — runs once per serverless instance."""
+    global _AUTHOR_FOLLOWS_TABLE_READY
+    if _AUTHOR_FOLLOWS_TABLE_READY:
+        return
+    """Ensure author_follows exists (SQLite + MySQL) and normalize legacy column names."""
+    try:
+        if USE_SQLITE:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS author_follows (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    author_id INTEGER NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, author_id)
+                )
+                """,
+                (),
+            )
+        else:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS author_follows (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    author_id INT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_follow (user_id, author_id)
+                )
+                """,
+                (),
+            )
+    except Exception as exc:
+        LOGGER.warning("author_follows create failed: %s", exc)
+
+    # MySQL legacy column rename/backfill
+    if USE_SQLITE:
+        return
+    try:
+        cols = fetch_all("SHOW COLUMNS FROM author_follows")
+        names = {str(c.get("Field") or c.get("field") or "").lower() for c in cols}
+        if not names:
+            return
+        if "user_id" not in names and "follower_user_id" in names:
+            execute_write("ALTER TABLE author_follows ADD COLUMN user_id INT NULL", ())
+            execute_write(
+                "UPDATE author_follows SET user_id = follower_user_id WHERE user_id IS NULL",
+                (),
+            )
+        if "author_id" not in names and "author_user_id" in names:
+            execute_write("ALTER TABLE author_follows ADD COLUMN author_id INT NULL", ())
+            execute_write(
+                "UPDATE author_follows SET author_id = author_user_id WHERE author_id IS NULL",
+                (),
+            )
+    except Exception as exc:
+        LOGGER.warning("author_follows column ensure failed: %s", exc)
+    _AUTHOR_FOLLOWS_READY = True
+
+
+    _AUTHOR_FOLLOWS_TABLE_READY = True
+
+def _count_followers(author_id: int) -> int:
+    try:
+        _ensure_author_follows_table()
+        rows = fetch_all(
+            "SELECT COUNT(*) AS c FROM author_follows WHERE author_id=%s",
+            (author_id,),
+        )
+        return int(rows[0]["c"]) if rows else 0
+    except Exception as exc:
+        LOGGER.warning("count followers failed for %s: %s", author_id, exc)
+        return 0
+
+
+def _count_following(user_id: int) -> int:
+    try:
+        _ensure_author_follows_table()
+        rows = fetch_all(
+            "SELECT COUNT(*) AS c FROM author_follows WHERE user_id=%s",
+            (user_id,),
+        )
+        return int(rows[0]["c"]) if rows else 0
+    except Exception as exc:
+        LOGGER.warning("count following failed for %s: %s", user_id, exc)
+        return 0
+
+
+# backward-compatible alias
+def _ensure_author_follows_columns() -> None:
+    _ensure_author_follows_table()
+
+
+
+
+_BOOK_LIKES_TABLE_READY = False
+
+
+def _ensure_book_likes_table() -> None:
+    """Memoized schema ensure — runs once per serverless instance."""
+    global _BOOK_LIKES_TABLE_READY
+    if _BOOK_LIKES_TABLE_READY:
+        return
+    try:
+        if USE_SQLITE:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS book_likes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    book_id INTEGER NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, book_id)
+                )
+                """,
+                (),
+            )
+        else:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS book_likes (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    book_id INT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_book_like (user_id, book_id)
+                )
+                """,
+                (),
+            )
+    except Exception as exc:
+        LOGGER.warning("book_likes ensure failed: %s", exc)
+    _BOOK_LIKES_TABLE_READY = True
+
+
+@app.get("/api/books/{book_id}/like")
+def get_book_like(book_id: int, user: dict[str, Any] | None = Depends(optional_user)):
+    """Public: returns likes_count for everyone; includes liked=true only when authenticated."""
+    _ensure_book_likes_table()
+    liked = False
+    if user is not None:
+        rows = fetch_all(
+            "SELECT id FROM book_likes WHERE user_id=%s AND book_id=%s",
+            (user["user_id"], book_id),
+        )
+        liked = bool(rows)
+    count_rows = fetch_all(
+        "SELECT COUNT(*) AS c FROM book_likes WHERE book_id=%s",
+        (book_id,),
+    )
+    return {
+        "liked": liked,
+        "likes_count": int(count_rows[0]["c"]) if count_rows else 0,
+    }
+
+
+@app.post("/api/books/{book_id}/like")
+def like_book(book_id: int, user: dict[str, Any] = Depends(require_user)):
+    """One like per user; repeated calls stay idempotent. Owner cannot like own book."""
+    _ensure_book_likes_table()
+    owner_rows = fetch_all("SELECT user_id FROM books WHERE id=%s LIMIT 1", (book_id,))
+    owner_id = int(_row_get(owner_rows[0], "user_id") or 0) if owner_rows else 0
+    if owner_id and owner_id == int(user["user_id"]):
+        count_rows = fetch_all(
+            "SELECT COUNT(*) AS c FROM book_likes WHERE book_id=%s",
+            (book_id,),
+        )
+        return {
+            "ok": False,
+            "liked": False,
+            "likes_count": int(count_rows[0]["c"]) if count_rows else 0,
+            "self": True,
+            "detail": "You cannot like your own story",
+        }
+    if _live_use_sqlite():
+        execute_write(
+            "INSERT OR IGNORE INTO book_likes (user_id, book_id) VALUES (%s, %s)",
+            (user["user_id"], book_id),
+        )
+    else:
+        execute_write(
+            "INSERT IGNORE INTO book_likes (user_id, book_id) VALUES (%s, %s)",
+            (user["user_id"], book_id),
+        )
+    count_rows = fetch_all(
+        "SELECT COUNT(*) AS c FROM book_likes WHERE book_id=%s",
+        (book_id,),
+    )
+    return {
+        "ok": True,
+        "liked": True,
+        "likes_count": int(count_rows[0]["c"]) if count_rows else 0,
+    }
+
+
+@app.delete("/api/books/{book_id}/like")
+def unlike_book(book_id: int, user: dict[str, Any] = Depends(require_user)):
+    _ensure_book_likes_table()
+    execute_write(
+        "DELETE FROM book_likes WHERE user_id=%s AND book_id=%s",
+        (user["user_id"], book_id),
+    )
+    count_rows = fetch_all(
+        "SELECT COUNT(*) AS c FROM book_likes WHERE book_id=%s",
+        (book_id,),
+    )
+    return {
+        "ok": True,
+        "liked": False,
+        "likes_count": int(count_rows[0]["c"]) if count_rows else 0,
+    }
+
+@app.post("/api/authors/{author_id}/follow")
+def follow_author(author_id: int, user: dict[str, Any] = Depends(require_user)):
+    _ensure_author_follows_table()
+    if not fetch_all("SELECT id FROM app_users WHERE id=%s LIMIT 1", (author_id,)):
+        raise HTTPException(status_code=404, detail="Author not found")
+    if user["user_id"] == author_id:
+        # Soft no-op: self-follow is not an error (avoids red errors in the app)
+        return {
+            "ok": True,
+            "following": False,
+            "followers": _count_followers(author_id),
+            "following_count": _count_following(user["user_id"]),
+            "self": True,
+        }
+    if _live_use_sqlite():
+        execute_write(
+            "INSERT OR IGNORE INTO author_follows (user_id, author_id) VALUES (%s, %s)",
+            (user["user_id"], author_id),
+        )
+    else:
+        execute_write(
+            "INSERT IGNORE INTO author_follows (user_id, author_id) VALUES (%s, %s)",
+            (user["user_id"], author_id),
+        )
+    followers = _count_followers(author_id)
+    following_count = _count_following(user["user_id"])
+    return {
+        "ok": True,
+        "following": True,
+        "followers": followers,
+        "following_count": following_count,
+    }
+
+
+@app.get("/api/authors/{author_id}/follow")
+def check_author_follow(author_id: int, user: dict[str, Any] = Depends(require_user)):
+    _ensure_author_follows_table()
+    rows = fetch_all(
+        "SELECT id FROM author_follows WHERE user_id=%s AND author_id=%s",
+        (user["user_id"], author_id),
+    )
+    return {"following": bool(rows)}
+
+
+@app.delete("/api/authors/{author_id}/follow")
+def unfollow_author(author_id: int, user: dict[str, Any] = Depends(require_user)):
+    _ensure_author_follows_table()
+    _, affected = execute_write(
+        "DELETE FROM author_follows WHERE user_id=%s AND author_id=%s",
+        (user["user_id"], author_id),
+    )
+    # Idempotent: treat missing row as already unfollowed
+    followers = _count_followers(author_id)
+    following_count = _count_following(user["user_id"])
+    return {
+        "ok": True,
+        "following": False,
+        "followers": followers,
+        "following_count": following_count,
+    }
+
+
+@app.get("/api/authors/{author_id}/books")
+def list_author_books(author_id: int, exclude_id: int | None = None):
+    """Public list of published books by a given author (user_id)."""
+    if exclude_id is not None:
+        rows = fetch_all(
+            """
+            SELECT id, user_id, title, author, description, genre, cover_path, accent_hex,
+                   status_text, rating
+            FROM books
+            WHERE user_id=%s AND id!=%s
+              AND LOWER(COALESCE(status_text, 'draft')) NOT IN ('draft', 'unpublished', 'private')
+            ORDER BY id DESC
+            LIMIT 20
+            """,
+            (author_id, exclude_id),
+        )
+    else:
+        rows = fetch_all(
+            """
+            SELECT id, user_id, title, author, description, genre, cover_path, accent_hex,
+                   status_text, rating
+            FROM books
+            WHERE user_id=%s
+              AND LOWER(COALESCE(status_text, 'draft')) NOT IN ('draft', 'unpublished', 'private')
+            ORDER BY id DESC
+            LIMIT 20
+            """,
+            (author_id,),
+        )
+    return {"items": [_serialize_book(row) for row in rows]}
+
+
+@app.get("/api/authors/follow")
+def fetch_authors_follow(
+    ids: str = Query(default=""), user: dict[str, Any] = Depends(require_user)
+):
+    _ensure_author_follows_columns()
+    # ids expected as comma-separated list of author ids, e.g. ids=1,2,3
+    raw = ids or ""
+    id_list = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            id_list.append(int(part))
+        except ValueError:
+            continue
+    if not id_list:
+        return {"following": {}}
+
+    placeholders = ",".join(["%s"] * len(id_list))
+    sql = f"SELECT author_id FROM author_follows WHERE user_id=%s AND author_id IN ({placeholders})"
+    params: list[Any] = [user["user_id"]] + id_list
+    rows = fetch_all(sql, tuple(params))
+    followed = {r["author_id"] for r in rows}
+    result = {str(i): (i in followed) for i in id_list}
+    return {"following": result}
+
+
+@app.delete("/api/write/stories/{story_id}")
+def delete_writer_story(story_id: int, user: dict[str, Any] = Depends(require_user)):
+    _, affected = execute_write(
+        "DELETE FROM books WHERE id=%s AND (user_id=%s OR user_id IS NULL)",
+        (story_id, user["user_id"]),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Story not found")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.get("/api/admin/bootstrap")
+def admin_bootstrap(_: dict[str, Any] = Depends(require_admin)):
+    categories = fetch_all(
+        "SELECT id, name, topic_count, tab_group, sort_order, COALESCE(image_path, '') AS image_path FROM categories ORDER BY tab_group, sort_order, id"
+    )
+    books = fetch_all(
+        """
+        SELECT id, title, author, description, cover_path, accent_hex, section_name,
+               status_text, rating, genre, cta_label, sort_order
+        FROM books
+        ORDER BY sort_order, id
+        """
+    )
+    notifications = fetch_all(
+        "SELECT id, tab_name, title, message, created_at, sort_order FROM notifications ORDER BY sort_order, id"
+    )
+    menu_items = fetch_all(
+        "SELECT id, section_name, section_order, label, icon_name, route_name, sort_order FROM menu_items ORDER BY section_order, sort_order, id"
+    )
+    write_screen_rows = fetch_all(
+        "SELECT id, manage_tabs, story_tabs, filter_label, sort_label, empty_title, empty_cta FROM write_screen ORDER BY id ASC LIMIT 1"
+    )
+    profile_rows = fetch_all(
+        "SELECT id, display_name, username, following, followers, blocked, chapters_read, social_karma, day_streak FROM profiles ORDER BY id ASC LIMIT 1"
+    )
+    reading_lists = fetch_all(
+        "SELECT id, profile_id, name, story_count, cover_path, sort_order FROM reading_lists ORDER BY sort_order, id"
+    )
+    achievements = fetch_all(
+        "SELECT id, group_name, group_order, title, subtitle, progress_label, badge_value, style, sort_order FROM achievements ORDER BY group_order, sort_order, id"
+    )
+    support_requests = fetch_all(
+        "SELECT id, email, first_name, issue, subject, description, device_type, attachment_path, status, created_at FROM support_requests ORDER BY created_at DESC, id DESC"
+    )
+
+    return {
+        "categories": categories,
+        "books": [
+            {**book, "cover_path": _normalize_cover_path(book["cover_path"])}
+            for book in books
+        ],
+        "notifications": notifications,
+        "menu_items": menu_items,
+        "write_screen": write_screen_rows[0] if write_screen_rows else None,
+        "profile": profile_rows[0] if profile_rows else None,
+        "reading_lists": reading_lists,
+        "achievements": achievements,
+        "support_requests": support_requests,
+        "stats": {
+            "category_count": len(categories),
+            "book_count": len(books),
+            "notification_count": len(notifications),
+            "menu_item_count": len(menu_items),
+            "reading_list_count": len(reading_lists),
+            "achievement_count": len(achievements),
+            "support_request_count": len(support_requests),
+        },
+    }
+
+
+@app.get("/api/admin/support-requests")
+def admin_get_support_requests(_: dict[str, Any] = Depends(require_admin)):
+    _ensure_support_request_columns()
+    try:
+        rows = fetch_all(
+            "SELECT id, email, first_name, issue, subject, description, device_type, attachment_path, status, created_at, admin_reply, user_id, replied_at FROM support_requests ORDER BY created_at DESC, id DESC"
+        )
+    except Exception:
+        rows = fetch_all(
+            "SELECT id, email, first_name, issue, subject, description, device_type, attachment_path, status, created_at FROM support_requests ORDER BY created_at DESC, id DESC"
+        )
+    return {"items": rows}
+
+
+@app.put("/api/admin/support-requests/{request_id}")
+def admin_update_support_request(
+    request_id: int,
+    payload: SupportRequestUpdateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    """Update status and/or store admin reply. Reply becomes a user notification."""
+    _ensure_support_request_columns()
+    rows = fetch_all("SELECT * FROM support_requests WHERE id=%s LIMIT 1", (request_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="Support request not found")
+    row = rows[0]
+    status = payload.status if payload.status is not None else (_row_get(row, "status") or "open")
+    reply = (payload.admin_reply or "").strip()
+    if reply:
+        try:
+            execute_write(
+                """
+                UPDATE support_requests
+                SET status=%s, admin_reply=%s, replied_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+                """,
+                (status, reply, request_id),
+            )
+        except Exception:
+            execute_write(
+                "UPDATE support_requests SET status=%s WHERE id=%s",
+                (status, request_id),
+            )
+        # Create a durable user notification row if we can resolve the user
+        uid = _row_get(row, "user_id")
+        email = (_row_get(row, "email") or "").strip().lower()
+        if not uid and email:
+            try:
+                urows = fetch_all(
+                    "SELECT id FROM app_users WHERE LOWER(email)=%s LIMIT 1",
+                    (email,),
+                )
+                if urows:
+                    uid = _row_get(urows[0], "id")
+            except Exception:
+                uid = None
+        if uid:
+            try:
+                _ensure_user_support_notifications_table()
+                execute_write(
+                    """
+                    INSERT INTO user_support_notifications
+                        (user_id, support_request_id, title, message, is_read)
+                    VALUES (%s, %s, %s, %s, 0)
+                    """,
+                    (
+                        int(uid),
+                        request_id,
+                        "Support reply",
+                        reply[:2000],
+                    ),
+                )
+            except Exception as exc:
+                LOGGER.warning("support reply notification: %s", exc)
+    else:
+        _, affected = execute_write(
+            "UPDATE support_requests SET status=%s WHERE id=%s",
+            (status, request_id),
+        )
+        if affected == 0:
+            raise HTTPException(status_code=404, detail="Support request not found")
+    bump_content_version()
+    return {"ok": True, "status": status, "has_reply": bool(reply)}
+
+
+def _ensure_user_support_notifications_table() -> None:
+    try:
+        if _live_use_sqlite():
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS user_support_notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    support_request_id INTEGER,
+                    title TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    is_read INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                (),
+            )
+        else:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS user_support_notifications (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    support_request_id INT NULL,
+                    title VARCHAR(255) NOT NULL,
+                    message TEXT NOT NULL,
+                    is_read TINYINT(1) NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (user_id)
+                )
+                """,
+                (),
+            )
+    except Exception as exc:
+        LOGGER.warning("user_support_notifications table: %s", exc)
+
+
+
+@app.post("/api/admin/categories")
+def admin_create_category(
+    payload: CategoryCreateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    _, affected = execute_write(
+        "INSERT INTO categories (name, topic_count, tab_group, sort_order, image_path) VALUES (%s, %s, %s, %s, %s)",
+        (payload.name, payload.topic_count, payload.tab_group, payload.sort_order, payload.image_path or ""),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=400, detail="Failed to create category")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.put("/api/admin/categories/{category_id}")
+def admin_update_category(
+    category_id: int,
+    payload: CategoryUpdateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    rows = fetch_all("SELECT * FROM categories WHERE id=%s", (category_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    current = rows[0]
+    _, affected = execute_write(
+        """
+        UPDATE categories
+        SET name=%s, topic_count=%s, tab_group=%s, sort_order=%s, image_path=%s
+        WHERE id=%s
+        """,
+        (
+            payload.name or current["name"],
+            payload.topic_count if payload.topic_count is not None else current["topic_count"],
+            payload.tab_group or current["tab_group"],
+            payload.sort_order if payload.sort_order is not None else current["sort_order"],
+            payload.image_path if payload.image_path is not None else current.get("image_path") or "",
+            category_id,
+        ),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=400, detail="Failed to update category")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.delete("/api/admin/categories/{category_id}")
+def admin_delete_category(
+    category_id: int,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    _, affected = execute_write("DELETE FROM categories WHERE id=%s", (category_id,))
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.post("/api/admin/books")
+def admin_create_book(
+    payload: AdminBookCreateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    # Admin-created novels are published by default
+    status_text = (payload.status_text or "Published").strip() or "Published"
+    book_id, _ = execute_write(
+        """
+        INSERT INTO books (
+            title, author, description, cover_path, accent_hex, section_name,
+            status_text, rating, genre, cta_label, sort_order
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            payload.title,
+            payload.author,
+            payload.description,
+            payload.cover_path,
+            payload.accent_hex,
+            payload.section_name,
+            status_text,
+            payload.rating,
+            payload.genre,
+            payload.cta_label,
+            payload.sort_order,
+        ),
+    )
+    # Optional chapters in the same request
+    chapters = payload.chapters or []
+    for i, ch in enumerate(chapters):
+        if not isinstance(ch, dict):
+            continue
+        title = (ch.get("title") or f"Chapter {i + 1}").strip()
+        content = (ch.get("content") or "").strip()
+        if not title and not content:
+            continue
+        num = int(ch.get("chapter_number") or (i + 1))
+        try:
+            execute_write(
+                """
+                INSERT INTO chapters (
+                    story_id, chapter_number, title, content, notes, submission_status, sort_order
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (book_id, num, title or f"Chapter {num}", content, "", "published", num),
+            )
+        except Exception as exc:
+            LOGGER.warning("admin create chapter failed: %s", exc)
+    bump_content_version()
+    return {"ok": True, "id": book_id}
+
+
+@app.get("/api/admin/books/{book_id}/chapters")
+def admin_list_book_chapters(book_id: int, _: dict[str, Any] = Depends(require_admin)):
+    rows = fetch_all(
+        """
+        SELECT id, story_id, chapter_number, title, content, notes, submission_status, sort_order
+        FROM chapters WHERE story_id=%s ORDER BY chapter_number, sort_order, id
+        """,
+        (book_id,),
+    )
+    return {"items": rows or []}
+
+
+@app.post("/api/admin/books/{book_id}/chapters")
+def admin_create_book_chapter(
+    book_id: int,
+    payload: dict[str, Any],
+    _: dict[str, Any] = Depends(require_admin),
+):
+    story = fetch_all("SELECT id FROM books WHERE id=%s", (book_id,))
+    if not story:
+        raise HTTPException(status_code=404, detail="Book not found")
+    num = payload.get("chapter_number")
+    if num is None:
+        next_rows = fetch_all(
+            "SELECT COALESCE(MAX(chapter_number), 0) + 1 AS n FROM chapters WHERE story_id=%s",
+            (book_id,),
+        )
+        num = int(next_rows[0]["n"]) if next_rows else 1
+    title = (payload.get("title") or f"Chapter {num}").strip()
+    content = payload.get("content") or ""
+    status = (payload.get("submission_status") or "published").strip() or "published"
+    row_id, _ = execute_write(
+        """
+        INSERT INTO chapters (
+            story_id, chapter_number, title, content, notes, submission_status, sort_order
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """,
+        (book_id, int(num), title, content, payload.get("notes") or "", status, int(num)),
+    )
+    bump_content_version()
+    return {"ok": True, "id": row_id}
+
+
+@app.put("/api/admin/books/{book_id}")
+def admin_update_book(
+    book_id: int,
+    payload: AdminBookUpdateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    rows = fetch_all("SELECT * FROM books WHERE id=%s", (book_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    current = rows[0]
+    _, affected = execute_write(
+        """
+        UPDATE books
+        SET title=%s, author=%s, description=%s, cover_path=%s, accent_hex=%s,
+            section_name=%s, status_text=%s, rating=%s, genre=%s, cta_label=%s, sort_order=%s
+        WHERE id=%s
+        """,
+        (
+            payload.title or current["title"],
+            payload.author or current["author"],
+            payload.description or current["description"],
+            payload.cover_path if payload.cover_path is not None else current["cover_path"],
+            payload.accent_hex or current["accent_hex"],
+            payload.section_name or current["section_name"],
+            payload.status_text or current["status_text"],
+            payload.rating if payload.rating is not None else current["rating"],
+            payload.genre or current["genre"],
+            payload.cta_label or current["cta_label"],
+            payload.sort_order if payload.sort_order is not None else current["sort_order"],
+            book_id,
+        ),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=400, detail="Failed to update book")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.delete("/api/admin/books/{book_id}")
+def admin_delete_book(
+    book_id: int,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    _, affected = execute_write("DELETE FROM books WHERE id=%s", (book_id,))
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Book not found")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.get("/api/admin/notifications")
+def admin_get_notifications(_: dict[str, Any] = Depends(require_admin)):
+    rows = fetch_all(
+        "SELECT id, tab_name, title, message, created_at, sort_order FROM notifications ORDER BY sort_order, id"
+    )
+    return {"items": rows}
+
+
+@app.post("/api/admin/notifications")
+def admin_create_notification(
+    payload: AdminNotificationCreateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    row_id, _ = execute_write(
+        """
+        INSERT INTO notifications (tab_name, title, message, created_at, sort_order)
+        VALUES (%s, %s, %s, %s, %s)
+        """,
+        (
+            payload.tab_name,
+            payload.title,
+            payload.message,
+            payload.created_at,
+            payload.sort_order,
+        ),
+    )
+    bump_content_version()
+    return {"ok": True, "id": row_id}
+
+
+@app.put("/api/admin/notifications/{notification_id}")
+def admin_update_notification(
+    notification_id: int,
+    payload: AdminNotificationUpdateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    rows = fetch_all("SELECT * FROM notifications WHERE id=%s", (notification_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    current = rows[0]
+    _, affected = execute_write(
+        """
+        UPDATE notifications
+        SET tab_name=%s, title=%s, message=%s, created_at=%s, sort_order=%s
+        WHERE id=%s
+        """,
+        (
+            payload.tab_name or current["tab_name"],
+            payload.title or current["title"],
+            payload.message or current["message"],
+            payload.created_at or current["created_at"],
+            payload.sort_order if payload.sort_order is not None else current["sort_order"],
+            notification_id,
+        ),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=400, detail="Failed to update notification")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.delete("/api/admin/notifications/{notification_id}")
+def admin_delete_notification(
+    notification_id: int,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    _, affected = execute_write("DELETE FROM notifications WHERE id=%s", (notification_id,))
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.get("/api/admin/menu-items")
+def admin_get_menu_items(_: dict[str, Any] = Depends(require_admin)):
+    rows = fetch_all(
+        "SELECT id, section_name, section_order, label, icon_name, route_name, sort_order FROM menu_items ORDER BY section_order, sort_order, id"
+    )
+    return {"items": rows}
+
+
+@app.post("/api/admin/menu-items")
+def admin_create_menu_item(
+    payload: AdminMenuItemCreateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    row_id, _ = execute_write(
+        """
+        INSERT INTO menu_items (section_name, section_order, label, icon_name, route_name, sort_order)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        (
+            payload.section_name,
+            payload.section_order,
+            payload.label,
+            payload.icon_name,
+            payload.route_name,
+            payload.sort_order,
+        ),
+    )
+    bump_content_version()
+    return {"ok": True, "id": row_id}
+
+
+@app.put("/api/admin/menu-items/{menu_item_id}")
+def admin_update_menu_item(
+    menu_item_id: int,
+    payload: AdminMenuItemUpdateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    rows = fetch_all("SELECT * FROM menu_items WHERE id=%s", (menu_item_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+
+    current = rows[0]
+    _, affected = execute_write(
+        """
+        UPDATE menu_items
+        SET section_name=%s, section_order=%s, label=%s, icon_name=%s, route_name=%s, sort_order=%s
+        WHERE id=%s
+        """,
+        (
+            payload.section_name or current["section_name"],
+            payload.section_order if payload.section_order is not None else current["section_order"],
+            payload.label or current["label"],
+            payload.icon_name or current["icon_name"],
+            payload.route_name or current["route_name"],
+            payload.sort_order if payload.sort_order is not None else current["sort_order"],
+            menu_item_id,
+        ),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=400, detail="Failed to update menu item")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.delete("/api/admin/menu-items/{menu_item_id}")
+def admin_delete_menu_item(
+    menu_item_id: int,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    _, affected = execute_write("DELETE FROM menu_items WHERE id=%s", (menu_item_id,))
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.get("/api/admin/write-screen")
+def admin_get_write_screen(_: dict[str, Any] = Depends(require_admin)):
+    rows = fetch_all(
+        "SELECT id, manage_tabs, story_tabs, filter_label, sort_label, empty_title, empty_cta FROM write_screen ORDER BY id ASC LIMIT 1"
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Write screen config not found")
+    return rows[0]
+
+
+@app.put("/api/admin/write-screen")
+def admin_update_write_screen(
+    payload: AdminWriteScreenUpdateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    rows = fetch_all("SELECT id FROM write_screen ORDER BY id ASC LIMIT 1")
+    if not rows:
+        execute_write(
+            """
+            INSERT INTO write_screen (manage_tabs, story_tabs, filter_label, sort_label, empty_title, empty_cta)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (
+                payload.manage_tabs,
+                payload.story_tabs,
+                payload.filter_label,
+                payload.sort_label,
+                payload.empty_title,
+                payload.empty_cta,
+            ),
+        )
+        bump_content_version()
+        return {"ok": True}
+
+    _, affected = execute_write(
+        """
+        UPDATE write_screen
+        SET manage_tabs=%s, story_tabs=%s, filter_label=%s, sort_label=%s, empty_title=%s, empty_cta=%s
+        WHERE id=%s
+        """,
+        (
+            payload.manage_tabs,
+            payload.story_tabs,
+            payload.filter_label,
+            payload.sort_label,
+            payload.empty_title,
+            payload.empty_cta,
+            rows[0]["id"],
+        ),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=400, detail="Failed to update write screen config")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.get("/api/admin/profile")
+def admin_get_profile(_: dict[str, Any] = Depends(require_admin)):
+    rows = fetch_all(
+        "SELECT id, display_name, username, following, followers, blocked, chapters_read, social_karma, day_streak FROM profiles ORDER BY id ASC LIMIT 1"
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return rows[0]
+
+
+@app.put("/api/admin/profile")
+def admin_update_profile(
+    payload: AdminProfileUpdateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    rows = fetch_all("SELECT id FROM profiles ORDER BY id ASC LIMIT 1")
+    if not rows:
+        execute_write(
+            """
+            INSERT INTO profiles (display_name, username, following, followers, blocked, chapters_read, social_karma, day_streak)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                payload.display_name,
+                payload.username,
+                payload.following,
+                payload.followers,
+                payload.blocked,
+                payload.chapters_read,
+                payload.social_karma,
+                payload.day_streak,
+            ),
+        )
+        bump_content_version()
+        return {"ok": True}
+
+    _, affected = execute_write(
+        """
+        UPDATE profiles
+        SET display_name=%s, username=%s, following=%s, followers=%s, blocked=%s,
+            chapters_read=%s, social_karma=%s, day_streak=%s
+        WHERE id=%s
+        """,
+        (
+            payload.display_name,
+            payload.username,
+            payload.following,
+            payload.followers,
+            payload.blocked,
+            payload.chapters_read,
+            payload.social_karma,
+            payload.day_streak,
+            rows[0]["id"],
+        ),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=400, detail="Failed to update profile")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.get("/api/admin/reading-lists")
+def admin_get_reading_lists(_: dict[str, Any] = Depends(require_admin)):
+    rows = fetch_all(
+        "SELECT id, profile_id, name, story_count, cover_path, sort_order FROM reading_lists ORDER BY sort_order, id"
+    )
+    return {"items": rows}
+
+
+@app.post("/api/admin/reading-lists")
+def admin_create_reading_list(
+    payload: AdminReadingListCreateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    row_id, _ = execute_write(
+        """
+        INSERT INTO reading_lists (profile_id, name, story_count, cover_path, sort_order)
+        VALUES (%s, %s, %s, %s, %s)
+        """,
+        (
+            payload.profile_id,
+            payload.name,
+            payload.story_count,
+            payload.cover_path,
+            payload.sort_order,
+        ),
+    )
+    bump_content_version()
+    return {"ok": True, "id": row_id}
+
+
+@app.put("/api/admin/reading-lists/{list_id}")
+def admin_update_reading_list(
+    list_id: int,
+    payload: AdminReadingListUpdateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    rows = fetch_all("SELECT * FROM reading_lists WHERE id=%s", (list_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="Reading list not found")
+
+    current = rows[0]
+    _, affected = execute_write(
+        """
+        UPDATE reading_lists
+        SET profile_id=%s, name=%s, story_count=%s, cover_path=%s, sort_order=%s
+        WHERE id=%s
+        """,
+        (
+            payload.profile_id if payload.profile_id is not None else current["profile_id"],
+            payload.name or current["name"],
+            payload.story_count if payload.story_count is not None else current["story_count"],
+            payload.cover_path if payload.cover_path is not None else current["cover_path"],
+            payload.sort_order if payload.sort_order is not None else current["sort_order"],
+            list_id,
+        ),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=400, detail="Failed to update reading list")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.delete("/api/admin/reading-lists/{list_id}")
+def admin_delete_reading_list(
+    list_id: int,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    _, affected = execute_write("DELETE FROM reading_lists WHERE id=%s", (list_id,))
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Reading list not found")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.get("/api/admin/achievements")
+def admin_get_achievements(_: dict[str, Any] = Depends(require_admin)):
+    rows = fetch_all(
+        "SELECT id, group_name, group_order, title, subtitle, progress_label, badge_value, style, sort_order FROM achievements ORDER BY group_order, sort_order, id"
+    )
+    return {"items": rows}
+
+
+@app.post("/api/admin/achievements")
+def admin_create_achievement(
+    payload: AdminAchievementCreateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    row_id, _ = execute_write(
+        """
+        INSERT INTO achievements (group_name, group_order, title, subtitle, progress_label, badge_value, style, sort_order)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            payload.group_name,
+            payload.group_order,
+            payload.title,
+            payload.subtitle,
+            payload.progress_label,
+            payload.badge_value,
+            payload.style,
+            payload.sort_order,
+        ),
+    )
+    bump_content_version()
+    return {"ok": True, "id": row_id}
+
+
+@app.put("/api/admin/achievements/{achievement_id}")
+def admin_update_achievement(
+    achievement_id: int,
+    payload: AdminAchievementUpdateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    rows = fetch_all("SELECT * FROM achievements WHERE id=%s", (achievement_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="Achievement not found")
+
+    current = rows[0]
+    _, affected = execute_write(
+        """
+        UPDATE achievements
+        SET group_name=%s, group_order=%s, title=%s, subtitle=%s,
+            progress_label=%s, badge_value=%s, style=%s, sort_order=%s
+        WHERE id=%s
+        """,
+        (
+            payload.group_name or current["group_name"],
+            payload.group_order if payload.group_order is not None else current["group_order"],
+            payload.title or current["title"],
+            payload.subtitle or current["subtitle"],
+            payload.progress_label or current["progress_label"],
+            payload.badge_value or current["badge_value"],
+            payload.style or current["style"],
+            payload.sort_order if payload.sort_order is not None else current["sort_order"],
+            achievement_id,
+        ),
+    )
+    if affected == 0:
+        raise HTTPException(status_code=400, detail="Failed to update achievement")
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.delete("/api/admin/achievements/{achievement_id}")
+def admin_delete_achievement(
+    achievement_id: int,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    _, affected = execute_write("DELETE FROM achievements WHERE id=%s", (achievement_id,))
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Achievement not found")
+    bump_content_version()
+    return {"ok": True}
+
+
+# ----- Public profile data (wired to real tables) -----
+
+@app.get("/api/users/{user_id}/stories")
+def list_user_stories(user_id: int):
+    """Public stories by this author — fast path (no N+1 counts/tags)."""
+    rows = []
+    try:
+        rows = fetch_all(
+            """
+            SELECT id, user_id, title, author, description, genre, cover_path, accent_hex,
+                   status_text, rating, primary_genre, secondary_genre, is_completed, view_count
+            FROM books
+                 WHERE user_id=%s
+                AND LOWER(TRIM(COALESCE(status_text, ''))) IN
+                    ('ongoing', 'completed', 'complete', 'published')
+            ORDER BY id DESC
+            LIMIT 80
+            """,
+            (user_id,),
+        ) or []
+    except Exception as exc:
+        LOGGER.warning("list_user_stories: %s", exc)
+        rows = []
+    # Also try author_user_id if column exists and first query empty
+    if not rows:
+        try:
+            rows = fetch_all(
+                """
+                SELECT id, user_id, title, author, description, genre, cover_path, accent_hex,
+                       status_text, rating, primary_genre, secondary_genre, is_completed, view_count
+                FROM books
+                  WHERE author_user_id=%s
+                    AND LOWER(TRIM(COALESCE(status_text, ''))) IN
+                     ('ongoing', 'completed', 'complete', 'published')
+                ORDER BY id DESC
+                LIMIT 80
+                """,
+                (user_id,),
+            ) or []
+        except Exception:
+            rows = []
+    return {"items": [_serialize_book_light(row) for row in rows]}
+
+
+@app.get("/api/users/{user_id}/reading-lists")
+def list_user_reading_lists(user_id: int):
+    """Public reading lists for a user profile.
+    Note: reading_lists table has no is_public column in production — do not select it.
+    """
+    rows = fetch_all(
+        """
+        SELECT id, name, story_count, cover_path, sort_order
+        FROM reading_lists
+        WHERE user_id=%s
+        ORDER BY sort_order, id DESC
+        LIMIT 50
+        """,
+        (user_id,),
+    )
+    items = []
+    for row in rows:
+        cover = _normalize_cover_path(_row_get(row, "cover_path") or "")
+        # collage covers from list items if available
+        covers = []
+        try:
+            lid = _row_get(row, "id")
+            if lid is not None:
+                item_rows = fetch_all(
+                    """
+                    SELECT b.cover_path FROM reading_list_items rli
+                    JOIN books b ON b.id = rli.book_id
+                    WHERE rli.reading_list_id=%s
+                    LIMIT 4
+                    """,
+                    (lid,),
+                )
+                for ir in item_rows:
+                    p = _normalize_cover_path(_row_get(ir, "cover_path") or "")
+                    if p:
+                        covers.append(p)
+        except Exception:
+            pass
+        items.append({
+            "id": _row_get(row, "id"),
+            "name": _row_get(row, "name") or "List",
+            "story_count": int(_row_get(row, "story_count") or 0),
+            "cover_path": cover,
+            "covers": covers,
+        })
+    return {"items": items}
+
+
+@app.get("/api/users/{user_id}/reviews")
+def list_user_reviews(user_id: int):
+    """Reviews written by this user."""
+    rows = fetch_all(
+        """
+        SELECT r.id, r.book_id, r.user_id, r.rating, r.comment, r.created_at,
+               b.title AS book_title, b.cover_path, b.author AS book_author,
+               u.display_name AS reviewer_name
+        FROM book_reviews r
+        LEFT JOIN books b ON b.id = r.book_id
+        LEFT JOIN app_users u ON u.id = r.user_id
+        WHERE r.user_id=%s
+        ORDER BY r.id DESC
+        LIMIT 100
+        """,
+        (user_id,),
+    )
+    items = []
+    for row in rows:
+        comment = _row_get(row, "comment") or ""
+        rating = int(_row_get(row, "rating") or 5)
+        items.append({
+            "id": _row_get(row, "id"),
+            "book_id": _row_get(row, "book_id"),
+            "book_title": _row_get(row, "book_title") or "Story",
+            "book_author": _row_get(row, "book_author") or "",
+            "cover_path": _normalize_cover_path(_row_get(row, "cover_path") or ""),
+            "rating": rating,
+            "comment": comment,
+            "title": comment.split("\n")[0][:80] if comment else "Review",
+            "plot": min(5, max(1, rating)),
+            "writing_style": min(5, max(1, rating)),
+            "grammar": min(5, max(1, max(1, rating - 1))),
+            "created_at": str(_row_get(row, "created_at") or ""),
+        })
+    return {"items": items}
+
+
+@app.get("/api/users/{user_id}/wall")
+def list_user_wall(user_id: int):
+    """Profile Wall: posts on this user's wall (single JOIN — avoids N+1 / 504 timeouts)."""
+    _ensure_wall_posts_table()
+    try:
+        # One query with author join — never per-row SELECT (was timing out on Vercel 300s)
+        rows = fetch_all(
+            """
+            SELECT w.id, w.user_id, w.target_user_id, w.body, w.image_path,
+                   w.likes_count, w.created_at,
+                   u.display_name AS sender_name,
+                   u.photo_url AS sender_photo
+            FROM wall_posts w
+            LEFT JOIN app_users u ON u.id = w.user_id
+            WHERE w.target_user_id=%s OR w.user_id=%s
+            ORDER BY w.id DESC
+            LIMIT 40
+            """,
+            (user_id, user_id),
+        )
+    except Exception as exc:
+        LOGGER.warning("list_user_wall query failed for %s: %s", user_id, exc)
+        rows = []
+    items = []
+    for row in rows:
+        uid = _row_get(row, "user_id")
+        uname = (_row_get(row, "sender_name") or "User").strip() or "User"
+        photo = _row_get(row, "sender_photo") or ""
+        items.append({
+            "id": _row_get(row, "id"),
+            "user_id": uid,
+            "sender_name": uname,
+            "display_name": uname,
+            "photo_url": photo,
+            "body": _row_get(row, "body") or "",
+            "message": _row_get(row, "body") or "",
+            "image_path": _normalize_cover_path(_row_get(row, "image_path") or ""),
+            "created_at": str(_row_get(row, "created_at") or ""),
+            "likes": int(_row_get(row, "likes_count") or 0),
+        })
+    return {"items": items}
+
+
+@app.post("/api/users/{user_id}/wall")
+def post_user_wall(
+    user_id: int,
+    payload: dict[str, Any],
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Create a wall post on target user's profile (requires login)."""
+    _ensure_wall_posts_table()
+    body = (payload.get("body") or payload.get("message") or "").strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Empty post")
+    image_path = payload.get("image_path") or payload.get("image_url") or ""
+    row_id, _ = execute_write(
+        """
+        INSERT INTO wall_posts (user_id, target_user_id, body, image_path, likes_count, created_at)
+        VALUES (%s, %s, %s, %s, 0, CURRENT_TIMESTAMP)
+        """,
+        (user["user_id"], user_id, body, image_path),
+    )
+    return {"ok": True, "id": row_id}
+
+
+def _ensure_wall_post_likes_table() -> None:
+    """Per-user likes on wall posts (one like per account)."""
+    try:
+        if USE_SQLITE:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS wall_post_likes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    post_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(post_id, user_id)
+                )
+                """,
+                (),
+            )
+        else:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS wall_post_likes (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    post_id INT NOT NULL,
+                    user_id INT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_wall_like (post_id, user_id),
+                    INDEX (post_id),
+                    INDEX (user_id)
+                )
+                """,
+                (),
+            )
+    except Exception as exc:
+        LOGGER.warning("wall_post_likes ensure failed: %s", exc)
+
+
+@app.post("/api/wall/{post_id}/like")
+def like_wall_post(
+    post_id: int,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Toggle like on a wall post. One like per account; second tap unlikes."""
+    _ensure_wall_posts_table()
+    _ensure_wall_post_likes_table()
+    rows = fetch_all("SELECT id, likes_count FROM wall_posts WHERE id=%s LIMIT 1", (post_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="Post not found")
+    uid = int(user["user_id"])
+    existing = fetch_all(
+        "SELECT id FROM wall_post_likes WHERE post_id=%s AND user_id=%s LIMIT 1",
+        (post_id, uid),
+    )
+    if existing:
+        execute_write(
+            "DELETE FROM wall_post_likes WHERE post_id=%s AND user_id=%s",
+            (post_id, uid),
+        )
+        liked = False
+    else:
+        try:
+            execute_write(
+                "INSERT INTO wall_post_likes (post_id, user_id) VALUES (%s, %s)",
+                (post_id, uid),
+            )
+        except Exception:
+            # race: already liked
+            pass
+        liked = True
+    count_rows = fetch_all(
+        "SELECT COUNT(*) AS c FROM wall_post_likes WHERE post_id=%s",
+        (post_id,),
+    )
+    likes = int(_row_get(count_rows[0], "c") or 0) if count_rows else 0
+    try:
+        execute_write(
+            "UPDATE wall_posts SET likes_count=%s WHERE id=%s",
+            (likes, post_id),
+        )
+    except Exception:
+        pass
+    return {"ok": True, "likes": likes, "liked": liked}
+
+
+@app.post("/api/wall/{post_id}/comment")
+def comment_wall_post(
+    post_id: int,
+    payload: dict[str, Any],
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Add a short reply as a wall post on the same target wall."""
+    _ensure_wall_posts_table()
+    rows = fetch_all(
+        "SELECT id, target_user_id, user_id, body FROM wall_posts WHERE id=%s LIMIT 1",
+        (post_id,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Post not found")
+    body = (payload.get("body") or payload.get("message") or "").strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Empty comment")
+    target = int(_row_get(rows[0], "target_user_id") or _row_get(rows[0], "user_id") or 0)
+    parent_body = (_row_get(rows[0], "body") or "")[:80]
+    reply = f"Re: {parent_body}\n{body}" if parent_body else body
+    row_id, _ = execute_write(
+        """
+        INSERT INTO wall_posts (user_id, target_user_id, body, image_path, likes_count, created_at)
+        VALUES (%s, %s, %s, %s, 0, CURRENT_TIMESTAMP)
+        """,
+        (user["user_id"], target, reply, ""),
+    )
+    return {"ok": True, "id": row_id}
+
+
+def _user_moderation_status(user_id: int) -> dict[str, Any]:
+    """Fresh flags from DB after any admin action."""
+    _ensure_user_moderation_columns()
+    rows = fetch_all(
+        """
+        SELECT COALESCE(is_banned,0) AS is_banned,
+               COALESCE(is_suspended,0) AS is_suspended,
+               COALESCE(is_deleted,0) AS is_deleted,
+               suspended_until,
+               COALESCE(is_author_active,1) AS is_author_active
+        FROM app_users WHERE id=%s LIMIT 1
+        """,
+        (user_id,),
+    )
+    if not rows:
+        return {"ok": False, "error": "user not found", "id": user_id}
+    r = rows[0]
+    return {
+        "ok": True,
+        "id": user_id,
+        "is_banned": _as_bool_flag(_row_get(r, "is_banned")),
+        "is_suspended": _as_bool_flag(_row_get(r, "is_suspended")),
+        "is_deleted": _as_bool_flag(_row_get(r, "is_deleted")),
+        "suspended_until": str(_row_get(r, "suspended_until") or "") or None,
+        "is_author_active": bool(int(_row_get(r, "is_author_active") if _row_get(r, "is_author_active") is not None else 1)),
+    }
+
+
+# ----- Admin: users list + ban / unban -----
+
+
+@app.get("/api/admin/stats")
+def admin_dashboard_stats(_: dict[str, Any] = Depends(require_admin)):
+    """Lightweight dashboard counters for admin panel."""
+    def _c(sql: str) -> int:
+        try:
+            rows = fetch_all(sql)
+            return int(_row_get(rows[0], "c") or 0) if rows else 0
+        except Exception:
+            return 0
+
+    books = _c("SELECT COUNT(*) AS c FROM books")
+    published = _c(
+        "SELECT COUNT(*) AS c FROM books WHERE LOWER(COALESCE(status_text,'')) LIKE '%%publish%%' "
+        "OR LOWER(COALESCE(status_text,'')) LIKE '%%complete%%'"
+    )
+    drafts = _c(
+        "SELECT COUNT(*) AS c FROM books WHERE LOWER(COALESCE(status_text,'')) LIKE '%%draft%%' "
+        "OR LOWER(COALESCE(status_text,'')) LIKE '%%ongoing%%'"
+    )
+    users = _c("SELECT COUNT(*) AS c FROM app_users")
+    authors = _c(
+        "SELECT COUNT(DISTINCT user_id) AS c FROM books WHERE user_id IS NOT NULL AND user_id > 0"
+    )
+    reviews = _c("SELECT COUNT(*) AS c FROM book_reviews")
+    reports = 0
+    try:
+        reports = _c("SELECT COUNT(*) AS c FROM story_reports")
+    except Exception:
+        reports = 0
+    follows = 0
+    try:
+        follows = _c("SELECT COUNT(*) AS c FROM author_follows")
+    except Exception:
+        follows = 0
+    return {
+        "books": books,
+        "published": published,
+        "drafts": drafts,
+        "users": users,
+        "authors": authors,
+        "reviews": reviews,
+        "reports": reports,
+        "follows": follows,
+    }
+
+
+@app.get("/api/admin/authors")
+def admin_list_authors(_: dict[str, Any] = Depends(require_admin)):
+    """Users who became authors by publishing / owning at least one book."""
+    _ensure_user_moderation_columns()
+    rows = []
+    try:
+        rows = fetch_all(
+            """
+            SELECT u.id, u.email, u.display_name, u.photo_url, u.provider, u.bio,
+                   COALESCE(u.is_banned, 0) AS is_banned,
+                   COALESCE(u.is_suspended, 0) AS is_suspended,
+                   COALESCE(u.is_deleted, 0) AS is_deleted,
+                   u.suspended_until,
+                   COALESCE(u.is_author, 0) AS is_author,
+                   COALESCE(u.is_author_active, 1) AS is_author_active,
+                   COALESCE(bc.story_count, 0) AS story_count,
+                   COALESCE(fc.follower_count, 0) AS follower_count
+            FROM app_users u
+            INNER JOIN (
+                SELECT user_id, COUNT(*) AS story_count
+                FROM books
+                WHERE user_id IS NOT NULL AND user_id > 0
+                GROUP BY user_id
+            ) bc ON bc.user_id = u.id
+            LEFT JOIN (
+                SELECT author_id, COUNT(*) AS follower_count
+                FROM author_follows
+                GROUP BY author_id
+            ) fc ON fc.author_id = u.id
+            ORDER BY bc.story_count DESC, u.id DESC
+            LIMIT 500
+            """
+        ) or []
+    except Exception as exc:
+        LOGGER.warning("admin_list_authors join failed: %s", exc)
+        try:
+            rows = fetch_all(
+                """
+                SELECT u.id, u.email, u.display_name, u.photo_url, u.provider, u.bio,
+                       0 AS is_banned, 0 AS is_suspended, 0 AS is_deleted,
+                       NULL AS suspended_until,
+                       1 AS is_author, 1 AS is_author_active,
+                       (SELECT COUNT(*) FROM books b WHERE b.user_id = u.id) AS story_count,
+                       0 AS follower_count
+                FROM app_users u
+                WHERE EXISTS (SELECT 1 FROM books b WHERE b.user_id = u.id)
+                ORDER BY u.id DESC
+                LIMIT 500
+                """
+            ) or []
+        except Exception as e2:
+            LOGGER.warning("admin_list_authors fallback failed: %s", e2)
+            return {"items": []}
+
+    items = []
+    for row in rows:
+        uid = _row_get(row, "id")
+        story_count = int(_row_get(row, "story_count") or 0)
+        items.append({
+            "id": uid,
+            "email": _row_get(row, "email") or "",
+            "display_name": _row_get(row, "display_name") or "",
+            "photo_url": _row_get(row, "photo_url") or "",
+            "provider": _row_get(row, "provider") or "",
+            "bio": _row_get(row, "bio") or "",
+            "is_banned": _as_bool_flag(_row_get(row, "is_banned")),
+            "is_suspended": _as_bool_flag(_row_get(row, "is_suspended")),
+            "is_deleted": _as_bool_flag(_row_get(row, "is_deleted")),
+            "suspended_until": str(_row_get(row, "suspended_until") or "") or None,
+            "is_author": True,
+            "is_author_active": _as_bool_flag(
+                _row_get(row, "is_author_active")
+                if _row_get(row, "is_author_active") is not None
+                else 1
+            ),
+            "story_count": story_count,
+            "follower_count": int(_row_get(row, "follower_count") or 0),
+        })
+    return {"items": items, "total": len(items)}
+
+
+@app.get("/api/admin/reviews")
+def admin_list_reviews(
+    limit: int = 100,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    """Moderate user reviews across all books."""
+    lim = max(1, min(int(limit or 100), 300))
+    try:
+        rows = fetch_all(
+            f"""
+            SELECT r.id, r.book_id, r.user_id, r.rating, r.comment, r.created_at,
+                   b.title AS book_title,
+                   u.display_name, u.email, u.photo_url
+            FROM book_reviews r
+            LEFT JOIN books b ON b.id = r.book_id
+            LEFT JOIN app_users u ON u.id = r.user_id
+            ORDER BY r.id DESC
+            LIMIT {lim}
+            """
+        ) or []
+    except Exception as exc:
+        LOGGER.warning("admin_list_reviews failed: %s", exc)
+        return {"items": []}
+    items = []
+    for row in rows:
+        items.append({
+            "id": _row_get(row, "id"),
+            "book_id": _row_get(row, "book_id"),
+            "book_title": _row_get(row, "book_title") or f"Book #{_row_get(row, 'book_id')}",
+            "user_id": _row_get(row, "user_id"),
+            "display_name": _row_get(row, "display_name") or "Reader",
+            "email": _row_get(row, "email") or "",
+            "photo_url": _row_get(row, "photo_url") or "",
+            "rating": _row_get(row, "rating"),
+            "comment": _row_get(row, "comment") or "",
+            "created_at": str(_row_get(row, "created_at") or ""),
+        })
+    return {"items": items}
+
+
+@app.delete("/api/admin/reviews/{review_id}")
+def admin_delete_review(review_id: int, _: dict[str, Any] = Depends(require_admin)):
+    try:
+        execute_write("DELETE FROM book_reviews WHERE id=%s", (review_id,))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Delete failed: {exc}") from exc
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.get("/api/admin/users")
+def admin_list_users(_: dict[str, Any] = Depends(require_admin)):
+    """List users for admin panel. Single query — no N+1 (avoids Vercel timeout/CORS loss)."""
+    _ensure_user_moderation_columns()
+    try:
+        rows = fetch_all(
+            """
+            SELECT u.id, u.email, u.display_name, u.photo_url, u.provider, u.bio,
+                   COALESCE(u.is_banned, 0) AS is_banned,
+                   COALESCE(u.is_suspended, 0) AS is_suspended,
+                   COALESCE(u.is_deleted, 0) AS is_deleted,
+                   u.suspended_until,
+                   COALESCE(u.is_author, 0) AS is_author,
+                   COALESCE(u.is_author_active, 1) AS is_author_active,
+                   COALESCE(bc.story_count, 0) AS story_count,
+                   COALESCE(fc.follower_count, 0) AS follower_count
+            FROM app_users u
+            LEFT JOIN (
+                SELECT user_id, COUNT(*) AS story_count FROM books
+                WHERE user_id IS NOT NULL GROUP BY user_id
+            ) bc ON bc.user_id = u.id
+            LEFT JOIN (
+                SELECT author_id, COUNT(*) AS follower_count FROM author_follows
+                GROUP BY author_id
+            ) fc ON fc.author_id = u.id
+            ORDER BY u.id DESC
+            LIMIT 500
+            """
+        )
+    except Exception as list_exc:
+        LOGGER.warning("admin_list_users rich select failed: %s", list_exc)
+        try:
+            rows = fetch_all(
+                """
+                SELECT id, email, display_name, photo_url, provider, bio
+                FROM app_users
+                ORDER BY id DESC
+                LIMIT 500
+                """
+            )
+        except Exception as e2:
+            LOGGER.warning("admin_list_users basic select failed: %s", e2)
+            return {"items": []}
+
+    items = []
+    for row in rows or []:
+        uid = _row_get(row, "id")
+        story_count = int(_row_get(row, "story_count") or 0)
+        follower_count = int(_row_get(row, "follower_count") or 0)
+        is_author = _as_bool_flag(_row_get(row, "is_author")) or story_count > 0
+        items.append({
+            "id": uid,
+            "email": _row_get(row, "email") or "",
+            "display_name": _row_get(row, "display_name") or "",
+            "photo_url": _row_get(row, "photo_url") or "",
+            "provider": _row_get(row, "provider") or "",
+            "bio": _row_get(row, "bio") or "",
+            "is_banned": _as_bool_flag(_row_get(row, "is_banned")),
+            "is_suspended": _as_bool_flag(_row_get(row, "is_suspended")),
+            "is_deleted": _as_bool_flag(_row_get(row, "is_deleted")),
+            "suspended_until": str(_row_get(row, "suspended_until") or "") or None,
+            "is_author": is_author,
+            "is_author_active": _as_bool_flag(
+                _row_get(row, "is_author_active")
+                if _row_get(row, "is_author_active") is not None
+                else 1
+            ),
+            "story_count": story_count,
+            "follower_count": follower_count,
+        })
+    return {"items": items}
+
+
+@app.post("/api/admin/users/{user_id}/ban")
+def admin_ban_user(user_id: int, _: dict[str, Any] = Depends(require_admin)):
+    _ensure_user_moderation_columns()
+    execute_write("UPDATE app_users SET is_banned=1 WHERE id=%s", (user_id,))
+    return _user_moderation_status(user_id)
+
+
+@app.post("/api/admin/users/{user_id}/unban")
+def admin_unban_user(user_id: int, _: dict[str, Any] = Depends(require_admin)):
+    _ensure_user_moderation_columns()
+    execute_write("UPDATE app_users SET is_banned=0 WHERE id=%s", (user_id,))
+    return _user_moderation_status(user_id)
+
+
+
+@app.post("/api/admin/users/{user_id}/suspend")
+def admin_suspend_user(
+    user_id: int,
+    payload: dict[str, Any] | None = None,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    """Suspend for N days (body: {"days": 7}). User cannot log in until suspended_until passes."""
+    _ensure_user_moderation_columns()
+    body = payload or {}
+    days = int(body.get("days") or body.get("suspend_days") or 7)
+    if days < 1:
+        days = 1
+    if days > 3650:
+        days = 3650
+    until = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+    execute_write(
+        "UPDATE app_users SET is_suspended=1, suspended_until=%s WHERE id=%s",
+        (until, user_id),
+    )
+    return {"ok": True, "is_suspended": True, "suspended_until": until, "days": days}
+
+
+@app.post("/api/admin/users/{user_id}/unsuspend")
+def admin_unsuspend_user(user_id: int, _: dict[str, Any] = Depends(require_admin)):
+    _ensure_user_moderation_columns()
+    execute_write(
+        "UPDATE app_users SET is_suspended=0, suspended_until=NULL WHERE id=%s",
+        (user_id,),
+    )
+    return {"ok": True, "is_suspended": False}
+
+
+@app.post("/api/admin/users/{user_id}/activate")
+def admin_activate_user(user_id: int, _: dict[str, Any] = Depends(require_admin)):
+    """Clear ban + suspend flags — full access restored."""
+    try:
+        execute_write(
+            "UPDATE app_users SET is_banned=0, is_suspended=0, is_deleted=0, suspended_until=NULL WHERE id=%s",
+            (user_id,),
+        )
+    except Exception:
+        try:
+            execute_write("UPDATE app_users SET is_banned=0 WHERE id=%s", (user_id,))
+        except Exception:
+            pass
+    return {"ok": True, "is_banned": False, "is_suspended": False}
+
+@app.delete("/api/admin/users/{user_id}")
+def admin_delete_user(user_id: int, _: dict[str, Any] = Depends(require_admin)):
+    """Soft-delete: keep row, flag is_deleted so login is permanently blocked until restored."""
+    _ensure_user_moderation_columns()
+    execute_write(
+        "UPDATE app_users SET is_deleted=1 WHERE id=%s",
+        (user_id,),
+    )
+    return {"ok": True, "is_deleted": True}
+
+
+@app.post("/api/admin/users/{user_id}/restore")
+def admin_restore_user(user_id: int, _: dict[str, Any] = Depends(require_admin)):
+    _ensure_user_moderation_columns()
+    execute_write(
+        "UPDATE app_users SET is_deleted=0, is_banned=0, is_suspended=0, suspended_until=NULL WHERE id=%s",
+        (user_id,),
+    )
+    return _user_moderation_status(user_id)
+
+
+@app.post("/api/admin/users/{user_id}/author-active")
+def admin_set_author_active(
+    user_id: int,
+    payload: dict[str, Any] | None = None,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    _ensure_user_moderation_columns()
+    body = payload or {}
+    active = 1 if body.get("active", True) in (True, 1, "1", "true", "True") else 0
+    execute_write("UPDATE app_users SET is_author_active=%s WHERE id=%s", (active, user_id))
+    return {"ok": True, "is_author_active": bool(active)}
+
+
+# list_user_activity provided by activity_feed (others-only)
+
+try:
+    from .inkitt_routes import register_inkitt_routes
+
+    def _fetch_one(query: str, params: tuple[Any, ...] | None = None):
+        rows = fetch_all(query, params)
+        return rows[0] if rows else None
+
+    register_inkitt_routes(
+        app,
+        fetch_all=fetch_all,
+        fetch_one=_fetch_one,
+        execute_write=execute_write,
+        require_user=require_user,
+        require_admin=require_admin,
+        bump_content_version=bump_content_version,
+    )
+except Exception as _inkitt_exc:
+    LOGGER.warning("inkitt_routes not registered: %s", _inkitt_exc)
+
+try:
+    from .admin_tags import register_admin_tag_routes
+    register_admin_tag_routes(
+        app,
+        require_admin=require_admin,
+        fetch_all=fetch_all,
+        execute_write=execute_write,
+        bump_content_version=bump_content_version,
+        LOGGER=LOGGER,
+    )
+except Exception as _admin_tags_exc:
+    LOGGER.warning("admin_tags routes not registered: %s", _admin_tags_exc)
+
+try:
+    from .story_reports import register_story_report_routes
+    register_story_report_routes(
+        app,
+        require_user=require_user,
+        require_admin=require_admin,
+        fetch_all=fetch_all,
+        execute_write=execute_write,
+        bump_content_version=bump_content_version,
+        LOGGER=LOGGER,
+        USE_SQLITE=USE_SQLITE,
+    )
+except Exception as _story_reports_exc:
+    LOGGER.warning("story_reports routes not registered: %s", _story_reports_exc)
+
+try:
+    from .activity_feed import register_activity_routes
+    register_activity_routes(
+        app,
+        fetch_all=fetch_all,
+        LOGGER=LOGGER,
+        helpers={
+            "row_get": _row_get,
+            "normalize_cover_path": _normalize_cover_path,
+            "ensure_book_likes_table": _ensure_book_likes_table,
+            "ensure_chapter_comments_table": _ensure_chapter_comments_table,
+            "ensure_author_follows_table": _ensure_author_follows_table,
+            "ensure_wall_posts_table": _ensure_wall_posts_table,
+        },
+    )
+except Exception as _activity_exc:
+    LOGGER.warning("activity_feed routes not registered: %s", _activity_exc)
+
+try:
+    from .chapter_reactions import register_chapter_reaction_routes
+    register_chapter_reaction_routes(
+        app,
+        require_user=require_user,
+        fetch_all=fetch_all,
+        execute_write=execute_write,
+        LOGGER=LOGGER,
+        USE_SQLITE=USE_SQLITE,
+    )
+except Exception as _chapter_reactions_exc:
+    LOGGER.warning("chapter_reactions routes not registered: %s", _chapter_reactions_exc)
+
