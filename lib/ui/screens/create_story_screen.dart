@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/services/api_service.dart';
 import 'edit_chapter_screen.dart';
+import 'root_shell.dart';
 
 /// Mobile "New Story" screen matching the dark HTML prototype:
 /// cover upload, draft readiness meter, title/summary counters,
@@ -414,6 +415,41 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     _scheduleDraftSave();
   }
 
+  Future<bool> _confirmLeaveAndSaveDraft() async {
+    final hasContent =
+        _titleController.text.trim().isNotEmpty ||
+        _summaryController.text.trim().isNotEmpty ||
+        _coverPath.isNotEmpty ||
+        _selectedWarnings.isNotEmpty ||
+        _selectedTags.isNotEmpty ||
+        (_selectedGenre ?? '').trim().isNotEmpty;
+    if (!hasContent && !_dirty && _savedStoryId == null) {
+      return true;
+    }
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave page?'),
+        content: const Text(
+          'Your story details will be saved as a draft before you leave.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Stay'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (shouldLeave != true) return false;
+    await _save(asDraft: true, popAfter: true);
+    return true;
+  }
+
   Future<void> _save({
     required bool asDraft,
     bool popAfter = false,
@@ -532,8 +568,12 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           try {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('write_open_drafts', true);
+            await prefs.setBool('write_open_submitted', false);
           } catch (_) {}
-          Navigator.of(context).pop(true);
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute<void>(builder: (_) => const RootShell()),
+            (route) => false,
+          );
         }
         return;
       }
@@ -566,8 +606,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           ),
         ),
       );
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop(true);
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute<void>(builder: (_) => const RootShell()),
+          (route) => false,
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -604,8 +647,16 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             ),
           ),
         );
-        if (mounted && Navigator.of(context).canPop()) {
-          Navigator.of(context).pop(true);
+        if (mounted) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('write_open_drafts', true);
+            await prefs.setBool('write_open_submitted', false);
+          } catch (_) {}
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute<void>(builder: (_) => const RootShell()),
+            (route) => false,
+          );
         }
         return;
       }
@@ -616,7 +667,12 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             context,
           ).showSnackBar(const SnackBar(content: Text('Draft saved')));
         }
-        if (popAfter && mounted) Navigator.of(context).pop(true);
+        if (popAfter && mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute<void>(builder: (_) => const RootShell()),
+            (route) => false,
+          );
+        }
         return;
       }
 
@@ -750,32 +806,20 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         canPop: false,
         onPopInvokedWithResult: (didPop, result) async {
           if (didPop) return;
-          final leave = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Leave story details?'),
-              content: const Text('Save this story as a draft before leaving?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('No'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Yes'),
-                ),
-              ],
-            ),
-          );
-          if (leave != true || !mounted) return;
           if (_saving) {
-            // Never trap user on this page if a prior save is stuck
             _saving = false;
           }
-          try {
-            await _save(asDraft: true, popAfter: true);
-          } catch (_) {
-            if (mounted) Navigator.of(context).maybePop();
+          final shouldLeave = await _confirmLeaveAndSaveDraft();
+          if (shouldLeave && mounted) {
+            try {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('write_open_drafts', true);
+              await prefs.setBool('write_open_submitted', false);
+            } catch (_) {}
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute<void>(builder: (_) => const RootShell()),
+              (route) => false,
+            );
           }
         },
         child: Scaffold(
@@ -793,36 +837,27 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                     children: [
                       IconButton(
                         onPressed: () async {
-                          final leave = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Leave story details?'),
-                              content: const Text(
-                                'Save this story as a draft before leaving?',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(ctx, false),
-                                  child: const Text('No'),
-                                ),
-                                FilledButton(
-                                  onPressed: () => Navigator.pop(ctx, true),
-                                  child: const Text('Yes'),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (leave != true || !context.mounted) return;
                           if (_saving) {
                             _saving = false;
                             if (mounted) setState(() {});
                           }
-                          try {
-                            await _save(asDraft: true, popAfter: true);
-                          } catch (_) {
-                            if (context.mounted) {
-                              Navigator.of(context).maybePop();
-                            }
+                          final shouldLeave = await _confirmLeaveAndSaveDraft();
+                          if (shouldLeave && mounted) {
+                            try {
+                              final prefs =
+                                  await SharedPreferences.getInstance();
+                              await prefs.setBool('write_open_drafts', true);
+                              await prefs.setBool(
+                                'write_open_submitted',
+                                false,
+                              );
+                            } catch (_) {}
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const RootShell(),
+                              ),
+                              (route) => false,
+                            );
                           }
                         },
                         icon: const Icon(Icons.arrow_back, color: _textHi),

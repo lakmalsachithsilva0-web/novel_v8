@@ -46,11 +46,27 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   bool get _isAuthenticated => _session != null && !_session!.isGuest;
   bool get _isGuestSession => _session != null && _session!.isGuest;
 
+  Future<void> _restoreWriteTabFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final openDrafts = prefs.getBool('write_open_drafts') ?? false;
+      final openSubmitted = prefs.getBool('write_open_submitted') ?? false;
+      if (!openDrafts && !openSubmitted) return;
+      if (!mounted) return;
+      setState(() {
+        _selectedIndex = 2;
+      });
+      await prefs.setBool('write_open_drafts', false);
+      await prefs.setBool('write_open_submitted', false);
+    } catch (_) {}
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _bootstrapApp();
+    unawaited(_restoreWriteTabFromPrefs());
     // Poll less often - fewer Vercel cold invocations; still refreshes on resume
     _syncTimer = Timer.periodic(
       const Duration(seconds: 180),
@@ -70,6 +86,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     // Resume: only soft version check — avoid full bootstrap flash/buffer loop
     if (state == AppLifecycleState.resumed) {
       unawaited(_pollContentVersion());
+      unawaited(_restoreWriteTabFromPrefs());
     }
   }
 
@@ -77,11 +94,11 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     // Start disk loading immediately; it can run while remote auth wakes up.
     final diskFuture = _apiService.loadDiskBootstrap();
     try {
-      await _authService.restoreSession();
+      final restoredSession = await _authService.restoreSession();
       if (mounted) {
         setState(() {
-          _session = null;
-          _showLoginOverlay = true;
+          _session = restoredSession;
+          _showLoginOverlay = restoredSession == null;
         });
       }
     } catch (_) {

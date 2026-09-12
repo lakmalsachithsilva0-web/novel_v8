@@ -11,6 +11,37 @@ import 'chapter_reader_screen.dart';
 import 'edit_chapter_screen.dart';
 import 'story_detail_screen.dart';
 
+bool storyMatchesWriteTab(Map<String, dynamic> story, int tabIndex) {
+  final statusText =
+      story['status_text']?.toString().toLowerCase().trim() ?? '';
+  final publishedCount =
+      (story['published_chapter_count'] as num?)?.toInt() ?? 0;
+  final draftCount = (story['draft_chapter_count'] as num?)?.toInt() ?? 0;
+
+  final isDraftLike =
+      statusText.isEmpty ||
+      statusText.contains('draft') ||
+      statusText.contains('private') ||
+      statusText.contains('unpublished') ||
+      draftCount > 0;
+
+  final isSubmittedLike =
+      statusText.isNotEmpty &&
+      !statusText.contains('draft') &&
+      !statusText.contains('private') &&
+      !statusText.contains('unpublished') &&
+      (statusText.contains('ongoing') ||
+          statusText.contains('submitted') ||
+          statusText.contains('published') ||
+          statusText.contains('complete') ||
+          statusText.contains('live') ||
+          publishedCount > 0);
+
+  if (tabIndex == 0)
+    return isSubmittedLike || (publishedCount > 0 && !isDraftLike);
+  return isDraftLike || draftCount > 0;
+}
+
 class WriteScreen extends StatefulWidget {
   const WriteScreen({super.key, required this.data, required this.apiService});
 
@@ -91,17 +122,6 @@ class _WriteScreenState extends State<WriteScreen>
     setState(() {
       _storiesFuture = widget.apiService.fetchWriterStories();
     });
-  }
-
-  Future<void> _selectSubmittedIfRequested() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool('write_open_submitted') != true) return;
-      await prefs.setBool('write_open_submitted', false);
-      if (!mounted) return;
-      _mainTabs.animateTo(0);
-      _storySubTabs.animateTo(0);
-    } catch (_) {}
   }
 
   Future<void> _openCreateStory({Map<String, dynamic>? story}) async {
@@ -328,7 +348,6 @@ class _WriteScreenState extends State<WriteScreen>
         ),
       );
       await _reloadStories();
-      await _selectSubmittedIfRequested();
     }
   }
 
@@ -351,7 +370,6 @@ class _WriteScreenState extends State<WriteScreen>
       ),
     );
     await _reloadStories();
-    await _selectSubmittedIfRequested();
   }
 
   Future<void> _changeStoryStatus(
@@ -860,40 +878,16 @@ class _ManageStoriesTab extends StatelessWidget {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                // Tab 0 = Submitted → Ongoing + Completed/Published
-                // Tab 1 = Drafts → Draft / empty only
+                // Tab 0 = Submitted → Ongoing + Completed/Published (with published chapters)
+                // Tab 1 = Drafts → stories with draft/private chapters or draft status
                 final all = snapshot.data ?? <Map<String, dynamic>>[];
-                bool isSubmittedStatus(Map<String, dynamic> story) {
-                  final statusText =
-                      story['status_text']?.toString().toLowerCase().trim() ??
-                      '';
-                  final publishedChapters =
-                      (story['published_chapter_count'] as num?)?.toInt() ?? 0;
-                  final draftChapters =
-                      (story['draft_chapter_count'] as num?)?.toInt() ?? 0;
-                  final hasChapters = publishedChapters + draftChapters > 0;
-                  // A story needs both a public status and at least one
-                  // public chapter. Later unfinished chapters remain Drafts.
-                  final publicStory =
-                      statusText.isNotEmpty &&
-                      !statusText.contains('draft') &&
-                      (statusText.contains('ongoing') ||
-                          statusText.contains('complete') ||
-                          statusText.contains('publish') ||
-                          statusText.contains('submitted'));
-                  return hasChapters && publishedChapters > 0 && publicStory;
-                }
 
                 var stories = all.where((story) {
-                  final submitted = isSubmittedStatus(story);
-                  final draftChapters =
-                      (story['draft_chapter_count'] as num?)?.toInt() ?? 0;
-                  final hasDrafts = draftChapters > 0;
-                  // index 0 Submitted, index 1 Drafts
-                  if (storySubTabs.index == 0 && !submitted) return false;
-                  if (storySubTabs.index == 1 && submitted && !hasDrafts) {
-                    return false;
-                  }
+                  final matchesTab = storyMatchesWriteTab(
+                    story,
+                    storySubTabs.index,
+                  );
+                  if (!matchesTab) return false;
                   if (query.trim().isEmpty) return true;
                   final q = query.trim().toLowerCase();
                   final title = story['title']?.toString().toLowerCase() ?? '';
@@ -938,7 +932,7 @@ class _ManageStoriesTab extends StatelessWidget {
                 if (stories.isEmpty) {
                   final onDrafts = storySubTabs.index == 1;
                   final otherCount = all.where((s) {
-                    final done = isSubmittedStatus(s);
+                    final done = storyMatchesWriteTab(s, 0);
                     return onDrafts ? done : !done;
                   }).length;
                   return ListView(
@@ -956,8 +950,8 @@ class _ManageStoriesTab extends StatelessWidget {
                             const SizedBox(height: 10),
                             Text(
                               onDrafts
-                                  ? 'No draft or ongoing stories'
-                                  : 'No submitted / completed stories',
+                                  ? 'No draft stories yet'
+                                  : 'No ongoing or completed stories yet',
                               style: Theme.of(context).textTheme.titleMedium,
                               textAlign: TextAlign.center,
                             ),
@@ -965,8 +959,8 @@ class _ManageStoriesTab extends StatelessWidget {
                               const SizedBox(height: 6),
                               Text(
                                 onDrafts
-                                    ? '$otherCount completed story(ies) are under Submitted'
-                                    : '$otherCount ongoing/draft story(ies) are under Drafts',
+                                    ? '$otherCount ongoing/completed story(ies) are under Submitted'
+                                    : '$otherCount draft story(ies) are under Drafts',
                                 style: const TextStyle(
                                   fontSize: 13,
                                   color: AppTheme.muted,
@@ -1279,7 +1273,7 @@ class _StoryListCard extends StatelessWidget {
                   if (value == 'chapter') onEditChapter();
                   if (value == 'complete') onStatusChange('Completed');
                   if (value == 'ongoing') onStatusChange('Ongoing');
-                  if (value == 'unpublish') onStatusChange('Draft');
+                  if (value == 'move_draft') onStatusChange('Draft');
                   if (value == 'delete') onDelete();
                 },
                 itemBuilder: (_) {
@@ -1287,7 +1281,8 @@ class _StoryListCard extends StatelessWidget {
                       .toString()
                       .toLowerCase();
                   final isDraft = st.contains('draft') || st.isEmpty;
-                  final isComplete = st.contains('complete');
+                  final isComplete =
+                      st.contains('complete') || st.contains('completed');
                   final canEditChapters = _storyDetailsComplete(story);
                   return [
                     const PopupMenuItem(
@@ -1301,7 +1296,7 @@ class _StoryListCard extends StatelessWidget {
                     PopupMenuItem(
                       value: 'chapter',
                       enabled: canEditChapters,
-                      child: Text('Chapters'),
+                      child: const Text('Chapters'),
                     ),
                     if (!isDraft && !isComplete)
                       const PopupMenuItem(
@@ -1315,8 +1310,8 @@ class _StoryListCard extends StatelessWidget {
                       ),
                     if (!isDraft)
                       const PopupMenuItem(
-                        value: 'unpublish',
-                        child: Text('Unpublish (Draft)'),
+                        value: 'move_draft',
+                        child: Text('Move to Draft'),
                       ),
                     const PopupMenuItem(
                       value: 'delete',

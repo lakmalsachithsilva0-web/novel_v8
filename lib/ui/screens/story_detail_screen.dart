@@ -1510,49 +1510,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               ),
             ),
 
-            // Story-level comments (not chapter / paragraph)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Comments',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          color: fg,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _openStoryCommentsSheet,
-                      child: Text(
-                        _loadingStoryComments
-                            ? 'Loading…'
-                            : 'View all ($_storyCommentCount)',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: OutlinedButton.icon(
-                  onPressed: _openStoryCommentsSheet,
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  label: Text(
-                    _isOwner
-                        ? 'Read story comments'
-                        : 'Story comments ($_storyCommentCount)',
-                  ),
-                ),
-              ),
-            ),
-
             // Chapters
             SliverToBoxAdapter(
               child: Padding(
@@ -1927,30 +1884,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                 ],
               ),
             ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: const [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.bookmark_border),
-                  Text('Save', style: TextStyle(fontSize: 12)),
-                ],
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.ios_share),
-                  Text('Share', style: TextStyle(fontSize: 12)),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+      bottomNavigationBar: const SafeArea(child: SizedBox.shrink()),
     );
   }
 

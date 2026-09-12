@@ -87,11 +87,6 @@ class _DiscoverScreenState extends State<DiscoverScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Prefer shuffled catalog so pull-to-refresh changes order
-    final catalog = _shuffledBooks.isNotEmpty
-        ? _shuffledBooks
-        : _booksForDiscover();
-
     return RefreshIndicator(
       onRefresh: () async {
         setState(_reshuffleBooks);
@@ -118,51 +113,14 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 28,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             letterSpacing: -0.8,
+                            fontFamily: 'cursive',
                             color: fg,
                           ),
                         ),
                       ),
                       const SizedBox(width: 6),
-                      // Premium chip (UI only — matches mockup)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF2A2140)
-                              : const Color(0xFFF3EEFF),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isDark
-                                ? const Color(0xFF4C3A7A)
-                                : const Color(0xFFD6C7FF),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(
-                              Icons.diamond_outlined,
-                              size: 14,
-                              color: Color(0xFF6C3CE1),
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'Premium',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF6C3CE1),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 2),
                       IconButton(
                         tooltip: 'Search',
                         icon: Icon(Icons.search_rounded, size: 26, color: fg),
@@ -475,6 +433,12 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               books: allBooks,
               apiService: widget.apiService,
             ),
+            const SizedBox(height: 18),
+            _HomeCategoryGrid(
+              topics: widget.data.exploreTopics,
+              books: allBooks,
+              apiService: widget.apiService,
+            ),
             const SizedBox(height: 22),
             // Trending Now
             _HomeSectionHeader(
@@ -593,27 +557,64 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     String tab,
     List<BookCardModel> books,
   ) {
-    List<BookCardModel> takeWhere(bool Function(BookCardModel) test) {
-      return books.where(test).toList();
+    List<BookCardModel> distinct(List<BookCardModel> input) {
+      final seen = <String>{};
+      final out = <BookCardModel>[];
+      for (final b in input) {
+        final key = '${b.id}|${b.title.trim()}';
+        if (seen.contains(key)) continue;
+        seen.add(key);
+        out.add(b);
+      }
+      return out;
     }
 
+    List<BookCardModel> takeWhere(bool Function(BookCardModel) test) {
+      return distinct(books.where(test).toList());
+    }
+
+    final booksByTitle = distinct(books);
     final recentlyUpdated = takeWhere(
       (b) => b.sectionName == 'recently_updated',
     );
     final recentlyCompleted = takeWhere(
       (b) => b.sectionName == 'recently_completed' || b.isCompleted,
     );
-    final topRated = [...books]..sort((a, b) => b.rating.compareTo(a.rating));
+    final topRated = distinct(
+      [...booksByTitle]..sort((a, b) => b.rating.compareTo(a.rating)),
+    );
     final fantasy = takeWhere(
       (b) =>
           b.primaryGenre.toLowerCase().contains('fantasy') ||
-          b.secondaryGenre.toLowerCase().contains('fantasy'),
+          b.secondaryGenre.toLowerCase().contains('fantasy') ||
+          b.primaryGenre.toLowerCase().contains('magical') ||
+          b.primaryGenre.toLowerCase().contains('mythic'),
     );
-    final paranormal = takeWhere(
+    final romance = takeWhere(
       (b) =>
+          b.primaryGenre.toLowerCase().contains('romance') ||
+          b.secondaryGenre.toLowerCase().contains('romance') ||
+          b.primaryGenre.toLowerCase().contains('drama'),
+    );
+    final sciFi = takeWhere(
+      (b) =>
+          b.primaryGenre.toLowerCase().contains('scifi') ||
+          b.primaryGenre.toLowerCase().contains('science') ||
+          b.primaryGenre.toLowerCase().contains('cyber') ||
+          b.secondaryGenre.toLowerCase().contains('futuristic'),
+    );
+    final mystery = takeWhere(
+      (b) =>
+          b.primaryGenre.toLowerCase().contains('mystery') ||
+          b.primaryGenre.toLowerCase().contains('thriller') ||
+          b.secondaryGenre.toLowerCase().contains('mystery'),
+    );
+    final horror = takeWhere(
+      (b) =>
+          b.primaryGenre.toLowerCase().contains('horror') ||
+          b.secondaryGenre.toLowerCase().contains('horror') ||
           b.primaryGenre.toLowerCase().contains('paranormal') ||
-          b.secondaryGenre.toLowerCase().contains('paranormal') ||
-          b.secondaryGenre.toLowerCase().contains('urban'),
+          b.secondaryGenre.toLowerCase().contains('paranormal'),
     );
     final action = takeWhere(
       (b) =>
@@ -621,6 +622,9 @@ class _DiscoverScreenState extends State<DiscoverScreen>
           b.secondaryGenre.toLowerCase().contains('action') ||
           b.primaryGenre.toLowerCase().contains('adventure') ||
           b.secondaryGenre.toLowerCase().contains('adventure'),
+    );
+    final featured = takeWhere(
+      (b) => b.sectionName == 'featured' || b.rating >= 4.8,
     );
 
     switch (tab) {
@@ -635,8 +639,12 @@ class _DiscoverScreenState extends State<DiscoverScreen>
             books: recentlyCompleted.take(10).toList(),
           ),
           _DiscoverRailSection(
-            title: 'Fan Favorites',
-            books: topRated.skip(2).take(10).toList(),
+            title: 'Featured Picks',
+            books: featured.take(10).toList(),
+          ),
+          _DiscoverRailSection(
+            title: 'Fantasy Lovers',
+            books: fantasy.take(10).toList(),
           ),
         ];
       case 'fanfiction':
@@ -647,11 +655,11 @@ class _DiscoverScreenState extends State<DiscoverScreen>
           ),
           _DiscoverRailSection(
             title: 'Romance & Drama',
-            books: takeWhere(
-              (b) =>
-                  b.primaryGenre.toLowerCase().contains('romance') ||
-                  b.primaryGenre.toLowerCase().contains('drama'),
-            ).take(10).toList(),
+            books: romance.take(10).toList(),
+          ),
+          _DiscoverRailSection(
+            title: 'Action & Adventure',
+            books: action.take(10).toList(),
           ),
           _DiscoverRailSection(
             title: 'Completed Fan Stories',
@@ -669,6 +677,10 @@ class _DiscoverScreenState extends State<DiscoverScreen>
             books: topRated.take(10).toList(),
           ),
           _DiscoverRailSection(
+            title: 'Mystery & Thrillers',
+            books: mystery.take(10).toList(),
+          ),
+          _DiscoverRailSection(
             title: 'Rising Stories',
             books: topRated.skip(4).take(10).toList(),
           ),
@@ -676,28 +688,36 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       default:
         return [
           _DiscoverRailSection(
+            title: 'Featured',
+            books: featured.take(10).toList(),
+          ),
+          _DiscoverRailSection(
             title: 'Recently Updated',
-            books: recentlyUpdated.take(12).toList(),
+            books: recentlyUpdated.take(10).toList(),
           ),
           _DiscoverRailSection(
             title: 'Recently Completed',
-            books: recentlyCompleted.take(12).toList(),
+            books: recentlyCompleted.take(10).toList(),
           ),
           _DiscoverRailSection(
-            title: 'Selected Stories',
-            books: topRated.take(12).toList(),
+            title: 'Fantasy & Magic',
+            books: fantasy.take(10).toList(),
           ),
           _DiscoverRailSection(
-            title: 'New in Fantasy',
-            books: fantasy.take(12).toList(),
+            title: 'Sci-Fi & Future',
+            books: sciFi.take(10).toList(),
           ),
           _DiscoverRailSection(
-            title: 'Action & Adventure Fantasy',
-            books: action.take(12).toList(),
+            title: 'Romance & Drama',
+            books: romance.take(10).toList(),
           ),
           _DiscoverRailSection(
-            title: 'Paranormal & Urban Fantasy',
-            books: paranormal.take(12).toList(),
+            title: 'Horror & Paranormal',
+            books: horror.take(10).toList(),
+          ),
+          _DiscoverRailSection(
+            title: 'Action & Adventure',
+            books: action.take(10).toList(),
           ),
         ];
     }

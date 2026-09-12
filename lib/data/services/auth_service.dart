@@ -162,7 +162,6 @@ class AuthService {
     try {
       final me = await _apiService.fetchMeStrict();
       if (me.isEmpty || me['id'] == null) {
-        await signOut();
         return null;
       }
       if (me['email'] != null) {
@@ -196,20 +195,13 @@ class AuthService {
       final msg = e.toString().toLowerCase();
       if (msg.contains('banned') ||
           msg.contains('suspended') ||
-          msg.contains('deleted') ||
-          msg.contains('403') ||
-          msg.contains('401') ||
-          msg.contains('revoked') ||
-          msg.contains('expired')) {
+          msg.contains('deleted')) {
         await signOut();
-        if (msg.contains('banned') ||
-            msg.contains('suspended') ||
-            msg.contains('deleted')) {
-          throw AuthBlockedException(_friendlyAuthError(e));
-        }
-        return null;
+        throw AuthBlockedException(_friendlyAuthError(e));
       }
-      // Transient network error: keep local session for offline UI, token may still work later.
+      // A transient 401/403 or expired token should not forcibly clear a valid
+      // session and bounce the user back to Login on every app start.
+      // The next authenticated action can revalidate cleanly without a loop.
       final email = prefs.getString(_emailKey) ?? '';
       final displayName = prefs.getString(_displayNameKey) ?? email;
       if (email.isEmpty && method != 'guest') {

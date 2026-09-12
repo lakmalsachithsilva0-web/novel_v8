@@ -477,7 +477,6 @@ class ApiService {
     return fallback;
   }
 
-  
   Future<List<Map<String, dynamic>>> fetchMySupportRequests() async {
     try {
       final response = await _get(
@@ -502,7 +501,9 @@ class ApiService {
     return const [];
   }
 
-  Future<Map<String, dynamic>> submitSupportRequest(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> submitSupportRequest(
+    Map<String, dynamic> payload,
+  ) async {
     final response = await _post(
       '/api/support/requests',
       payload,
@@ -846,7 +847,9 @@ class ApiService {
   }
 
   /// Warm the serverless instance (Vercel cold start) before a critical write.
-  Future<void> wakeBackend({Duration timeout = const Duration(seconds: 25)}) async {
+  Future<void> wakeBackend({
+    Duration timeout = const Duration(seconds: 25),
+  }) async {
     try {
       await _get('/api/health', timeout: timeout);
     } catch (_) {
@@ -885,7 +888,8 @@ class ApiService {
       } catch (e) {
         lastError = e;
         final msg = e.toString().toLowerCase();
-        final retriable = msg.contains('timeout') ||
+        final retriable =
+            msg.contains('timeout') ||
             msg.contains('timed out') ||
             msg.contains('connection') ||
             msg.contains('503') ||
@@ -905,11 +909,7 @@ class ApiService {
           .trim()
           .isNotEmpty;
       if (done || hasBirth) {
-        return {
-          ...me,
-          'ok': true,
-          'profile_complete': true,
-        };
+        return {...me, 'ok': true, 'profile_complete': true};
       }
     } catch (_) {}
     throw lastError ?? Exception('Could not save profile');
@@ -1144,20 +1144,29 @@ class ApiService {
     required String body,
     int? paragraphIndex,
   }) async {
+    final payload = <String, dynamic>{'body': body};
+    if (paragraphIndex != null) {
+      payload['paragraph_index'] = paragraphIndex;
+    }
     final response = await _post(
       '/api/books/$bookId/chapters/$chapterNumber/comments',
-      {'body': body, 'paragraph_index': ?paragraphIndex},
+      payload,
       timeout: const Duration(seconds: 45),
     );
     _ensureSuccessResponse(response);
-    final payload = jsonDecode(response.body) as Map<String, dynamic>;
-    if (payload['item'] is Map) {
-      return Map<String, dynamic>.from(payload['item'] as Map);
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      if (decoded['item'] is Map) {
+        return Map<String, dynamic>.from(decoded['item'] as Map);
+      }
+      return decoded;
     }
-    return payload;
+    if (decoded is Map) {
+      return Map<String, dynamic>.from(decoded);
+    }
+    return {'ok': true};
   }
 
-  
   /// Chapter-level comments only (excludes paragraph comments).
   Future<List<Map<String, dynamic>>> fetchChapterOnlyComments({
     required int bookId,
@@ -1208,10 +1217,7 @@ class ApiService {
     required int bookId,
     required String body,
   }) async {
-    final response = await _post(
-      '/api/books/$bookId/comments',
-      {'body': body},
-    );
+    final response = await _post('/api/books/$bookId/comments', {'body': body});
     if (response.statusCode >= 400) {
       throw Exception(response.body);
     }
@@ -1224,10 +1230,9 @@ class ApiService {
     required int commentId,
     required String body,
   }) async {
-    final response = await _put(
-      '/api/chapter-comments/$commentId',
-      {'body': body},
-    );
+    final response = await _put('/api/chapter-comments/$commentId', {
+      'body': body,
+    });
     if (response.statusCode >= 400) {
       throw Exception(response.body);
     }

@@ -68,6 +68,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   late int _chapterNumber;
   String? _authorPhotoUrl;
   int _lastParagraphIndex = 0;
+  DateTime? _lastProgressScanAt;
   final Map<int, GlobalKey> _paragraphKeys = {};
 
   _ReaderTheme _theme = _ReaderTheme.white;
@@ -82,6 +83,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   Map<int, int> _paragraphCommentCounts = {};
   final Map<int, int> _paragraphLikeCounts = {};
   final Set<int> _likedParagraphs = {};
+  final Set<int> _selfCommentedParagraphs = {};
 
   Future<bool> _isAuthorReadingOwnBook() async {
     if (widget.isOwnerBook) return true;
@@ -284,28 +286,43 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
 
   void _updateVisibleParagraphFromScroll() {
     if (!_scrollController.hasClients) return;
+    final now = DateTime.now();
+    final lastScan = _lastProgressScanAt;
+    if (lastScan != null &&
+        now.difference(lastScan) < const Duration(milliseconds: 180)) {
+      return;
+    }
+    _lastProgressScanAt = now;
+
     final paras = _paragraphs();
     if (paras.isEmpty) return;
-    // Prefer GlobalKey positions when available
+
     int best = _lastParagraphIndex;
-    double bestDy = double.infinity;
-    for (var i = 0; i < paras.length; i++) {
-      final ctx = _paragraphKeys[i]?.currentContext;
-      if (ctx == null) continue;
-      final box = ctx.findRenderObject() as RenderBox?;
-      if (box == null || !box.hasSize) continue;
-      final y = box.localToGlobal(Offset.zero).dy;
-      // Closest paragraph near top third of screen
-      final score = (y - 120).abs();
-      if (score < bestDy) {
-        bestDy = score;
-        best = i;
+    final offset = _scrollController.offset;
+
+    // Fast path: avoid walking every RenderBox on every scroll tick.
+    // The visible paragraph can be estimated well enough from scroll offset.
+    if (paras.length <= 20) {
+      double bestDy = double.infinity;
+      for (var i = 0; i < paras.length; i++) {
+        final ctx = _paragraphKeys[i]?.currentContext;
+        if (ctx == null) continue;
+        final box = ctx.findRenderObject() as RenderBox?;
+        if (box == null || !box.hasSize) continue;
+        final y = box.localToGlobal(Offset.zero).dy;
+        final score = (y - 120).abs();
+        if (score < bestDy) {
+          bestDy = score;
+          best = i;
+        }
       }
+      if (bestDy == double.infinity) {
+        best = (offset / 180).floor().clamp(0, paras.length - 1);
+      }
+    } else {
+      best = (offset / 180).floor().clamp(0, paras.length - 1);
     }
-    if (bestDy == double.infinity) {
-      final offset = _scrollController.offset;
-      best = (offset / 160).floor().clamp(0, paras.length - 1);
-    }
+
     if (best != _lastParagraphIndex) {
       _lastParagraphIndex = best;
       unawaited(_markLibraryProgress(completed: false));
@@ -403,6 +420,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     _paragraphCommentCounts = {};
     _paragraphLikeCounts.clear();
     _likedParagraphs.clear();
+    _selfCommentedParagraphs.clear();
     _chapterCommentCount = 0;
     _paragraphKeys.clear();
     if (!resumeParagraph) {
@@ -1133,7 +1151,9 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                                 (_paragraphCommentCounts[paragraphIndex] ??
                                                     0) +
                                                 1;
-                                            _chapterCommentCount++;
+                                            _selfCommentedParagraphs.add(
+                                              paragraphIndex,
+                                            );
                                           });
                                         }
                                       } catch (e) {
@@ -1180,7 +1200,11 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     final count = _paragraphCommentCounts[index] ?? 0;
     final likes = _paragraphLikeCounts[index] ?? 0;
     final liked = _likedParagraphs.contains(index);
+    final selfCommented = _selfCommentedParagraphs.contains(index);
     final key = _paragraphKeys.putIfAbsent(index, () => GlobalKey());
+    final commentColor = selfCommented || count > 0
+        ? const Color(0xFF6C3CE1)
+        : _muted.withValues(alpha: 0.7);
     return Padding(
       key: key,
       padding: const EdgeInsets.only(bottom: 14),
@@ -1205,7 +1229,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: count > 0
+                    color: selfCommented || count > 0
                         ? const Color(0xFFEDE9FE)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
@@ -1215,9 +1239,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                       Icon(
                         Icons.chat_bubble_outline,
                         size: 16,
-                        color: count > 0
-                            ? const Color(0xFF6C3CE1)
-                            : _muted.withValues(alpha: 0.7),
+                        color: commentColor,
                       ),
                       if (count > 0)
                         Text(
@@ -1305,6 +1327,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     final coverUrl = widget.coverPath.isEmpty
         ? null
         : widget.apiService.resolveAssetUrl(widget.coverPath);
+    final paragraphs = _paragraphs();
 
     return PopScope(
       canPop: false,
@@ -1454,7 +1477,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                   ),
                   const SizedBox(height: 20),
                   // Paragraphs with inline comment bubbles (Inkitt-style)
-                  if (_paragraphs().isEmpty)
+                  if (paragraphs.isEmpty)
                     Text(
                       'This chapter has not been written yet.',
                       style: TextStyle(
@@ -1464,10 +1487,9 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                       ),
                     )
                   else ...[
-                    for (var i = 0; i < _paragraphs().length; i++) ...[
-                      _buildParagraphBlock(_paragraphs()[i], i),
-                      if (i == _paragraphs().length ~/ 2 &&
-                          _paragraphs().length > 2)
+                    for (var i = 0; i < paragraphs.length; i++) ...[
+                      _buildParagraphBlock(paragraphs[i], i),
+                      if (i == paragraphs.length ~/ 2 && paragraphs.length > 2)
                         _buildAdBanner(
                           label: 'Discover more stories you\'ll love',
                         ),

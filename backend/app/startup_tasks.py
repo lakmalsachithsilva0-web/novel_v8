@@ -67,6 +67,8 @@ def _ensure_mysql_extra_tables(connection) -> int:
             CREATE TABLE IF NOT EXISTS tags (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(80) NOT NULL UNIQUE,
+                description TEXT NULL,
+                cover_path VARCHAR(512) NOT NULL DEFAULT '',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """,
@@ -545,6 +547,44 @@ def _apply_runtime_patches() -> None:
         LOGGER.warning("Runtime patches not applied: %s", exc)
 
 
+def _cleanup_duplicate_seed_rows() -> dict[str, Any]:
+    """Auto-remove duplicate categories/books from stale or repeated seed runs.
+
+    This is intentionally safe and idempotent: it only removes rows with the same
+    title/category name and keeps the lowest id for each logical item.
+    """
+    report: dict[str, Any] = {"deleted_categories": 0, "deleted_books": 0, "errors": []}
+    if USE_SQLITE:
+        return report
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        try:
+            for label, sql in (
+                (
+                    "categories",
+                    "DELETE c1 FROM categories c1 JOIN categories c2 ON c1.id > c2.id AND c1.name = c2.name AND c1.tab_group = c2.tab_group",
+                ),
+                (
+                    "books",
+                    "DELETE b1 FROM books b1 JOIN books b2 ON b1.id > b2.id AND b1.title = b2.title",
+                ),
+            ):
+                cursor.execute(sql)
+                deleted = int(cursor.rowcount or 0)
+                report[f"deleted_{label}"] = deleted
+                if deleted:
+                    LOGGER.info("Startup duplicate cleanup removed %s %s rows", deleted, label)
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
+    except Exception as exc:
+        report["errors"].append(str(exc)[:300])
+        LOGGER.warning("duplicate seed cleanup failed: %s", exc)
+    return report
+
+
 def _apply_safe_sql_scripts() -> dict[str, Any]:
     """Auto-run non-destructive .sql files under backend/sql on startup.
 
@@ -692,6 +732,13 @@ def run_startup_tasks() -> dict[str, Any]:
                 LOGGER.warning("Auto SQL scripts failed: %s", sql_exc)
                 result["sql_scripts_error"] = str(sql_exc)
 
+    try:
+        result["duplicate_cleanup"] = _cleanup_duplicate_seed_rows()
+        LOGGER.info("Duplicate cleanup result: %s", result["duplicate_cleanup"])
+    except Exception as dup_exc:
+        LOGGER.warning("duplicate cleanup failed: %s", dup_exc)
+        result["duplicate_cleanup_error"] = str(dup_exc)
+
     if book_count > 0:
         # Keep Vercel cold starts lightweight. Skip heavy migrations when already populated.
         if auto_migrate and not _FULL_STARTUP_MIGRATIONS_DONE and not on_vercel:
@@ -707,13 +754,23 @@ def run_startup_tasks() -> dict[str, Any]:
             _FULL_STARTUP_MIGRATIONS_DONE = True
             result["migrations"] = {"skipped": True, "reason": "vercel_fast_path"}
         try:
+            from .database import ensure_discover_catalog_seed
+
+            discover_seed = ensure_discover_catalog_seed(min_public_books=18)
+            result["discover_seed"] = discover_seed
+            result["force_seed"] = {"skipped": False, "reason": "ensure_discover_catalog_seed", "books": book_count, "added": discover_seed.get("books_added", 0)}
+        except Exception as seed_exc:
+            LOGGER.warning("discover catalog seed failed: %s", seed_exc)
+            result["discover_seed_error"] = str(seed_exc)
+            result["force_seed"] = {"skipped": True, "reason": "books_present", "books": book_count}
+
+        try:
             _apply_runtime_patches()
             result["patches_applied"] = True
         except Exception as exc:
             LOGGER.exception("Patch step failed: %s", exc)
 
         result["fast_path"] = True
-        result["force_seed"] = {"skipped": True, "reason": "books_present", "books": book_count}
         result["inkitt_seed"] = {"skipped": True, "reason": "disabled_on_startup"}
         # NEVER run enrichment on Vercel cold starts — it blocks the first request
         # for minutes and causes 504 (Task timed out after 300 seconds).

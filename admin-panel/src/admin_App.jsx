@@ -1527,10 +1527,22 @@ function BookModal({ book, storyImages, onClose, onSave, onUpload }) {
           </div>
           <div className="field"><label>Section</label>
             <select value={form.section_name || "recently_updated"} onChange={(e) => set("section_name", e.target.value)}>
-              {["recently_updated", "recently_completed", "discover", "popular"].map((s) => (
+              {["recently_updated", "recently_completed", "featured", "trending", "popular", "discover", "editor_picks", "romance", "fantasy", "custom"].map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
+            {form.section_name === "custom" && (
+              <input
+                style={{ marginTop: 8 }}
+                placeholder="Custom slider section name"
+                value={form.custom_section_name || ""}
+                onChange={(e) => {
+                  const custom = e.target.value.trim();
+                  set("custom_section_name", custom);
+                  set("section_name", custom || "custom");
+                }}
+              />
+            )}
           </div>
           <div className="field"><label>Rating</label>
             <input type="number" step="0.1" value={form.rating ?? 0} onChange={(e) => set("rating", Number(e.target.value))} /></div>

@@ -884,13 +884,14 @@ def _user_access_block_reason(user_id: int) -> str | None:
 
 
 def _ensure_profile_extra_columns() -> None:
-    """gender, birth_date, profile_complete on app_users (MySQL/SQLite safe)."""
+    """gender, birth_date, profile_complete, author flag on app_users (MySQL/SQLite safe)."""
     cols = [
         ("gender", "ALTER TABLE app_users ADD COLUMN gender VARCHAR(40) NULL"),
         ("birth_date", "ALTER TABLE app_users ADD COLUMN birth_date VARCHAR(20) NULL"),
         ("country", "ALTER TABLE app_users ADD COLUMN country VARCHAR(64) NULL"),
         ("facebook_url", "ALTER TABLE app_users ADD COLUMN facebook_url VARCHAR(255) NULL"),
         ("profile_complete", "ALTER TABLE app_users ADD COLUMN profile_complete TINYINT(1) NOT NULL DEFAULT 0"),
+        ("is_author", "ALTER TABLE app_users ADD COLUMN is_author TINYINT(1) NOT NULL DEFAULT 0"),
     ]
     for col, sql in cols:
         try:
@@ -5243,7 +5244,7 @@ def update_writer_story(
                 story_id,
             ),
         )
-    if affected == 0:
+    if affected == 0 and not rows:
         raise HTTPException(status_code=400, detail="Failed to update story")
 
     if payload.tags is not None:
@@ -5413,8 +5414,9 @@ def list_tags(q: str | None = None):
         like = f"%{q.strip().lstrip('#')}%"
         rows = fetch_all(
             """
-            SELECT t.id, t.name,
-                   (SELECT COUNT(*) FROM book_tags bt WHERE bt.tag_id = t.id) AS book_count
+            SELECT t.id, t.name, t.description, t.cover_path,
+                   (SELECT COUNT(*) FROM book_tags bt WHERE bt.tag_id = t.id) AS book_count,
+                   (SELECT COUNT(*) FROM tag_follows tf WHERE tf.tag_id = t.id) AS followers_count
             FROM tags t
             WHERE t.name LIKE %s
             ORDER BY t.name LIMIT 20
@@ -5424,8 +5426,9 @@ def list_tags(q: str | None = None):
     else:
         rows = fetch_all(
             """
-            SELECT t.id, t.name,
-                   (SELECT COUNT(*) FROM book_tags bt WHERE bt.tag_id = t.id) AS book_count
+            SELECT t.id, t.name, t.description, t.cover_path,
+                   (SELECT COUNT(*) FROM book_tags bt WHERE bt.tag_id = t.id) AS book_count,
+                   (SELECT COUNT(*) FROM tag_follows tf WHERE tf.tag_id = t.id) AS followers_count
             FROM tags t
             ORDER BY book_count DESC, t.name LIMIT 100
             """
@@ -5435,7 +5438,10 @@ def list_tags(q: str | None = None):
             {
                 "id": row["id"],
                 "name": row["name"],
+                "description": row.get("description") or "",
+                "cover_path": row.get("cover_path") or "",
                 "book_count": int(row.get("book_count") or 0),
+                "followers_count": int(row.get("followers_count") or 0),
             }
             for row in rows
         ]
@@ -5499,6 +5505,32 @@ def _ensure_tag_follows_table() -> None:
                 """,
                 (),
             )
+
+        # Backfill older schemas missing the notify flag if a legacy table already exists.
+        try:
+            cols = fetch_all("SELECT * FROM tag_follows LIMIT 1")
+            if cols is not None and len(cols) > 0:
+                first = cols[0]
+                if "notify" not in first:
+                    if _live_use_sqlite():
+                        execute_write(
+                            "ALTER TABLE tag_follows ADD COLUMN notify INTEGER NOT NULL DEFAULT 0",
+                            (),
+                        )
+                    else:
+                        execute_write(
+                            "ALTER TABLE tag_follows ADD COLUMN notify TINYINT NOT NULL DEFAULT 0",
+                            (),
+                        )
+        except Exception:
+            pass
+        try:
+            if _live_use_sqlite():
+                fetch_all("PRAGMA table_info(tag_follows)")
+            else:
+                fetch_all("SHOW COLUMNS FROM tag_follows LIKE 'notify'")
+        except Exception:
+            pass
     except Exception as exc:
         LOGGER.warning("tag_follows ensure failed: %s", exc)
 
@@ -7883,11 +7915,12 @@ def list_user_wall(user_id: int):
 @app.post("/api/users/{user_id}/wall")
 def post_user_wall(
     user_id: int,
-    payload: dict[str, Any],
+    payload: dict[str, Any] | None = Body(default=None),
     user: dict[str, Any] = Depends(require_user),
 ):
     """Create a wall post on target user's profile (requires login)."""
     _ensure_wall_posts_table()
+    payload = payload or {}
     body = (payload.get("body") or payload.get("message") or "").strip()
     if not body:
         raise HTTPException(status_code=400, detail="Empty post")

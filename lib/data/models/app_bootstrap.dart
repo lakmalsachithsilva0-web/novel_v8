@@ -199,7 +199,9 @@ class BookCardModel {
       sectionName: map['section_name'] as String? ?? '',
       isCompleted:
           map['is_completed'] == true ||
-          (map['is_completed'] as num?)?.toInt() == 1,
+          map['is_completed'] == 1 ||
+          map['is_completed'] == '1' ||
+          map['is_completed'] == 'true',
       cta: map['cta_label'] as String? ?? map['cta'] as String? ?? 'Read now',
       viewCount:
           (map['view_count'] as num?)?.toInt() ??
@@ -270,7 +272,9 @@ class BookDetailModel {
         final a = (map['author'] as String?)?.trim() ?? '';
         final d = (map['author_display_name'] as String?)?.trim() ?? '';
         if (d.isNotEmpty &&
-            (a.isEmpty || a.toLowerCase() == 'author' || a.toLowerCase() == 'unknown')) {
+            (a.isEmpty ||
+                a.toLowerCase() == 'author' ||
+                a.toLowerCase() == 'unknown')) {
           return d;
         }
         if (d.isNotEmpty) return d;

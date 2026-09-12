@@ -48,6 +48,8 @@ SEED_CATEGORIES = [
     ("Newsfeed", 0, "discover", 4),
     ("Editor's Picks", 0, "discover", 5),
     ("Rising", 0, "discover", 6),
+    ("Trending", 0, "discover", 7),
+    ("Top Picks", 0, "discover", 8),
     ("Fanfiction", 100, "explore", 1),
     ("Fantasy", 31, "explore", 2),
     ("Poetry", 14, "explore", 3),
@@ -65,6 +67,9 @@ SEED_CATEGORIES = [
     ("Drama", 28, "explore", 15),
     ("Romance", 41, "explore", 16),
     ("Paranormal", 19, "explore", 17),
+    ("Billionaire", 12, "explore", 18),
+    ("Enemies to Lovers", 9, "explore", 19),
+    ("Magic School", 8, "explore", 20),
 ]
 
 SEED_BOOKS = [
@@ -218,6 +223,261 @@ SEED_BOOKS = [
         29,
         1,
     ),
+    (
+        "Moonlit Glass House",
+        "Nora Hale",
+        "A grieving tailor discovers her family home hides a locked future beneath its floors.",
+        "story_card_images/006575b1-f6b5-49b2-b3a4-6a9ef1a1e02e.jpg",
+        "#D6A3A8",
+        "recently_updated",
+        "18m ago",
+        4.7,
+        "Mystery",
+        "Drama",
+        "Read now",
+        30,
+        0,
+    ),
+    (
+        "The Ember Archive",
+        "Sera Quinn",
+        "A scholar in a city of ash uncovers a secret library that remembers every lie told in power.",
+        "story_card_images/04d68518-aafb-497e-995e-10bc6e4bef90.jpg",
+        "#B3674E",
+        "featured",
+        "Featured",
+        4.8,
+        "Fantasy",
+        "Adventure",
+        "Read now",
+        31,
+        0,
+    ),
+    (
+        "Wicked in the Keeps",
+        "A. Vale",
+        "A cursed estate awakens every time a new heir arrives, and all of them are carrying broken promises.",
+        "story_card_images/0d7a36fc-c6e6-4f0d-bc13-8d027759713f.jpg",
+        "#AF4B9A",
+        "trending",
+        "Trending",
+        4.7,
+        "Romance",
+        "Mystery",
+        "Read now",
+        32,
+        0,
+    ),
+    (
+        "The Billionaire's Adopted Bride",
+        "Cora Flint",
+        "A runaway heiress is offered a marriage pact that could save a city from ruin.",
+        "story_card_images/0f8c96aa-4d3a-4a3e-bc6d-86bd1b5be8a0.jpg",
+        "#6B4FDC",
+        "featured",
+        "Featured",
+        4.9,
+        "Billionaire",
+        "Romance",
+        "Read now",
+        33,
+        0,
+    ),
+    (
+        "Glass Harbor",
+        "Iris Vell",
+        "A harbor town survives a curse by turning each shipwreck into a story that can kill the liar who tells it.",
+        "story_card_images/0aaa5ea7-670f-4995-8378-474c09b319b2.jpg",
+        "#7FA5C3",
+        "recently_updated",
+        "42m ago",
+        4.6,
+        "Fantasy",
+        "Mystery",
+        "Read now",
+        32,
+        0,
+    ),
+    (
+        "Second Chance Bakery",
+        "Mina Vale",
+        "Three strangers build a midnight bakery, but every recipe opens a forgotten memory.",
+        "story_card_images/0d88ca6e-bdb9-4d45-b7f4-013f0ef843e5.jpg",
+        "#C98A5E",
+        "recently_completed",
+        "Completed",
+        4.9,
+        "Romance",
+        "Drama",
+        "Read now",
+        33,
+        1,
+    ),
+    (
+        "Ashes Beneath the Tide",
+        "Dorian West",
+        "A lighthouse keeper and a smuggler hunt a creature that feeds on promises made during storms.",
+        "story_card_images/19eb26e8-6ee4-4010-8848-8f5779f602dd.jpg",
+        "#7BA7A9",
+        "recently_updated",
+        "1d ago",
+        4.5,
+        "Horror",
+        "Thriller",
+        "Read now",
+        34,
+        0,
+    ),
+    (
+        "The Last Sound of Autumn",
+        "Arielle Cask",
+        "A violinist hears one impossible melody that predicts a death before it happens.",
+        "story_card_images/32b84f85-8e95-4a2d-8674-f3dc957133c8.jpg",
+        "#7A8ED6",
+        "recently_updated",
+        "2d ago",
+        4.7,
+        "Literary Fiction",
+        "Drama",
+        "Read now",
+        35,
+        0,
+    ),
+    (
+        "Velvet Circuit",
+        "Ren Tallis",
+        "A rebellious coder discovers the city grid is alive and wants to be rewritten by her hand.",
+        "story_card_images/3379b80d-dc86-4a35-9a05-926f8b2cbbc5.jpg",
+        "#3D7C8D",
+        "recently_updated",
+        "3d ago",
+        4.4,
+        "SciFi",
+        "Thriller",
+        "Read now",
+        36,
+        0,
+    ),
+    (
+        "The Orchard of Echoes",
+        "P. Rowan",
+        "A botanical archivist learns each tree in the orchard is seeded with a memory not her own.",
+        "story_card_images/4803aa58-6dc5-4816-b1d7-3d955156f1ca.jpg",
+        "#C1A66B",
+        "recently_updated",
+        "4d ago",
+        4.6,
+        "Magical Realism",
+        "Fantasy",
+        "Read now",
+        37,
+        0,
+    ),
+    (
+        "Hollow Moon Academy",
+        "Cecilia Vale",
+        "A student with a broken future enters a school where the moon itself records every secret.",
+        "story_card_images/4a4f19a1-b096-4613-b635-f71e311481d1.jpg",
+        "#6E6AB3",
+        "recently_completed",
+        "Completed",
+        4.8,
+        "Fantasy",
+        "Young Adult",
+        "Read now",
+        38,
+        1,
+    ),
+    (
+        "The Blue Lantern Court",
+        "Ivo Mercer",
+        "An outsider must curate art for a moonlit court while a murder mystery brews in plain sight.",
+        "story_card_images/5ba33f5b-f733-4dd3-a3d8-ad66dacfb093.jpg",
+        "#5587BD",
+        "recently_updated",
+        "6d ago",
+        4.5,
+        "Historical Fiction",
+        "Mystery",
+        "Read now",
+        39,
+        0,
+    ),
+    (
+        "Cinder & Crown",
+        "S. Estrel",
+        "A rebellious princess and a blacksmith's daughter forge a new kingdom from shattered vows.",
+        "story_card_images/60bf539d-3d16-4f7b-bda6-bb0bc5bd8385.jpg",
+        "#D77C72",
+        "recently_updated",
+        "1w ago",
+        4.9,
+        "Fantasy",
+        "Romance",
+        "Read now",
+        40,
+        0,
+    ),
+    (
+        "Paper Saints",
+        "Elio Aster",
+        "A quiet city relies on prayer-worn relics that begin rewriting the past when the wrong person prays.",
+        "story_card_images/6a5c2a85-2d8c-498d-9153-1d72ec4005e4.jpg",
+        "#9C7AC3",
+        "recently_updated",
+        "1w ago",
+        4.6,
+        "Fantasy",
+        "Drama",
+        "Read now",
+        41,
+        0,
+    ),
+    (
+        "The Lantern Cartographer",
+        "Faye Nore",
+        "A cartographer follows a map that changes whenever someone lies to her about home.",
+        "story_card_images/7d7d5cc8-5b0a-4821-9e57-3f58c36998b0.jpg",
+        "#89A39A",
+        "recently_updated",
+        "2w ago",
+        4.7,
+        "Adventure",
+        "Mystery",
+        "Read now",
+        42,
+        0,
+    ),
+    (
+        "Iron Bloom",
+        "K. Sorel",
+        "In a city of growers, a mechanic discovers the metal roots under the earth are listening.",
+        "story_card_images/8de846ae-c1cc-4e8b-a52e-e8aa48b6abb1.jpg",
+        "#8AA9A9",
+        "recently_updated",
+        "2w ago",
+        4.3,
+        "SciFi",
+        "Fantasy",
+        "Read now",
+        43,
+        0,
+    ),
+    (
+        "Hearthfire & Honey",
+        "Lena Fox",
+        "A gifted baker and a rival with a knife for a smile turn a winter market into a dangerous courtship.",
+        "story_card_images/9e84fd30-5477-45f2-8c48-5c290f275856.jpg",
+        "#E0A17B",
+        "recently_updated",
+        "3w ago",
+        4.8,
+        "Romance",
+        "Historical Fiction",
+        "Read now",
+        44,
+        0,
+    ),
 ]
 
 
@@ -334,6 +594,111 @@ SEED_BOOK_FLAVOUR = {
         "hook": "Royal Blood",
         "mid": "The Invisible Outlier",
         "turn": "Apex Claimed",
+    },
+    "Moonlit Glass House": {
+        "protagonist": "Nora",
+        "place": "the whispering manor",
+        "hook": "Locked Rooms",
+        "mid": "The Floor Beneath Her",
+        "turn": "Glass and Bone",
+    },
+    "The Ember Archive": {
+        "protagonist": "the scholar",
+        "place": "the ash city",
+        "hook": "A Library of Ash",
+        "mid": "Pages That Remember",
+        "turn": "Fuel for the Fire",
+    },
+    "Glass Harbor": {
+        "protagonist": "the harbor keeper",
+        "place": "the broken port",
+        "hook": "The Storm in the Harbor",
+        "mid": "A Story That Kills",
+        "turn": "The Harbor Remembers",
+    },
+    "Second Chance Bakery": {
+        "protagonist": "Mina",
+        "place": "the midnight bakery district",
+        "hook": "The Recipe That Returned",
+        "mid": "Forgotten Flavours",
+        "turn": "A New Dawn With Sugar",
+    },
+    "Ashes Beneath the Tide": {
+        "protagonist": "the lighthouse keeper",
+        "place": "the storm-lit shoreline",
+        "hook": "The Voice in the Fog",
+        "mid": "Promises in the Salt",
+        "turn": "No Light, No Mercy",
+    },
+    "The Last Sound of Autumn": {
+        "protagonist": "the violinist",
+        "place": "the fading quarter",
+        "hook": "The Melody Before Death",
+        "mid": "Strings of Winter",
+        "turn": "A Final Note",
+    },
+    "Velvet Circuit": {
+        "protagonist": "Ren",
+        "place": "the living city-grid",
+        "hook": "The Pulse Below",
+        "mid": "Lines That Move",
+        "turn": "A Rewrite of the Grid",
+    },
+    "The Orchard of Echoes": {
+        "protagonist": "the archivist",
+        "place": "the orchard of memory",
+        "hook": "Tree Without Roots",
+        "mid": "Seeds of Someone Else",
+        "turn": "The Orchard Speaks",
+    },
+    "Hollow Moon Academy": {
+        "protagonist": "the student",
+        "place": "the moonlit academy",
+        "hook": "Broken Futures",
+        "mid": "The Moon Keeps Score",
+        "turn": "The Final Bell",
+    },
+    "The Blue Lantern Court": {
+        "protagonist": "the outsider",
+        "place": "the moonlit court",
+        "hook": "Lanterns in the Fog",
+        "mid": "A Murder in Silk",
+        "turn": "The Court of Light",
+    },
+    "Cinder & Crown": {
+        "protagonist": "the princess",
+        "place": "the ruined kingdom",
+        "hook": "Fire and Iron",
+        "mid": "A Crown That Burns",
+        "turn": "The New Throne",
+    },
+    "Paper Saints": {
+        "protagonist": "the prayer-writer",
+        "place": "the relic city",
+        "hook": "Saints in Ink",
+        "mid": "Prayers That Rewrite",
+        "turn": "The City Named Faith",
+    },
+    "The Lantern Cartographer": {
+        "protagonist": "Faye",
+        "place": "the shifting coast",
+        "hook": "A Map That Lies",
+        "mid": "Where Home Moves",
+        "turn": "The Landmarks of Truth",
+    },
+    "Iron Bloom": {
+        "protagonist": "the mechanic",
+        "place": "the root city",
+        "hook": "Metal Roots",
+        "mid": "Bloom Beneath Steel",
+        "turn": "A Garden of Engines",
+    },
+    "Hearthfire & Honey": {
+        "protagonist": "Lena",
+        "place": "the winter market",
+        "hook": "A Recipe for Courtship",
+        "mid": "Honey Under Snow",
+        "turn": "The Last Winter Feast",
     },
 }
 
@@ -792,6 +1157,8 @@ def _create_sqlite_schema(connection) -> None:
         CREATE TABLE IF NOT EXISTS tags (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
+            description TEXT NOT NULL DEFAULT '',
+            cover_path TEXT NOT NULL DEFAULT '',
             created_by_admin INTEGER NOT NULL DEFAULT 1
         );
 
@@ -1929,6 +2296,285 @@ def get_connection():
                 import time as _t
                 _t.sleep(0.25 * (attempt + 1))
     raise last_exc
+
+def ensure_discover_catalog_seed(min_public_books: int = 18) -> dict[str, int | bool]:
+    """Ensure a healthy discover catalog even if the DB already has some books.
+
+    This is intentionally broader than "empty DB" detection so a stale local DB with
+    only a few old seed rows still gets diverse public stories, chapters, and covers.
+    It also refreshes the known seed titles when they already exist so stale old covers
+    and summaries are replaced with the current seeded copy.
+    """
+    result: dict[str, int | bool] = {"books_added": 0, "chapters_seeded": 0, "changed": False}
+    connection = get_connection()
+    cursor = connection.cursor()
+    try:
+        use_sqlite = USE_SQLITE
+
+        # Clean duplicate discover categories without touching real user data.
+        try:
+            if use_sqlite:
+                cursor.execute("SELECT id, name, tab_group, sort_order FROM categories")
+            else:
+                cursor.execute("SELECT id, name, tab_group, sort_order FROM categories")
+            rows = cursor.fetchall()
+            seen_keys: set[tuple[str, str]] = set()
+            for row in rows or []:
+                name = row.get("name") if isinstance(row, dict) else row[0]
+                tab_group = row.get("tab_group") if isinstance(row, dict) else row[2]
+                key = (str(name or ""), str(tab_group or ""))
+                if key in seen_keys:
+                    delete_id = row.get("id") if isinstance(row, dict) else row[0]
+                    if use_sqlite:
+                        cursor.execute("DELETE FROM categories WHERE id=?", (delete_id,))
+                    else:
+                        cursor.execute("DELETE FROM categories WHERE id=%s", (delete_id,))
+                else:
+                    seen_keys.add(key)
+        except Exception:
+            pass
+
+        try:
+            if use_sqlite:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM books WHERE status_text IS NOT NULL AND LOWER(status_text) NOT LIKE '%draft%' AND LOWER(status_text) NOT LIKE '%private%' AND LOWER(status_text) NOT LIKE '%unlisted%'"
+                )
+            else:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM books WHERE COALESCE(status_text, '') NOT LIKE '%draft%' AND COALESCE(status_text, '') NOT LIKE '%private%' AND COALESCE(status_text, '') NOT LIKE '%unlisted%'"
+                )
+            row = cursor.fetchone()
+            public_count = int((row[0] if not isinstance(row, dict) else next(iter(row.values()))))
+        except Exception:
+            public_count = 0
+
+        inserted_or_refreshed = 0
+        for (
+            title,
+            author,
+            description,
+            cover_path,
+            accent_hex,
+            section_name,
+            status_text,
+            rating,
+            primary_genre,
+            secondary_genre,
+            cta_label,
+            sort_order,
+            is_completed,
+        ) in SEED_BOOKS:
+            if use_sqlite:
+                cursor.execute(
+                    "SELECT id, title, author, description, cover_path, accent_hex, section_name, status_text, rating, genre, primary_genre, secondary_genre, cta_label, sort_order, is_completed FROM books WHERE title=? LIMIT 1",
+                    (title,),
+                )
+            else:
+                cursor.execute(
+                    "SELECT id, title, author, description, cover_path, accent_hex, section_name, status_text, rating, genre, primary_genre, secondary_genre, cta_label, sort_order, is_completed FROM books WHERE title=%s LIMIT 1",
+                    (title,),
+                )
+            existing = cursor.fetchone()
+            if existing is not None:
+                current = existing.get("title") if isinstance(existing, dict) else existing[1]
+                if not current:
+                    continue
+                if use_sqlite:
+                    current_row = existing if isinstance(existing, dict) else {
+                        "id": existing[0],
+                        "title": existing[1],
+                        "author": existing[2],
+                        "description": existing[3],
+                        "cover_path": existing[4],
+                        "accent_hex": existing[5],
+                        "section_name": existing[6],
+                        "status_text": existing[7],
+                        "rating": existing[8],
+                        "genre": existing[9],
+                        "primary_genre": existing[10],
+                        "secondary_genre": existing[11],
+                        "cta_label": existing[12],
+                        "sort_order": existing[13],
+                        "is_completed": existing[14],
+                    }
+                else:
+                    current_row = existing if isinstance(existing, dict) else {
+                        "id": existing[0],
+                        "title": existing[1],
+                        "author": existing[2],
+                        "description": existing[3],
+                        "cover_path": existing[4],
+                        "accent_hex": existing[5],
+                        "section_name": existing[6],
+                        "status_text": existing[7],
+                        "rating": existing[8],
+                        "genre": existing[9],
+                        "primary_genre": existing[10],
+                        "secondary_genre": existing[11],
+                        "cta_label": existing[12],
+                        "sort_order": existing[13],
+                        "is_completed": existing[14],
+                    }
+                stale_values = (
+                    current_row.get("author") != author or
+                    current_row.get("description") != description or
+                    current_row.get("cover_path") != cover_path or
+                    current_row.get("accent_hex") != accent_hex or
+                    current_row.get("section_name") != section_name or
+                    current_row.get("status_text") != status_text or
+                    float(current_row.get("rating") or 0) != float(rating) or
+                    current_row.get("primary_genre") != primary_genre or
+                    current_row.get("secondary_genre") != secondary_genre or
+                    current_row.get("cta_label") != cta_label or
+                    int(current_row.get("sort_order") or 0) != int(sort_order) or
+                    bool(current_row.get("is_completed") or 0) != bool(is_completed)
+                )
+                if stale_values:
+                    book_id = current_row.get("id")
+                    if use_sqlite:
+                        cursor.execute(
+                            """
+                            UPDATE books
+                            SET author=?, description=?, cover_path=?, accent_hex=?, section_name=?, status_text=?,
+                                rating=?, genre=?, primary_genre=?, secondary_genre=?, cta_label=?, sort_order=?, is_completed=?
+                            WHERE id=?
+                            """,
+                            (
+                                author, description, cover_path, accent_hex, section_name, status_text,
+                                rating, primary_genre, primary_genre, secondary_genre, cta_label, sort_order, int(bool(is_completed)), book_id,
+                            ),
+                        )
+                    else:
+                        cursor.execute(
+                            """
+                            UPDATE books
+                            SET author=%s, description=%s, cover_path=%s, accent_hex=%s, section_name=%s, status_text=%s,
+                                rating=%s, genre=%s, primary_genre=%s, secondary_genre=%s, cta_label=%s, sort_order=%s, is_completed=%s
+                            WHERE id=%s
+                            """,
+                            (
+                                author, description, cover_path, accent_hex, section_name, status_text,
+                                rating, primary_genre, primary_genre, secondary_genre, cta_label, sort_order, int(bool(is_completed)), book_id,
+                            ),
+                        )
+                    inserted_or_refreshed += 1
+                    result["changed"] = True
+                continue
+
+            if use_sqlite:
+                cursor.execute(
+                    """
+                    INSERT INTO books (
+                        title, author, description, cover_path, accent_hex, section_name, status_text,
+                        rating, genre, primary_genre, secondary_genre, cta_label, sort_order, is_completed
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        title, author, description, cover_path, accent_hex, section_name, status_text,
+                        rating, primary_genre, primary_genre, secondary_genre, cta_label, sort_order, is_completed,
+                    ),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO books (
+                        title, author, description, cover_path, accent_hex, section_name, status_text,
+                        rating, genre, primary_genre, secondary_genre, cta_label, sort_order, is_completed
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        title, author, description, cover_path, accent_hex, section_name, status_text,
+                        rating, primary_genre, primary_genre, secondary_genre, cta_label, sort_order, is_completed,
+                    ),
+                )
+            inserted_or_refreshed += 1
+            result["books_added"] = int(result["books_added"]) + 1
+            result["changed"] = True
+
+        result["books_added"] = int(result["books_added"]) + int(inserted_or_refreshed > 0 and result["changed"] is True and 0)
+        if int(result["books_added"]) > 0:
+            try:
+                result["chapters_seeded"] = _seed_long_chapters_for_books(cursor, use_sqlite=use_sqlite)
+                result["chapters_cleaned"] = _cleanup_seed_chapters_on_user_books(cursor, use_sqlite=use_sqlite)
+            except Exception:
+                result["chapters_seeded"] = 0
+
+        if public_count < min_public_books:
+            try:
+                if use_sqlite:
+                    cursor.execute(
+                        "SELECT COUNT(*) FROM books WHERE status_text IS NOT NULL AND LOWER(status_text) NOT LIKE '%draft%' AND LOWER(status_text) NOT LIKE '%private%' AND LOWER(status_text) NOT LIKE '%unlisted%'"
+                    )
+                else:
+                    cursor.execute(
+                        "SELECT COUNT(*) FROM books WHERE COALESCE(status_text, '') NOT LIKE '%draft%' AND COALESCE(status_text, '') NOT LIKE '%private%' AND COALESCE(status_text, '') NOT LIKE '%unlisted%'"
+                    )
+                check = cursor.fetchone()
+                if isinstance(check, dict):
+                    current_public_count = int(next(iter(check.values())))
+                else:
+                    current_public_count = int(check[0])
+            except Exception:
+                current_public_count = 0
+            if current_public_count < min_public_books:
+                cursor.execute("SELECT COUNT(*) FROM books WHERE title IS NOT NULL")
+                existing_titles = set()
+                if use_sqlite:
+                    cursor.execute("SELECT title FROM books")
+                else:
+                    cursor.execute("SELECT title FROM books")
+                for row in cursor.fetchall():
+                    title_value = row.get("title") if isinstance(row, dict) else row[0]
+                    if title_value:
+                        existing_titles.add(str(title_value))
+                for title, author, description, cover_path, accent_hex, section_name, status_text, rating, primary_genre, secondary_genre, cta_label, sort_order, is_completed in SEED_BOOKS:
+                    if title in existing_titles:
+                        continue
+                    if use_sqlite:
+                        cursor.execute(
+                            """
+                            INSERT INTO books (
+                                title, author, description, cover_path, accent_hex, section_name, status_text,
+                                rating, genre, primary_genre, secondary_genre, cta_label, sort_order, is_completed
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                title, author, description, cover_path, accent_hex, section_name, status_text,
+                                rating, primary_genre, primary_genre, secondary_genre, cta_label, sort_order, is_completed,
+                            ),
+                        )
+                    else:
+                        cursor.execute(
+                            """
+                            INSERT INTO books (
+                                title, author, description, cover_path, accent_hex, section_name, status_text,
+                                rating, genre, primary_genre, secondary_genre, cta_label, sort_order, is_completed
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                title, author, description, cover_path, accent_hex, section_name, status_text,
+                                rating, primary_genre, primary_genre, secondary_genre, cta_label, sort_order, is_completed,
+                            ),
+                        )
+                    result["books_added"] = int(result["books_added"]) + 1
+                    result["changed"] = True
+                try:
+                    result["chapters_seeded"] = _seed_long_chapters_for_books(cursor, use_sqlite=use_sqlite)
+                except Exception:
+                    result["chapters_seeded"] = 0
+
+        connection.commit()
+    except Exception:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+        raise
+    finally:
+        cursor.close()
+        connection.close()
+    return result
+
 
 def force_seed_if_empty() -> dict[str, int]:
     """Guarantee baseline categories/books/chapters exist (idempotent)."""

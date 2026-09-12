@@ -1,2 +1,16 @@
-"""Optional root ASGI export."""
+"""Backend entrypoint for local runs and server startup."""
+
+import uvicorn
+
 from app.main import app  # noqa: F401
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=False,
+        log_level="info",
+        access_log=True,
+    )
