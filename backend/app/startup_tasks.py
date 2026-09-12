@@ -665,6 +665,72 @@ def _apply_safe_sql_scripts() -> dict[str, Any]:
 
 
 
+
+def _ensure_home_slider_sections(connection) -> None:
+    """Create home_slider_sections + seed defaults if empty."""
+    cursor = connection.cursor()
+    try:
+        if USE_SQLITE:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS home_slider_sections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    section_key TEXT NOT NULL UNIQUE,
+                    label TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    sort_order INTEGER NOT NULL DEFAULT 100,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+        else:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS home_slider_sections (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    section_key VARCHAR(64) NOT NULL UNIQUE,
+                    label VARCHAR(120) NOT NULL,
+                    description VARCHAR(512) NOT NULL DEFAULT '',
+                    sort_order INT NOT NULL DEFAULT 100,
+                    is_active TINYINT NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+        connection.commit()
+        cursor.execute("SELECT COUNT(*) FROM home_slider_sections")
+        row = cursor.fetchone()
+        count = int(row[0]) if row else 0
+        if count == 0:
+            defaults = [
+                ("featured", "Featured", "Top featured stories", 10),
+                ("trending", "Hot Right Now", "Trending stories", 20),
+                ("new_releases", "New Releases", "Just published", 30),
+                ("recently_updated", "Recently Updated", "Fresh chapters", 40),
+                ("recently_completed", "Recently Completed", "Finished stories", 50),
+                ("editor_picks", "Editors' Picks", "Staff selections", 60),
+                ("weekend_binge", "Weekend Binge", "Perfect for a weekend read", 70),
+            ]
+            for key, label, desc, order in defaults:
+                try:
+                    if USE_SQLITE:
+                        cursor.execute(
+                            "INSERT INTO home_slider_sections (section_key, label, description, sort_order, is_active) VALUES (?,?,?,?,1)",
+                            (key, label, desc, order),
+                        )
+                    else:
+                        cursor.execute(
+                            "INSERT INTO home_slider_sections (section_key, label, description, sort_order, is_active) VALUES (%s,%s,%s,%s,1)",
+                            (key, label, desc, order),
+                        )
+                except Exception:
+                    pass
+            connection.commit()
+    finally:
+        cursor.close()
+
+
 def run_startup_tasks() -> dict[str, Any]:
     """Startup for serverless: finish in seconds when DB already has data.
 
@@ -819,6 +885,11 @@ def run_startup_tasks() -> dict[str, Any]:
                 result["tables_ensured"] = _ensure_mysql_extra_tables(conn)
                 result["tags_seeded"] = _seed_tags(conn)
                 result["counts"]["tags"] = _query_count(conn, "tags")
+                try:
+                    _ensure_home_slider_sections(conn)
+                    result["home_slider_sections_ensured"] = True
+                except Exception as hs_exc:
+                    LOGGER.warning("home_slider_sections: %s", hs_exc)
             finally:
                 conn.close()
         except Exception as tag_exc:
@@ -864,6 +935,11 @@ def run_startup_tasks() -> dict[str, Any]:
         conn = get_connection()
         result["tables_ensured"] = _ensure_mysql_extra_tables(conn)
         result["tags_seeded"] = _seed_tags(conn)
+        try:
+            _ensure_home_slider_sections(conn)
+            result["home_slider_sections_ensured"] = True
+        except Exception as hs_exc:
+            LOGGER.warning("home_slider_sections: %s", hs_exc)
         for tbl in (
             "menu_items",
             "achievements",

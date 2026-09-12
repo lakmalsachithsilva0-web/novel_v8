@@ -44,12 +44,19 @@ import {
   listChatConversations,
   getChatConversation,
   sendChatReply,
+  listHomeSections,
+  createHomeSection,
+  updateHomeSection,
+  deleteHomeSection,
+  assignBooksToHomeSection,
+  listHomeSectionBooks,
 } from "./api";
 import { AuthorsPage, UsersPage, ReviewsPage } from "./moderation_pages";
 
 const NAV = [
   { id: "dashboard", label: "Dashboard", icon: "▦" },
   { id: "novels", label: "Novels", icon: "☰" },
+  { id: "home-sliders", label: "Home Sliders", icon: "▤" },
   { id: "authors", label: "Authors", icon: "✎" },
   { id: "users", label: "Users", icon: "☺" },
   { id: "reports", label: "Reports", icon: "▤" },
@@ -586,7 +593,11 @@ export default function App() {
               storyImages={storyImages}
             />
           )}
-          {page === "authors" && <AuthorsPage authors={authors} search={search} />}
+                    {page === "home-sliders" && (
+            <HomeSlidersPage books={books} onRefresh={loadAll} />
+          )}
+
+{page === "authors" && <AuthorsPage authors={authors} search={search} />}
           {page === "reviews" && <ReviewsPage />}
           {page === "users" && (
             <UsersPage profile={profile} supportRequests={supportRequests} onUpdateSupport={async (id, p) => {
@@ -1527,7 +1538,7 @@ function BookModal({ book, storyImages, onClose, onSave, onUpload }) {
           </div>
           <div className="field"><label>Section</label>
             <select value={form.section_name || "recently_updated"} onChange={(e) => set("section_name", e.target.value)}>
-              {["recently_updated", "recently_completed", "featured", "trending", "popular", "discover", "editor_picks", "romance", "fantasy", "custom"].map((s) => (
+              {["recently_updated", "recently_completed", "featured", "trending", "new_releases", "popular", "discover", "editor_picks", "weekend_binge", "romance", "fantasy", "custom"].map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
@@ -1884,6 +1895,336 @@ function SupportRequestsPage({ items = [], onUpdate }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Admin UI: manage Discover home story-card slider sections. */
+function HomeSlidersPage({ books = [], onRefresh }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    section_key: "",
+    label: "",
+    description: "",
+    sort_order: 100,
+    is_active: true,
+  });
+  const [editingId, setEditingId] = useState(null);
+  const [selectedSection, setSelectedSection] = useState(null);
+  const [sectionBooks, setSectionBooks] = useState([]);
+  const [assignIds, setAssignIds] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await listHomeSections();
+      setItems(res?.items || []);
+    } catch (e) {
+      setError(e?.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setForm({
+      section_key: "",
+      label: "",
+      description: "",
+      sort_order: 100,
+      is_active: true,
+    });
+  };
+
+  const startEdit = (row) => {
+    setEditingId(row.id);
+    setForm({
+      section_key: row.section_key || "",
+      label: row.label || "",
+      description: row.description || "",
+      sort_order: row.sort_order ?? 100,
+      is_active: !!row.is_active,
+    });
+  };
+
+  const save = async (e) => {
+    e?.preventDefault?.();
+    setBusy(true);
+    setError("");
+    try {
+      if (editingId) {
+        await updateHomeSection(editingId, form);
+      } else {
+        await createHomeSection(form);
+      }
+      resetForm();
+      await load();
+      onRefresh?.();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (id) => {
+    if (!window.confirm("Delete this home slider section? Books will move to Recently Updated.")) return;
+    setBusy(true);
+    try {
+      await deleteHomeSection(id);
+      if (selectedSection?.id === id) {
+        setSelectedSection(null);
+        setSectionBooks([]);
+      }
+      await load();
+      onRefresh?.();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openBooks = async (row) => {
+    setSelectedSection(row);
+    setBusy(true);
+    try {
+      const res = await listHomeSectionBooks(row.section_key);
+      setSectionBooks(res?.items || []);
+    } catch (err) {
+      setError(err?.message || String(err));
+      setSectionBooks([]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const assign = async () => {
+    if (!selectedSection) return;
+    const ids = assignIds
+      .split(/[,\s]+/)
+      .map((x) => parseInt(x, 10))
+      .filter((n) => !Number.isNaN(n) && n > 0);
+    if (!ids.length) {
+      setError("Enter book IDs separated by commas or spaces");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await assignBooksToHomeSection(selectedSection.section_key, ids);
+      setAssignIds("");
+      await openBooks(selectedSection);
+      await load();
+      onRefresh?.();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const setFromDropdown = async (bookId) => {
+    if (!selectedSection || !bookId) return;
+    setBusy(true);
+    try {
+      await assignBooksToHomeSection(selectedSection.section_key, [Number(bookId)]);
+      await openBooks(selectedSection);
+      await load();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="page-section">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h2 style={{ margin: 0 }}>Home Sliders</h2>
+          <p style={{ margin: "6px 0 0", color: "var(--text-muted)", fontSize: ".9rem" }}>
+            Manage Discover home story-card rails. Each section key maps to a book&apos;s{" "}
+            <code>section_name</code>. Active sections appear as horizontal sliders on the home page.
+          </p>
+        </div>
+        <button type="button" className="btn btn-sm" onClick={load} disabled={loading || busy}>
+          {loading ? "Loading…" : "Refresh"}
+        </button>
+      </div>
+
+      {error && (
+        <div className="alert" style={{ marginTop: 12, color: "#b91c1c" }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1.2fr)", gap: 20, marginTop: 16 }}>
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ marginTop: 0 }}>{editingId ? "Edit section" : "Add section"}</h3>
+          <form onSubmit={save} style={{ display: "grid", gap: 10 }}>
+            <label>
+              Section key (slug)
+              <input
+                required
+                value={form.section_key}
+                onChange={(e) => setForm({ ...form, section_key: e.target.value })}
+                placeholder="e.g. editor_picks"
+                disabled={!!editingId}
+              />
+            </label>
+            <label>
+              Display label
+              <input
+                required
+                value={form.label}
+                onChange={(e) => setForm({ ...form, label: e.target.value })}
+                placeholder="Editors' Picks"
+              />
+            </label>
+            <label>
+              Description
+              <input
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="Optional subtitle"
+              />
+            </label>
+            <label>
+              Sort order
+              <input
+                type="number"
+                value={form.sort_order}
+                onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) || 0 })}
+              />
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={!!form.is_active}
+                onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+              />
+              Active on home page
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="submit" className="btn btn-primary" disabled={busy}>
+                {editingId ? "Save changes" : "Create section"}
+              </button>
+              {editingId && (
+                <button type="button" className="btn" onClick={resetForm}>
+                  Cancel
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+
+        <div className="card" style={{ padding: 16, overflowX: "auto" }}>
+          <h3 style={{ marginTop: 0 }}>Sections ({items.length})</h3>
+          {loading ? (
+            <p>Loading…</p>
+          ) : items.length === 0 ? (
+            <p style={{ color: "var(--text-muted)" }}>No sections yet. Create one or restart the backend to seed defaults.</p>
+          ) : (
+            <table className="data-table" style={{ width: "100%", fontSize: ".9rem" }}>
+              <thead>
+                <tr>
+                  <th>Label</th>
+                  <th>Key</th>
+                  <th>Books</th>
+                  <th>Order</th>
+                  <th>Active</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.label}</td>
+                    <td>
+                      <code>{row.section_key}</code>
+                    </td>
+                    <td>{row.book_count ?? 0}</td>
+                    <td>{row.sort_order}</td>
+                    <td>{row.is_active ? "Yes" : "No"}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <button type="button" className="btn btn-sm" onClick={() => openBooks(row)}>
+                        Books
+                      </button>{" "}
+                      <button type="button" className="btn btn-sm" onClick={() => startEdit(row)}>
+                        Edit
+                      </button>{" "}
+                      <button type="button" className="btn btn-sm" onClick={() => remove(row.id)}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {selectedSection && (
+        <div className="card" style={{ padding: 16, marginTop: 20 }}>
+          <h3 style={{ marginTop: 0 }}>
+            Books in <code>{selectedSection.section_key}</code> — {selectedSection.label}
+          </h3>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12, alignItems: "flex-end" }}>
+            <label style={{ flex: "1 1 200px" }}>
+              Assign by book ID(s)
+              <input
+                value={assignIds}
+                onChange={(e) => setAssignIds(e.target.value)}
+                placeholder="12, 45, 88"
+              />
+            </label>
+            <button type="button" className="btn btn-primary" onClick={assign} disabled={busy}>
+              Assign IDs
+            </button>
+            <label style={{ flex: "1 1 220px" }}>
+              Or pick a novel
+              <select
+                defaultValue=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  e.target.value = "";
+                  if (v) setFromDropdown(v);
+                }}
+              >
+                <option value="">Select book…</option>
+                {(books || []).map((b) => (
+                  <option key={b.id} value={b.id}>
+                    #{b.id} — {b.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {sectionBooks.length === 0 ? (
+            <p style={{ color: "var(--text-muted)" }}>No books in this section yet.</p>
+          ) : (
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {sectionBooks.map((b) => (
+                <li key={b.id}>
+                  <strong>#{b.id}</strong> {b.title}{" "}
+                  <span style={{ color: "var(--text-muted)" }}>by {b.author}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

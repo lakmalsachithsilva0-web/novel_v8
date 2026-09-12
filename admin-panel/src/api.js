@@ -363,3 +363,37 @@ export function sendChatReply(userId, message) {
     body: JSON.stringify({ message }),
   });
 }
+
+// --- Home slider sections (story card rails on Discover home) ---
+export function listHomeSections() {
+  return request("/api/admin/home-sections");
+}
+
+export function createHomeSection(payload) {
+  return request("/api/admin/home-sections", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateHomeSection(id, payload) {
+  return request(`/api/admin/home-sections/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteHomeSection(id) {
+  return request(`/api/admin/home-sections/${id}`, { method: "DELETE" });
+}
+
+export function assignBooksToHomeSection(section_key, book_ids) {
+  return request("/api/admin/home-sections/assign-books", {
+    method: "POST",
+    body: JSON.stringify({ section_key, book_ids }),
+  });
+}
+
+export function listHomeSectionBooks(section_key) {
+  return request(`/api/admin/home-sections/${encodeURIComponent(section_key)}/books`);
+}

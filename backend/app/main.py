@@ -280,6 +280,27 @@ class AdminMenuItemUpdateRequest(BaseModel):
     sort_order: int | None = None
 
 
+class HomeSliderSectionCreateRequest(BaseModel):
+    section_key: str
+    label: str
+    sort_order: int = 100
+    is_active: bool = True
+    description: str = ""
+
+
+class HomeSliderSectionUpdateRequest(BaseModel):
+    section_key: str | None = None
+    label: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+    description: str | None = None
+
+
+class HomeSliderAssignBooksRequest(BaseModel):
+    book_ids: list[int] = []
+    section_key: str
+
+
 class AdminWriteScreenUpdateRequest(BaseModel):
     manage_tabs: str
     story_tabs: str
@@ -742,6 +763,79 @@ def create_user_token(user_id: int) -> str:
 
 
 _WALL_POSTS_TABLE_READY = False
+
+
+
+_HOME_SLIDER_SECTIONS_READY = False
+
+
+def _ensure_home_slider_sections_table() -> None:
+    """Registry of home page story-card slider sections (admin-managed)."""
+    global _HOME_SLIDER_SECTIONS_READY
+    if _HOME_SLIDER_SECTIONS_READY:
+        return
+    try:
+        if _live_use_sqlite():
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS home_slider_sections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    section_key TEXT NOT NULL UNIQUE,
+                    label TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    sort_order INTEGER NOT NULL DEFAULT 100,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                (),
+            )
+        else:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS home_slider_sections (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    section_key VARCHAR(64) NOT NULL UNIQUE,
+                    label VARCHAR(120) NOT NULL,
+                    description VARCHAR(512) NOT NULL DEFAULT '',
+                    sort_order INT NOT NULL DEFAULT 100,
+                    is_active TINYINT NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                (),
+            )
+        # Seed default sections if empty
+        rows = fetch_all("SELECT COUNT(*) AS c FROM home_slider_sections") or []
+        count = 0
+        if rows:
+            r0 = rows[0]
+            count = int(r0.get("c") if isinstance(r0, dict) else r0[0] or 0)
+        if count == 0:
+            defaults = [
+                ("featured", "Featured", "Top featured stories", 10),
+                ("trending", "Hot Right Now", "Trending stories", 20),
+                ("new_releases", "New Releases", "Just published", 30),
+                ("recently_updated", "Recently Updated", "Fresh chapters", 40),
+                ("recently_completed", "Recently Completed", "Finished stories", 50),
+                ("editor_picks", "Editors' Picks", "Staff selections", 60),
+                ("weekend_binge", "Weekend Binge", "Perfect for a weekend read", 70),
+            ]
+            for key, label, desc, order in defaults:
+                try:
+                    execute_write(
+                        """
+                        INSERT INTO home_slider_sections
+                            (section_key, label, description, sort_order, is_active)
+                        VALUES (%s, %s, %s, %s, 1)
+                        """,
+                        (key, label, desc, order),
+                    )
+                except Exception:
+                    pass
+        _HOME_SLIDER_SECTIONS_READY = True
+    except Exception as exc:
+        LOGGER.warning("home_slider_sections ensure failed: %s", exc)
 
 
 def _ensure_wall_posts_table() -> None:
@@ -1358,6 +1452,7 @@ def startup_initialize_database():
                 _ensure_book_view_count_column,
                 _ensure_wall_posts_table,
                 _ensure_wall_post_likes_table,
+                _ensure_home_slider_sections_table,
                 _ensure_default_write_screen,
                 _ensure_default_profile,
             ]
@@ -7465,6 +7560,204 @@ def admin_delete_menu_item(
         raise HTTPException(status_code=404, detail="Menu item not found")
     bump_content_version()
     return {"ok": True}
+
+
+
+
+@app.get("/api/home-sections")
+def public_home_sections():
+    """Public list of active home slider sections (for Flutter labels/order)."""
+    _ensure_home_slider_sections_table()
+    rows = fetch_all(
+        """
+        SELECT id, section_key, label, description, sort_order, is_active
+        FROM home_slider_sections
+        WHERE is_active=1
+        ORDER BY sort_order ASC, id ASC
+        """
+    ) or []
+    return {"items": rows}
+
+
+@app.get("/api/admin/home-sections")
+def admin_list_home_sections(_: dict[str, Any] = Depends(require_admin)):
+    _ensure_home_slider_sections_table()
+    rows = fetch_all(
+        """
+        SELECT id, section_key, label, description, sort_order, is_active, created_at
+        FROM home_slider_sections
+        ORDER BY sort_order ASC, id ASC
+        """
+    ) or []
+    # Attach book counts
+    items = []
+    for r in rows:
+        key = r.get("section_key") if isinstance(r, dict) else r[1]
+        try:
+            cnt_rows = fetch_all(
+                "SELECT COUNT(*) AS c FROM books WHERE section_name=%s",
+                (key,),
+            ) or []
+            c0 = cnt_rows[0] if cnt_rows else {"c": 0}
+            count = int(c0.get("c") if isinstance(c0, dict) else c0[0] or 0)
+        except Exception:
+            count = 0
+        item = dict(r) if isinstance(r, dict) else {
+            "id": r[0],
+            "section_key": r[1],
+            "label": r[2],
+            "description": r[3],
+            "sort_order": r[4],
+            "is_active": r[5],
+        }
+        item["book_count"] = count
+        items.append(item)
+    return {"items": items}
+
+
+@app.post("/api/admin/home-sections")
+def admin_create_home_section(
+    payload: HomeSliderSectionCreateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    _ensure_home_slider_sections_table()
+    key = (payload.section_key or "").strip().lower().replace(" ", "_")
+    label = (payload.label or "").strip()
+    if not key or not label:
+        raise HTTPException(status_code=400, detail="section_key and label required")
+    try:
+        row_id, _ = execute_write(
+            """
+            INSERT INTO home_slider_sections
+                (section_key, label, description, sort_order, is_active)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                key,
+                label,
+                (payload.description or "").strip(),
+                int(payload.sort_order or 100),
+                1 if payload.is_active else 0,
+            ),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not create section: {exc}") from exc
+    bump_content_version()
+    return {"ok": True, "id": row_id, "section_key": key}
+
+
+@app.put("/api/admin/home-sections/{section_id}")
+def admin_update_home_section(
+    section_id: int,
+    payload: HomeSliderSectionUpdateRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    _ensure_home_slider_sections_table()
+    rows = fetch_all("SELECT * FROM home_slider_sections WHERE id=%s", (section_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="Section not found")
+    cur = rows[0]
+    if not isinstance(cur, dict):
+        raise HTTPException(status_code=500, detail="Unexpected row format")
+    new_key = (payload.section_key or cur["section_key"]).strip().lower().replace(" ", "_")
+    old_key = cur["section_key"]
+    label = (payload.label if payload.label is not None else cur["label"]).strip()
+    desc = payload.description if payload.description is not None else cur.get("description") or ""
+    sort_order = payload.sort_order if payload.sort_order is not None else cur["sort_order"]
+    is_active = (
+        (1 if payload.is_active else 0)
+        if payload.is_active is not None
+        else int(cur.get("is_active") or 0)
+    )
+    execute_write(
+        """
+        UPDATE home_slider_sections
+        SET section_key=%s, label=%s, description=%s, sort_order=%s, is_active=%s
+        WHERE id=%s
+        """,
+        (new_key, label, desc, int(sort_order), is_active, section_id),
+    )
+    # If key renamed, move books to new section_name
+    if new_key != old_key:
+        try:
+            execute_write(
+                "UPDATE books SET section_name=%s WHERE section_name=%s",
+                (new_key, old_key),
+            )
+        except Exception as exc:
+            LOGGER.warning("book section rename: %s", exc)
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.delete("/api/admin/home-sections/{section_id}")
+def admin_delete_home_section(
+    section_id: int,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    _ensure_home_slider_sections_table()
+    rows = fetch_all("SELECT section_key FROM home_slider_sections WHERE id=%s", (section_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="Section not found")
+    key = rows[0].get("section_key") if isinstance(rows[0], dict) else rows[0][0]
+    _, affected = execute_write("DELETE FROM home_slider_sections WHERE id=%s", (section_id,))
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Section not found")
+    # Move books off this section to recently_updated so they don't disappear
+    try:
+        execute_write(
+            "UPDATE books SET section_name=%s WHERE section_name=%s",
+            ("recently_updated", key),
+        )
+    except Exception as exc:
+        LOGGER.warning("reassign books after section delete: %s", exc)
+    bump_content_version()
+    return {"ok": True}
+
+
+@app.post("/api/admin/home-sections/assign-books")
+def admin_assign_books_to_section(
+    payload: HomeSliderAssignBooksRequest,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    """Assign one or more books to a home slider section_key."""
+    _ensure_home_slider_sections_table()
+    key = (payload.section_key or "").strip().lower().replace(" ", "_")
+    if not key:
+        raise HTTPException(status_code=400, detail="section_key required")
+    if not payload.book_ids:
+        raise HTTPException(status_code=400, detail="book_ids required")
+    updated = 0
+    for bid in payload.book_ids:
+        try:
+            _, n = execute_write(
+                "UPDATE books SET section_name=%s WHERE id=%s",
+                (key, int(bid)),
+            )
+            updated += int(n or 0)
+        except Exception as exc:
+            LOGGER.warning("assign book %s: %s", bid, exc)
+    bump_content_version()
+    return {"ok": True, "updated": updated, "section_key": key}
+
+
+@app.get("/api/admin/home-sections/{section_key}/books")
+def admin_list_section_books(
+    section_key: str,
+    _: dict[str, Any] = Depends(require_admin),
+):
+    key = section_key.strip().lower()
+    rows = fetch_all(
+        """
+        SELECT id, title, author, cover_path, section_name, status_text, rating, genre
+        FROM books
+        WHERE section_name=%s
+        ORDER BY sort_order ASC, id DESC
+        LIMIT 200
+        """,
+        (key,),
+    ) or []
+    return {"items": rows, "section_key": key}
 
 
 @app.get("/api/admin/write-screen")
