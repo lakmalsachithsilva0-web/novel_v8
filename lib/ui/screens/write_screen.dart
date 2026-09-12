@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/constants/responsive.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
@@ -266,9 +265,7 @@ class _WriteScreenState extends State<WriteScreen>
                     child: Text('No chapters yet. Add the first one.'),
                   ),
                 for (final c in visibleChapters)
-                  Material(
-                    color: Colors.transparent,
-                    child: ListTile(
+                  ListTile(
                     leading: CircleAvatar(
                       radius: 16,
                       child: Text(
@@ -322,7 +319,6 @@ class _WriteScreenState extends State<WriteScreen>
                       Navigator.pop(ctx);
                       _editSelectedChapter(storyId, c);
                     },
-                  ),
                   ),
                 const SizedBox(height: 8),
                 if (_storySubTabs.index == 1)
@@ -457,8 +453,43 @@ class _WriteScreenState extends State<WriteScreen>
                 ),
               ),
               const Spacer(),
-              // Premium hidden
-IconButton(
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF2A2140)
+                      : const Color(0xFFF3EEFF),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark
+                        ? const Color(0xFF4C3A7A)
+                        : const Color(0xFFD6C7FF),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.diamond_outlined,
+                      size: 14,
+                      color: Color(0xFF6C3CE1),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Premium',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF6C3CE1),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
                 onPressed: () => _openCreateStory(),
                 icon: Icon(
                   Icons.add_circle_rounded,
@@ -986,19 +1017,11 @@ class _ManageStoriesTab extends StatelessWidget {
 
 bool _storyDetailsComplete(Map<String, dynamic> story) {
   final title = story['title']?.toString().trim() ?? '';
-  if (title.isEmpty || title.toLowerCase() == 'untitled story') return false;
   final summary =
       (story['description'] ?? story['summary'])?.toString().trim() ?? '';
-  if (summary.isEmpty) return false;
   final genre =
       (story['genre'] ?? story['primary_genre'])?.toString().trim() ?? '';
-  if (genre.isEmpty) return false;
-  final cover =
-      (story['cover_path'] ?? story['cover'] ?? '').toString().trim();
-  // Cover optional for legacy drafts but preferred; require for chapter editing
-  // when status is new draft without cover — still allow if description is solid
-  if (cover.isEmpty && summary.length < 20) return false;
-  return true;
+  return title.isNotEmpty && summary.isNotEmpty && genre.isNotEmpty;
 }
 
 class _StoryListCard extends StatelessWidget {
@@ -1264,12 +1287,10 @@ class _StoryListCard extends StatelessWidget {
                   return [
                     const PopupMenuItem(
                       value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_outlined, size: 20),
-                          SizedBox(width: 12),
-                          Text('Edit details'),
-                        ],
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.edit_outlined),
+                        title: Text('Edit details'),
                       ),
                     ),
                     PopupMenuItem(
@@ -1294,12 +1315,10 @@ class _StoryListCard extends StatelessWidget {
                       ),
                     const PopupMenuItem(
                       value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                          SizedBox(width: 12),
-                          Text('Delete', style: TextStyle(color: Colors.red)),
-                        ],
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.delete_outline, color: Colors.red),
+                        title: Text('Delete'),
                       ),
                     ),
                   ];

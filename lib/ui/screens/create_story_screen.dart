@@ -446,8 +446,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       ),
     );
     if (shouldLeave != true) return false;
-    // Save draft only — caller (PopScope / back button) handles a single navigation.
-    await _save(asDraft: true, popAfter: false);
+    await _save(asDraft: true, popAfter: true);
     return true;
   }
 
@@ -571,9 +570,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             await prefs.setBool('write_open_drafts', true);
             await prefs.setBool('write_open_submitted', false);
           } catch (_) {}
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute<void>(builder: (_) => const RootShell()),
+            (route) => false,
+          );
         }
         return;
       }
@@ -607,11 +607,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         ),
       );
       if (mounted) {
-        // Return to Write tab (do not wipe navigator stack).
-        while (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-          break;
-        }
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute<void>(builder: (_) => const RootShell()),
+          (route) => false,
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -654,9 +653,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             await prefs.setBool('write_open_drafts', true);
             await prefs.setBool('write_open_submitted', false);
           } catch (_) {}
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute<void>(builder: (_) => const RootShell()),
+            (route) => false,
+          );
         }
         return;
       }
@@ -668,9 +668,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           ).showSnackBar(const SnackBar(content: Text('Draft saved')));
         }
         if (popAfter && mounted) {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute<void>(builder: (_) => const RootShell()),
+            (route) => false,
+          );
         }
         return;
       }
@@ -815,9 +816,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               await prefs.setBool('write_open_drafts', true);
               await prefs.setBool('write_open_submitted', false);
             } catch (_) {}
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            }
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute<void>(builder: (_) => const RootShell()),
+              (route) => false,
+            );
           }
         },
         child: Scaffold(
@@ -850,9 +852,12 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 false,
                               );
                             } catch (_) {}
-                            if (Navigator.of(context).canPop()) {
-                              Navigator.of(context).pop();
-                            }
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const RootShell(),
+                              ),
+                              (route) => false,
+                            );
                           }
                         },
                         icon: const Icon(Icons.arrow_back, color: _textHi),
