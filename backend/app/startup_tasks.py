@@ -761,6 +761,36 @@ def _ensure_tag_follows_notify(connection) -> None:
         cursor.close()
 
 
+
+def _ensure_tags_columns(connection) -> None:
+    """Add description/cover_path to tags if missing."""
+    cursor = connection.cursor()
+    try:
+        if USE_SQLITE:
+            cursor.execute("PRAGMA table_info(tags)")
+            cols = [r[1] for r in (cursor.fetchall() or [])]
+            if "description" not in cols:
+                cursor.execute("ALTER TABLE tags ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+            if "cover_path" not in cols:
+                cursor.execute("ALTER TABLE tags ADD COLUMN cover_path TEXT NOT NULL DEFAULT ''")
+            connection.commit()
+        else:
+            for col, ddl in (
+                ("description", "ALTER TABLE tags ADD COLUMN description TEXT NULL"),
+                ("cover_path", "ALTER TABLE tags ADD COLUMN cover_path VARCHAR(512) NOT NULL DEFAULT ''"),
+            ):
+                try:
+                    cursor.execute("SHOW COLUMNS FROM tags LIKE %s", (col,))
+                    if not cursor.fetchall():
+                        cursor.execute(ddl)
+                        connection.commit()
+                        LOGGER.info("startup added tags.%s", col)
+                except Exception as e:
+                    LOGGER.warning("tags column %s: %s", col, e)
+    finally:
+        cursor.close()
+
+
 def run_startup_tasks() -> dict[str, Any]:
     """Startup for serverless: finish in seconds when DB already has data.
 
@@ -955,11 +985,33 @@ def run_startup_tasks() -> dict[str, Any]:
             try:
                 result["tables_ensured"] = _ensure_mysql_extra_tables(conn)
                 try:
+                    _ensure_tags_columns(conn)
+                except Exception as tc_exc:
+                    LOGGER.warning("tags columns: %s", tc_exc)
+                try:
                     _ensure_tag_follows_notify(conn)
                 except Exception as tf_exc:
                     LOGGER.warning("tag_follows notify: %s", tf_exc)
                 result["tags_seeded"] = _seed_tags(conn)
                 result["counts"]["tags"] = _query_count(conn, "tags")
+
+                try:
+                    from .main import _ensure_tags_schema, _seed_book_tag_links
+                    _ensure_tags_schema()
+                    link_report = _seed_book_tag_links()
+                    result["book_tag_links"] = link_report
+                except Exception as link_exc:
+                    LOGGER.warning("book_tag_links: %s", link_exc)
+                # Chapters: 5 x 30 paragraphs for books missing chapters (local only, not vercel)
+                if not on_vercel:
+                    try:
+                        from .content_enrichment_seed import seed_chapters_for_empty_books
+                        result["chapters_seed"] = seed_chapters_for_empty_books(
+                            limit_books=120, chapters_per_book=5, paragraphs_per_chapter=30
+                        )
+                    except Exception as ch_exc:
+                        LOGGER.warning("chapters_seed: %s", ch_exc)
+
                 try:
                     _ensure_home_slider_sections(conn)
                     result["home_slider_sections_ensured"] = True
@@ -1009,6 +1061,10 @@ def run_startup_tasks() -> dict[str, Any]:
     try:
         conn = get_connection()
         result["tables_ensured"] = _ensure_mysql_extra_tables(conn)
+        try:
+            _ensure_tags_columns(conn)
+        except Exception as tc_exc:
+            LOGGER.warning("tags columns: %s", tc_exc)
         try:
             _ensure_tag_follows_notify(conn)
         except Exception as tf_exc:

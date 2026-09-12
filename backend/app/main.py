@@ -1448,6 +1448,7 @@ def startup_initialize_database():
                 _ensure_author_follows_table,
                 _ensure_author_follows_columns,
                 _ensure_tag_follows_table,
+                _ensure_tags_schema,
                 _ensure_book_meta_columns,
                 _ensure_book_view_count_column,
                 _ensure_wall_posts_table,
@@ -5475,6 +5476,159 @@ def get_public_book(book_id: int):
     return data
 
 
+
+def _ensure_tags_schema() -> None:
+    """Ensure tags table has description + cover_path (fixes 1054 on /api/tags)."""
+    try:
+        if _live_use_sqlite():
+            info = fetch_all("PRAGMA table_info(tags)") or []
+            names = set()
+            for col in info:
+                n = col.get("name") if isinstance(col, dict) else (col[1] if col and len(col) > 1 else None)
+                if n:
+                    names.add(n)
+            if "description" not in names:
+                execute_write("ALTER TABLE tags ADD COLUMN description TEXT NOT NULL DEFAULT ''", ())
+            if "cover_path" not in names:
+                execute_write("ALTER TABLE tags ADD COLUMN cover_path TEXT NOT NULL DEFAULT ''", ())
+            if "created_by_admin" not in names:
+                try:
+                    execute_write("ALTER TABLE tags ADD COLUMN created_by_admin INTEGER NOT NULL DEFAULT 1", ())
+                except Exception:
+                    pass
+        else:
+            for col, ddl in (
+                ("description", "ALTER TABLE tags ADD COLUMN description TEXT NULL"),
+                ("cover_path", "ALTER TABLE tags ADD COLUMN cover_path VARCHAR(512) NOT NULL DEFAULT ''"),
+                ("created_by_admin", "ALTER TABLE tags ADD COLUMN created_by_admin TINYINT NOT NULL DEFAULT 1"),
+            ):
+                try:
+                    rows = fetch_all("SHOW COLUMNS FROM tags LIKE %s", (col,)) or []
+                    if not rows:
+                        execute_write(ddl, ())
+                        LOGGER.info("Added tags.%s", col)
+                except Exception as col_exc:
+                    LOGGER.warning("tags.%s ensure: %s", col, col_exc)
+        # book_tags table
+        try:
+            if _live_use_sqlite():
+                execute_write(
+                    """
+                    CREATE TABLE IF NOT EXISTS book_tags (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        book_id INTEGER NOT NULL,
+                        tag_id INTEGER NOT NULL,
+                        UNIQUE(book_id, tag_id)
+                    )
+                    """,
+                    (),
+                )
+            else:
+                execute_write(
+                    """
+                    CREATE TABLE IF NOT EXISTS book_tags (
+                        book_id INT NOT NULL,
+                        tag_id INT NOT NULL,
+                        PRIMARY KEY (book_id, tag_id)
+                    )
+                    """,
+                    (),
+                )
+        except Exception as bt_exc:
+            LOGGER.warning("book_tags ensure: %s", bt_exc)
+    except Exception as exc:
+        LOGGER.warning("_ensure_tags_schema: %s", exc)
+
+
+def _seed_book_tag_links(limit: int = 500) -> dict:
+    """Link books to tags by matching genre / secondary_genre / section to tag names."""
+    report = {"links": 0, "covers": 0}
+    try:
+        _ensure_tags_schema()
+        tags = fetch_all("SELECT id, name, cover_path FROM tags") or []
+        if not tags:
+            return report
+        by_name = {}
+        for t in tags:
+            nm = str(_row_get(t, "name") or "").strip().lower()
+            if nm:
+                by_name[nm] = t
+        books = fetch_all(
+            """
+            SELECT id, genre, secondary_genre, primary_genre, cover_path
+            FROM books
+            WHERE LOWER(COALESCE(status_text, 'draft')) NOT IN ('draft', 'unpublished', 'private')
+            LIMIT %s
+            """,
+            (limit,),
+        ) or []
+        for b in books:
+            bid = int(_row_get(b, "id") or 0)
+            if not bid:
+                continue
+            candidates = []
+            for key in ("genre", "secondary_genre", "primary_genre"):
+                val = str(_row_get(b, key) or "").strip()
+                if val:
+                    candidates.append(val)
+                    # also split "Romance/Drama"
+                    for part in val.replace("/", ",").split(","):
+                        p = part.strip()
+                        if p:
+                            candidates.append(p)
+            seen = set()
+            for c in candidates:
+                key = c.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                tag = by_name.get(key)
+                if not tag:
+                    # partial match
+                    for tn, trow in by_name.items():
+                        if tn in key or key in tn:
+                            tag = trow
+                            break
+                if not tag:
+                    continue
+                tid = int(_row_get(tag, "id") or 0)
+                try:
+                    if _live_use_sqlite():
+                        execute_write(
+                            "INSERT OR IGNORE INTO book_tags (book_id, tag_id) VALUES (%s, %s)",
+                            (bid, tid),
+                        )
+                    else:
+                        execute_write(
+                            "INSERT IGNORE INTO book_tags (book_id, tag_id) VALUES (%s, %s)",
+                            (bid, tid),
+                        )
+                    report["links"] += 1
+                except Exception:
+                    pass
+                # Seed tag cover from book cover if empty
+                tcover = str(_row_get(tag, "cover_path") or "").strip()
+                bcover = str(_row_get(b, "cover_path") or "").strip()
+                if not tcover and bcover:
+                    try:
+                        execute_write(
+                            "UPDATE tags SET cover_path=%s WHERE id=%s AND (cover_path IS NULL OR cover_path='')",
+                            (bcover, tid),
+                        )
+                        report["covers"] += 1
+                        # refresh cache in by_name
+                        if isinstance(tag, dict):
+                            tag["cover_path"] = bcover
+                    except Exception:
+                        pass
+        LOGGER.info("book_tag_links: %s", report)
+    except Exception as exc:
+        LOGGER.warning("_seed_book_tag_links: %s", exc)
+        report["error"] = str(exc)
+    return report
+
+
+
 @app.get("/api/tags")
 def list_tags(q: str | None = None):
     global _TAGS_CACHE, _TAGS_CACHE_AT
@@ -5484,6 +5638,7 @@ def list_tags(q: str | None = None):
         if _TAGS_CACHE is not None and (now - _TAGS_CACHE_AT) < _TAGS_CACHE_TTL:
             return _TAGS_CACHE
 
+    _ensure_tags_schema()
     # Self-heal: if tags table empty, seed defaults (admin hashtags)
     try:
         cnt_rows = fetch_all("SELECT COUNT(*) AS c FROM tags")
@@ -5549,23 +5704,65 @@ def list_tags(q: str | None = None):
 
 
 @app.get("/api/tags/{tag_name:path}/books")
-def list_books_by_tag(tag_name: str):
-    """Return published books that have the given hashtag (admin-created tags only)."""
+def list_books_by_tag(tag_name: str, sort: str | None = None):
+    """Return published books for a hashtag. sort=top|recent|trending|liked"""
     from urllib.parse import unquote
     clean = unquote(tag_name or "").strip().lstrip("#")
+    _ensure_tags_schema()
+    # If no links yet, try auto-link genres once
+    try:
+        cnt = fetch_all(
+            """
+            SELECT COUNT(*) AS c FROM book_tags bt
+            JOIN tags t ON t.id = bt.tag_id WHERE LOWER(t.name)=LOWER(%s)
+            """,
+            (clean,),
+        ) or []
+        c0 = cnt[0] if cnt else {}
+        n = int((c0.get("c") if isinstance(c0, dict) else c0[0]) or 0)
+        if n == 0:
+            _seed_book_tag_links()
+    except Exception:
+        pass
+    order = "b.rating DESC, b.id DESC"
+    s = (sort or "top").strip().lower()
+    if s in ("recent", "new"):
+        order = "b.id DESC"
+    elif s in ("trending", "views"):
+        order = "COALESCE(b.view_count, 0) DESC, b.id DESC"
+    elif s in ("liked", "most_liked", "likes"):
+        order = "COALESCE(b.rating, 0) DESC, COALESCE(b.view_count, 0) DESC"
+    else:
+        order = "COALESCE(b.rating, 0) DESC, COALESCE(b.view_count, 0) DESC"
     rows = fetch_all(
-        """
+        f"""
         SELECT b.* FROM books b
         JOIN book_tags bt ON bt.book_id = b.id
         JOIN tags t ON t.id = bt.tag_id
-        WHERE t.name = %s
+        WHERE LOWER(t.name) = LOWER(%s)
           AND LOWER(COALESCE(b.status_text, 'draft')) NOT IN ('draft', 'unpublished', 'private')
-        ORDER BY b.id DESC
+        ORDER BY {order}
         LIMIT 100
         """,
         (clean,),
-    )
-    return {"items": [_serialize_book(row) for row in rows], "tag": clean}
+    ) or []
+    # Include tag meta
+    tag_rows = fetch_all(
+        "SELECT id, name, description, cover_path FROM tags WHERE LOWER(name)=LOWER(%s) LIMIT 1",
+        (clean,),
+    ) or []
+    tag_meta = tag_rows[0] if tag_rows else {"name": clean}
+    return {
+        "items": [_serialize_book(row) for row in rows],
+        "tag": clean,
+        "tag_meta": {
+            "id": _row_get(tag_meta, "id"),
+            "name": _row_get(tag_meta, "name") or clean,
+            "description": _row_get(tag_meta, "description") or "",
+            "cover_path": _row_get(tag_meta, "cover_path") or "",
+            "book_count": len(rows),
+        },
+    }
 
 
 def _ensure_tag_follows_table() -> None:

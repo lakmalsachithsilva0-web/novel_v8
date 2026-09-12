@@ -3034,7 +3034,7 @@ class _HomeTopGenresRow extends StatelessWidget {
     }
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 92),
+      constraints: const BoxConstraints(maxHeight: 104),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final availableWidth = constraints.maxWidth.isFinite
@@ -3045,7 +3045,7 @@ class _HomeTopGenresRow extends StatelessWidget {
             94.0,
           );
           return SizedBox(
-            height: 92,
+            height: 104,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: names.length.clamp(0, 10),

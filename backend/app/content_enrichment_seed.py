@@ -13,85 +13,106 @@ LOGGER = logging.getLogger("novel_app.content_seed")
 
 _ENRICHMENT_DONE = False
 
-SAMPLE_CHAPTER_BODIES = [
-    (
-        "The morning light slipped through the curtains as {hero} woke to a world "
-        "that no longer felt familiar. Every choice from the night before echoed "
-        "in the quiet of the room, and the path ahead was anything but clear."
-    ),
-    (
-        "By noon, secrets had already begun to surface. A message left unread, "
-        "a door left open, and a promise that could not be kept. {hero} knew "
-        "there would be no turning back once the truth came out."
-    ),
-    (
-        "Night fell harder than expected. In the space between fear and hope, "
-        "{hero} made a decision that would reshape everything—and everyone—involved."
-    ),
+SAMPLE_PARAGRAPHS = [
+    "The morning light slipped through the curtains as {hero} woke to a world that no longer felt familiar.",
+    "Every choice from the night before echoed in the quiet of the room, and the path ahead was anything but clear.",
+    "Footsteps in the hallway made {hero} freeze. Someone was awake who should not have been.",
+    "A half-written letter lay on the desk, ink still wet, secrets unfinished.",
+    "Outside, the city moved on as if nothing had changed — but everything had.",
+    "By noon, secrets had already begun to surface between friends and rivals alike.",
+    "A message left unread, a door left open, and a promise that could not be kept.",
+    "{hero} knew there would be no turning back once the truth came out.",
+    "Rain traced patterns on the window while the conversation turned sharp.",
+    "In the mirror, a stranger looked back with the same eyes and a different resolve.",
+    "The archive smelled of dust and old paper; answers waited in the margins.",
+    "A name whispered twice was enough to reopen a closed chapter of the past.",
+    "Trust was a fragile currency, spent too quickly and earned too slowly.",
+    "Night fell harder than expected, swallowing the last of the golden hour.",
+    "In the space between fear and hope, {hero} made a decision that would reshape everything.",
+    "Allies argued in low voices; enemies listened from the other side of the wall.",
+    "The map was incomplete, but the road still demanded to be walked.",
+    "Music from a distant radio filled the silence neither of them could break.",
+    "One photograph changed the story — or at least the way it would be told.",
+    "Coffee went cold while the plan took shape on a napkin stained with ink.",
+    "The clock on the wall seemed slower when every second carried a cost.",
+    "A locked drawer finally gave way, revealing more questions than answers.",
+    "They agreed to meet at dusk, where the river met the old bridge.",
+    "No one admitted fear, yet every glance checked the exits.",
+    "History repeated itself with new faces and the same old wounds.",
+    "A single word of kindness cut deeper than any accusation.",
+    "The storm arrived early, driving everyone under the same thin roof.",
+    "When the lights returned, nothing was exactly where it had been left.",
+    "Tomorrow would demand courage; tonight only required honesty.",
+    "And so the chapter closed not with an ending, but with a door left ajar.",
 ]
 
 
-def _db() -> tuple[Callable, Callable]:
-    try:
-        from . import main as main_mod
-    except Exception:
-        import app.main as main_mod  # type: ignore
-    return main_mod.fetch_all, main_mod.execute_write
+def _chapter_body(hero: str, chapter_num: int, paragraphs: int = 30) -> str:
+    lines = []
+    for i in range(paragraphs):
+        tmpl = SAMPLE_PARAGRAPHS[i % len(SAMPLE_PARAGRAPHS)]
+        lines.append(tmpl.format(hero=hero or "the protagonist"))
+    header = f"[Chapter {chapter_num}]\n\n"
+    return header + "\n\n".join(lines)
 
 
 def seed_chapters_for_empty_books(
-    limit_books: int = 80,
-    chapters_per_book: int = 3,
+    limit_books: int = 120,
+    chapters_per_book: int = 5,
+    paragraphs_per_chapter: int = 30,
 ) -> dict[str, Any]:
-    """Insert 3 chapters for every published book that currently has zero chapters."""
+    """Ensure published books have at least N chapters with multi-paragraph content."""
     report: dict[str, Any] = {"books_touched": 0, "chapters_added": 0, "errors": 0}
     try:
         fetch_all, execute_write = _db()
         books = fetch_all(
             """
-            SELECT b.id, b.title, b.author
+            SELECT b.id, b.title, b.author,
+                   (SELECT COUNT(*) FROM chapters c WHERE c.story_id = b.id) AS ch_count
             FROM books b
-            WHERE LOWER(COALESCE(b.status_text, 'published')) NOT IN ('draft', 'unpublished', 'private')
-              AND NOT EXISTS (SELECT 1 FROM chapters c WHERE c.story_id = b.id)
-            ORDER BY b.id DESC
+            WHERE LOWER(COALESCE(b.status_text, 'draft')) NOT IN ('draft', 'unpublished', 'private')
             LIMIT %s
             """,
             (limit_books,),
-        )
+        ) or []
     except Exception as exc:
         LOGGER.warning("seed chapters query failed: %s", exc)
         report["error"] = str(exc)
         return report
 
-    report["empty_books_found"] = len(books or [])
-    for book in books or []:
-        bid = book.get("id") if isinstance(book, dict) else book[0]
-        title = (book.get("title") if isinstance(book, dict) else "") or "the story"
-        author = (book.get("author") if isinstance(book, dict) else "") or "the protagonist"
-        hero = str(author).split()[0] if author else "they"
+    for b in books:
         try:
-            for n in range(1, chapters_per_book + 1):
-                body_tpl = SAMPLE_CHAPTER_BODIES[(n - 1) % len(SAMPLE_CHAPTER_BODIES)]
-                body = body_tpl.format(hero=hero)
-                body = (
-                    f"{body}\n\n"
-                    f"This is chapter {n} of \"{title}\". The plot deepens as "
-                    f"{hero} faces new choices and the cost of every secret grows.\n\n"
-                    f"Continue reading to discover what happens next."
-                )
-                # Title is ONLY "Chapter N" — UI must not prepend another "Chapter N"
+            if isinstance(b, dict):
+                bid = int(b.get("id") or 0)
+                title = str(b.get("title") or "Untitled")
+                author = str(b.get("author") or "Hero")
+                ch_count = int(b.get("ch_count") or 0)
+            else:
+                bid = int(b[0] or 0)
+                title = str(b[1] or "Untitled")
+                author = str(b[2] or "Hero")
+                ch_count = int(b[3] or 0)
+            if not bid or ch_count >= chapters_per_book:
+                continue
+            hero = (author.split() or ["Hero"])[0]
+            for n in range(ch_count + 1, chapters_per_book + 1):
+                body = _chapter_body(hero, n, paragraphs_per_chapter)
+                ch_title = f"Chapter {n}"
+                if n == 1:
+                    ch_title = "Chapter 1 — Beginning"
                 execute_write(
                     """
                     INSERT INTO chapters (story_id, chapter_number, title, content, sort_order)
                     VALUES (%s, %s, %s, %s, %s)
                     """,
-                    (bid, n, f"Chapter {n}", body, n),
+                    (bid, n, ch_title, body, n),
                 )
                 report["chapters_added"] += 1
             report["books_touched"] += 1
         except Exception as exc:
             report["errors"] += 1
-            LOGGER.warning("seed chapters for book %s failed: %s", bid, exc)
+            LOGGER.warning("seed chapters for book failed: %s", exc)
+    LOGGER.info("seed_chapters: %s", report)
     return report
 
 
@@ -292,7 +313,7 @@ def run_content_enrichment(force: bool = False) -> dict[str, Any]:
         return result
 
     # Always try empty books first — do NOT skip based on total chapter count
-    result["chapters"] = seed_chapters_for_empty_books(limit_books=80, chapters_per_book=3)
+    result["chapters"] = seed_chapters_for_empty_books(limit_books=120, chapters_per_book=5, paragraphs_per_chapter=30)
 
     try:
         result["wall"] = seed_wall_posts(limit_authors=20)
