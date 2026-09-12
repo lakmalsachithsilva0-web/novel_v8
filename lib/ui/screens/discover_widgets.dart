@@ -3211,7 +3211,7 @@ class _HomeCategoryGrid extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        childAspectRatio: 2.6,
+        childAspectRatio: 2.15,
       ),
       itemBuilder: (context, index) {
         final name = names[index];
@@ -3299,6 +3299,7 @@ class _HomeCategoryGrid extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         name,

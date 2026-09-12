@@ -571,10 +571,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             await prefs.setBool('write_open_drafts', true);
             await prefs.setBool('write_open_submitted', false);
           } catch (_) {}
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(builder: (_) => const RootShell()),
-            (route) => false,
-          );
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
         }
         return;
       }
@@ -608,10 +607,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         ),
       );
       if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute<void>(builder: (_) => const RootShell()),
-          (route) => false,
-        );
+        // Return to Write tab (do not wipe navigator stack).
+        while (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+          break;
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -654,10 +654,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             await prefs.setBool('write_open_drafts', true);
             await prefs.setBool('write_open_submitted', false);
           } catch (_) {}
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(builder: (_) => const RootShell()),
-            (route) => false,
-          );
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
         }
         return;
       }
@@ -669,10 +668,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           ).showSnackBar(const SnackBar(content: Text('Draft saved')));
         }
         if (popAfter && mounted) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(builder: (_) => const RootShell()),
-            (route) => false,
-          );
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
         }
         return;
       }
@@ -817,10 +815,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               await prefs.setBool('write_open_drafts', true);
               await prefs.setBool('write_open_submitted', false);
             } catch (_) {}
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute<void>(builder: (_) => const RootShell()),
-              (route) => false,
-            );
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
           }
         },
         child: Scaffold(
@@ -853,12 +850,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 false,
                               );
                             } catch (_) {}
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const RootShell(),
-                              ),
-                              (route) => false,
-                            );
+                            if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            }
                           }
                         },
                         icon: const Icon(Icons.arrow_back, color: _textHi),
