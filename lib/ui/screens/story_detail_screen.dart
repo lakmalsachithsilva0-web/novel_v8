@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+import '../../core/constants/responsive.dart';
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
 import 'chapter_reader_screen.dart';
@@ -368,6 +369,29 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Story comments are disabled. Comment on chapters or paragraphs while reading.')),
     );
+  }
+
+  String _formatLastUpdated() {
+    final raw = _book.lastUpdated.trim();
+    if (raw.isEmpty) {
+      // Fallback: try status or a short relative label
+      if (_book.statusText.isNotEmpty) return _book.statusText;
+      return '—';
+    }
+    // Keep short for the stats cell (e.g. "Sep 11, 2026" or ISO → readable)
+    try {
+      final dt = DateTime.tryParse(raw);
+      if (dt != null) {
+        const months = [
+          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        ];
+        return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+      }
+    } catch (_) {}
+    // Already human text
+    if (raw.length > 16) return raw.substring(0, 16);
+    return raw;
   }
 
   Future<void> _openReviewsPage() async {
@@ -881,14 +905,25 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             // title
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                padding: EdgeInsets.fromLTRB(
+                  AppBreakpoints.pagePadding(context) + 4,
+                  8,
+                  AppBreakpoints.pagePadding(context) + 4,
+                  0,
+                ),
                 child: Column(
                   children: [
-                    ClipRRect(
+                    Builder(
+                      builder: (context) {
+                        final coverW = AppBreakpoints.isTablet(context)
+                            ? 200.0
+                            : (AppBreakpoints.isLargePhone(context) ? 180.0 : 160.0);
+                        final coverH = coverW * 1.4375;
+                        return ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: SizedBox(
-                        width: 160,
-                        height: 230,
+                        width: coverW,
+                        height: coverH,
                         child: coverUrl == null
                             ? ColoredBox(
                                 color: Colors.grey.shade300,
@@ -896,8 +931,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               )
                             : Image.network(
                                 coverUrl,
-                                width: 160,
-                                height: 230,
+                                width: coverW,
+                                height: coverH,
                                 fit: BoxFit.cover,
                                 loadingBuilder: (context, child, progress) {
                                   if (progress == null) return child;
@@ -923,6 +958,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                 ),
                               ),
                       ),
+                    );
+                      },
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -944,11 +981,13 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               ),
             ),
 
-            // Stats
+            // Stats — match product screenshots: Chapters / Last Updated / Reviews
             const SliverToBoxAdapter(child: SizedBox(height: 18)),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppBreakpoints.pagePadding(context),
+                ),
                 child: Row(
                   children: [
                     Expanded(
@@ -959,41 +998,17 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     ),
                     Expanded(
                       child: _statCell(
-                        'Status',
-                        _book.statusText.isNotEmpty
-                            ? _book.statusText
-                            : 'Ongoing',
+                        'Last Updated',
+                        _formatLastUpdated(),
                       ),
                     ),
                     Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.visibility_outlined,
-                                size: 16,
-                                color: muted,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$_viewCount',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                  color: fg,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Views',
-                            style: TextStyle(fontSize: 12, color: muted),
-                          ),
-                        ],
+                      child: GestureDetector(
+                        onTap: _openReviewsPage,
+                        child: _statCell(
+                          'Reviews',
+                          _loadingReviews ? '…' : '${_reviews.length}',
+                        ),
                       ),
                     ),
                   ],
@@ -2149,13 +2164,16 @@ class _HorizontalBookRail extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fg = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final pad = AppBreakpoints.pagePadding(context);
+    final cardW = AppBreakpoints.storyCardWidth(context);
+    final coverH = cardW * 1.36;
     return Padding(
       padding: const EdgeInsets.only(top: 20, bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: pad),
             child: Text(
               title,
               style: TextStyle(
@@ -2167,10 +2185,10 @@ class _HorizontalBookRail extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 200,
+            height: coverH + 50,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: pad),
               itemCount: books.length,
               separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, i) {
@@ -2210,7 +2228,7 @@ class _HorizontalBookRail extends StatelessWidget {
                     );
                   },
                   child: SizedBox(
-                    width: 110,
+                    width: cardW,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -2219,18 +2237,18 @@ class _HorizontalBookRail extends StatelessWidget {
                           child: url.isNotEmpty
                               ? Image.network(
                                   url,
-                                  width: 110,
-                                  height: 150,
+                                  width: cardW,
+                                  height: coverH,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, _, _) => Container(
-                                    width: 110,
-                                    height: 150,
+                                    width: cardW,
+                                    height: coverH,
                                     color: const Color(0xFFEDE9FE),
                                   ),
                                 )
                               : Container(
-                                  width: 110,
-                                  height: 150,
+                                  width: cardW,
+                                  height: coverH,
                                   color: const Color(0xFFEDE9FE),
                                 ),
                         ),

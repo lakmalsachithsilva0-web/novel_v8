@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/cover_assets.dart';
+import '../../core/constants/responsive.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
@@ -103,7 +104,12 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               return SliverToBoxAdapter(
                 child: Container(
                   color: isDark ? const Color(0xFF121212) : Colors.white,
-                  padding: const EdgeInsets.fromLTRB(16, 10, 10, 4),
+                  padding: EdgeInsets.fromLTRB(
+                    AppBreakpoints.pagePadding(context),
+                    10,
+                    8,
+                    4,
+                  ),
                   child: Row(
                     children: [
                       Expanded(

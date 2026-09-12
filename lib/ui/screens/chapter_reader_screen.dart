@@ -1,3 +1,4 @@
+import '../../core/constants/responsive.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -779,7 +780,10 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(vertical: 16),
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+      padding: EdgeInsets.symmetric(
+        vertical: 18,
+        horizontal: AppBreakpoints.pagePadding(context),
+      ),
       decoration: BoxDecoration(
         color: _theme == _ReaderTheme.nightowl
             ? Colors.white10
