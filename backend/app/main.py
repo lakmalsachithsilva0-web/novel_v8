@@ -5601,31 +5601,32 @@ def _ensure_tag_follows_table() -> None:
                 (),
             )
 
-        # Backfill older schemas missing the notify flag if a legacy table already exists.
+        # Always ensure notify column exists (table may predate the column, and may be empty).
         try:
-            cols = fetch_all("SELECT * FROM tag_follows LIMIT 1")
-            if cols is not None and len(cols) > 0:
-                first = cols[0]
-                if "notify" not in first:
-                    if _live_use_sqlite():
-                        execute_write(
-                            "ALTER TABLE tag_follows ADD COLUMN notify INTEGER NOT NULL DEFAULT 0",
-                            (),
-                        )
-                    else:
-                        execute_write(
-                            "ALTER TABLE tag_follows ADD COLUMN notify TINYINT NOT NULL DEFAULT 0",
-                            (),
-                        )
-        except Exception:
-            pass
-        try:
+            has_notify = False
             if _live_use_sqlite():
-                fetch_all("PRAGMA table_info(tag_follows)")
+                info = fetch_all("PRAGMA table_info(tag_follows)") or []
+                for col in info:
+                    name = col.get("name") if isinstance(col, dict) else (col[1] if col and len(col) > 1 else None)
+                    if name == "notify":
+                        has_notify = True
+                        break
+                if not has_notify:
+                    execute_write(
+                        "ALTER TABLE tag_follows ADD COLUMN notify INTEGER NOT NULL DEFAULT 0",
+                        (),
+                    )
+                    LOGGER.info("Added tag_follows.notify (sqlite)")
             else:
-                fetch_all("SHOW COLUMNS FROM tag_follows LIKE 'notify'")
-        except Exception:
-            pass
+                cols = fetch_all("SHOW COLUMNS FROM tag_follows LIKE %s", ("notify",)) or []
+                if not cols:
+                    execute_write(
+                        "ALTER TABLE tag_follows ADD COLUMN notify TINYINT NOT NULL DEFAULT 0",
+                        (),
+                    )
+                    LOGGER.info("Added tag_follows.notify (mysql)")
+        except Exception as col_exc:
+            LOGGER.warning("tag_follows.notify ensure: %s", col_exc)
     except Exception as exc:
         LOGGER.warning("tag_follows ensure failed: %s", exc)
 

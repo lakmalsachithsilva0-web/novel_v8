@@ -264,8 +264,10 @@ def _ensure_mysql_extra_tables(connection) -> int:
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
                 tag_id INT NOT NULL,
+                notify TINYINT NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY uq_tf (user_id, tag_id)
+                UNIQUE KEY uq_tf (user_id, tag_id),
+                INDEX idx_tag_follows_tag (tag_id)
             )
             """,
         ),
@@ -731,6 +733,34 @@ def _ensure_home_slider_sections(connection) -> None:
         cursor.close()
 
 
+
+def _ensure_tag_follows_notify(connection) -> None:
+    """Add tag_follows.notify if missing (fixes ProgrammingError 1054)."""
+    cursor = connection.cursor()
+    try:
+        if USE_SQLITE:
+            cursor.execute("PRAGMA table_info(tag_follows)")
+            cols = [row[1] for row in (cursor.fetchall() or [])]
+            if "notify" not in cols:
+                cursor.execute(
+                    "ALTER TABLE tag_follows ADD COLUMN notify INTEGER NOT NULL DEFAULT 0"
+                )
+                connection.commit()
+                LOGGER.info("startup: added tag_follows.notify (sqlite)")
+        else:
+            cursor.execute("SHOW COLUMNS FROM tag_follows LIKE %s", ("notify",))
+            if not cursor.fetchall():
+                cursor.execute(
+                    "ALTER TABLE tag_follows ADD COLUMN notify TINYINT NOT NULL DEFAULT 0"
+                )
+                connection.commit()
+                LOGGER.info("startup: added tag_follows.notify (mysql)")
+    except Exception as exc:
+        LOGGER.warning("startup tag_follows.notify: %s", exc)
+    finally:
+        cursor.close()
+
+
 def run_startup_tasks() -> dict[str, Any]:
     """Startup for serverless: finish in seconds when DB already has data.
 
@@ -883,6 +913,10 @@ def run_startup_tasks() -> dict[str, Any]:
             conn = get_connection()
             try:
                 result["tables_ensured"] = _ensure_mysql_extra_tables(conn)
+                try:
+                    _ensure_tag_follows_notify(conn)
+                except Exception as tf_exc:
+                    LOGGER.warning("tag_follows notify: %s", tf_exc)
                 result["tags_seeded"] = _seed_tags(conn)
                 result["counts"]["tags"] = _query_count(conn, "tags")
                 try:
@@ -934,6 +968,10 @@ def run_startup_tasks() -> dict[str, Any]:
     try:
         conn = get_connection()
         result["tables_ensured"] = _ensure_mysql_extra_tables(conn)
+        try:
+            _ensure_tag_follows_notify(conn)
+        except Exception as tf_exc:
+            LOGGER.warning("tag_follows notify: %s", tf_exc)
         result["tags_seeded"] = _seed_tags(conn)
         try:
             _ensure_home_slider_sections(conn)
