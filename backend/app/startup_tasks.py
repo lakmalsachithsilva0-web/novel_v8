@@ -870,14 +870,55 @@ def run_startup_tasks() -> dict[str, Any]:
             LOGGER.exception("Patch step failed: %s", exc)
 
         result["fast_path"] = True
-        # Idempotent inkitt seed on every local start; Vercel only if forced
+        # Idempotent inkitt seed on every local start; Vercel only if forced.
+        # Use local connection wrappers (execute_write lives in main.py, not database).
         try:
             enable_inkitt = _os.getenv("ENABLE_INKITT_SEED", "").strip().lower() in ("1", "true", "yes")
             auto_inkitt = _os.getenv("AUTO_RUN_INKITT_SEED", "true").strip().lower() in ("1", "true", "yes")
             if (not on_vercel and auto_inkitt) or enable_inkitt:
                 from .inkitt_seed import ensure_inkitt_catalog
-                from .database import execute_write, fetch_all
-                result["inkitt_seed"] = ensure_inkitt_catalog(execute_write, fetch_all, USE_SQLITE)
+
+                seed_conn = get_connection()
+                try:
+                    def _fetch(q, p=None):
+                        if USE_SQLITE:
+                            cur = seed_conn.cursor()
+                        else:
+                            try:
+                                cur = seed_conn.cursor(dictionary=True)
+                            except TypeError:
+                                cur = seed_conn.cursor()
+                        try:
+                            qq = q.replace("%s", "?") if USE_SQLITE else q
+                            cur.execute(qq, p or ())
+                            rows = cur.fetchall()
+                            if not rows:
+                                return []
+                            if isinstance(rows[0], dict):
+                                return list(rows)
+                            cols = [d[0] for d in cur.description]
+                            return [dict(zip(cols, r)) for r in rows]
+                        finally:
+                            cur.close()
+
+                    def _write(q, p=()):
+                        cur = seed_conn.cursor()
+                        try:
+                            qq = q.replace("%s", "?") if USE_SQLITE else q
+                            cur.execute(qq, p)
+                            seed_conn.commit()
+                            lid = getattr(cur, "lastrowid", None) or 0
+                            return lid, cur.rowcount
+                        finally:
+                            cur.close()
+
+                    result["inkitt_seed"] = ensure_inkitt_catalog(_write, _fetch, USE_SQLITE)
+                    LOGGER.info("fast_path inkitt_seed: %s", result["inkitt_seed"])
+                finally:
+                    try:
+                        seed_conn.close()
+                    except Exception:
+                        pass
             else:
                 result["inkitt_seed"] = {
                     "skipped": True,
