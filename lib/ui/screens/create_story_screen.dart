@@ -446,7 +446,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       ),
     );
     if (shouldLeave != true) return false;
-    await _save(asDraft: true, popAfter: true);
+    // Save draft only — caller (PopScope / back button) handles a single navigation.
+    await _save(asDraft: true, popAfter: false);
     return true;
   }
 

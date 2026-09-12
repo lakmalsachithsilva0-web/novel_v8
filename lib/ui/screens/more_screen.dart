@@ -385,12 +385,16 @@ class MoreScreen extends StatelessWidget {
           },
         ),
       );
-  Widget _menuCard(bool isDark, List<_Item> items) => Container(
+  Widget _menuCard(bool isDark, List<_Item> items) => Material(
+    color: Colors.transparent,
+    child: Container(
     decoration: _card(isDark),
     child: Column(
       children: [
         for (var i = 0; i < items.length; i++) ...[
-          ListTile(
+          Material(
+            color: Colors.transparent,
+            child: ListTile(
             dense: true,
             visualDensity: VisualDensity.compact,
             contentPadding: const EdgeInsets.symmetric(
@@ -417,6 +421,7 @@ class MoreScreen extends StatelessWidget {
                 : const Icon(Icons.chevron_right, size: 20),
             onTap: items[i].onTap,
           ),
+          ),
           if (i < items.length - 1)
             Divider(
               height: 1,
@@ -426,6 +431,7 @@ class MoreScreen extends StatelessWidget {
         ],
       ],
     ),
+  ),
   );
 }
 

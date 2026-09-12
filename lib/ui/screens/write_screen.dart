@@ -266,7 +266,9 @@ class _WriteScreenState extends State<WriteScreen>
                     child: Text('No chapters yet. Add the first one.'),
                   ),
                 for (final c in visibleChapters)
-                  ListTile(
+                  Material(
+                    color: Colors.transparent,
+                    child: ListTile(
                     leading: CircleAvatar(
                       radius: 16,
                       child: Text(
@@ -320,6 +322,7 @@ class _WriteScreenState extends State<WriteScreen>
                       Navigator.pop(ctx);
                       _editSelectedChapter(storyId, c);
                     },
+                  ),
                   ),
                 const SizedBox(height: 8),
                 if (_storySubTabs.index == 1)
@@ -983,11 +986,19 @@ class _ManageStoriesTab extends StatelessWidget {
 
 bool _storyDetailsComplete(Map<String, dynamic> story) {
   final title = story['title']?.toString().trim() ?? '';
+  if (title.isEmpty || title.toLowerCase() == 'untitled story') return false;
   final summary =
       (story['description'] ?? story['summary'])?.toString().trim() ?? '';
+  if (summary.isEmpty) return false;
   final genre =
       (story['genre'] ?? story['primary_genre'])?.toString().trim() ?? '';
-  return title.isNotEmpty && summary.isNotEmpty && genre.isNotEmpty;
+  if (genre.isEmpty) return false;
+  final cover =
+      (story['cover_path'] ?? story['cover'] ?? '').toString().trim();
+  // Cover optional for legacy drafts but preferred; require for chapter editing
+  // when status is new draft without cover — still allow if description is solid
+  if (cover.isEmpty && summary.length < 20) return false;
+  return true;
 }
 
 class _StoryListCard extends StatelessWidget {
@@ -1253,10 +1264,12 @@ class _StoryListCard extends StatelessWidget {
                   return [
                     const PopupMenuItem(
                       value: 'edit',
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.edit_outlined),
-                        title: Text('Edit details'),
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 20),
+                          SizedBox(width: 12),
+                          Text('Edit details'),
+                        ],
                       ),
                     ),
                     PopupMenuItem(
@@ -1281,10 +1294,12 @@ class _StoryListCard extends StatelessWidget {
                       ),
                     const PopupMenuItem(
                       value: 'delete',
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.delete_outline, color: Colors.red),
-                        title: Text('Delete'),
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                          SizedBox(width: 12),
+                          Text('Delete', style: TextStyle(color: Colors.red)),
+                        ],
                       ),
                     ),
                   ];
