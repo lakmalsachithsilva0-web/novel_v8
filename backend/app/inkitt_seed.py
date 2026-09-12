@@ -78,7 +78,17 @@ INKITT_BOOKS: list[tuple] = [
     ("Diary Of Nobody", "K. Haze", "Pages no one was meant to read.", _c(17), "#7D6A5A", "recently_completed", "Completed", 4.1, "Poetry", "Drama", 38, 1),
     ("Warrior Wolves, M.C.", "Lexi Melton", "Brothers by oath. Warriors by blood.", _c(18), "#4A4A62", "recently_completed", "Completed", 4.8, "Thriller", "MC", 39, 1),
     ("Love in Full Color", "Contest Winner", "Every kind of love, every kind of story.", _c(19), "#ff00cc", "featured", "Published", 4.9, "Romance", "Contest", 40, 0),
+    # Extra Wattpad/Inkitt-style section distribution for home sliders
+    ("Editor Choice: Night Court", "Staff", "A curated dark fantasy the editors can't put down.", _c(0), "#2c1654", "editor_picks", "Published", 4.9, "Fantasy", "Dark", 41, 0),
+    ("Editor Choice: Soft Hearts", "Staff", "Quiet love stories that still break you.", _c(1), "#e8a0b0", "editor_picks", "Published", 4.8, "Romance", "Soft", 42, 0),
+    ("Trending: City of Ash", "RisingStar", "Everyone is reading this dystopian right now.", _c(2), "#c0392b", "trending", "Published", 4.7, "Sci-Fi", "Dystopia", 43, 0),
+    ("Trending: Bound by Blood", "NightInk", "Vampire romance climbing the charts.", _c(3), "#7b241c", "trending", "Published", 4.6, "Paranormal", "Vampire", 44, 0),
+    ("Just Dropped: First Spark", "NewAuthor", "Brand new series opener — chapter one just landed.", _c(4), "#3498db", "new_releases", "Published", 4.5, "Young Adult", "Coming of Age", 45, 0),
+    ("Just Dropped: After the Rain", "NewAuthor", "A second-chance romance published this week.", _c(5), "#16a085", "new_releases", "Published", 4.4, "Romance", "Drama", 46, 0),
+    ("Weekend Binge", "Curator", "Perfect for a full weekend read-through.", _c(6), "#8e44ad", "weekend_binge", "Published", 4.8, "Thriller", "Suspense", 47, 0),
+    ("Weekend Binge 2", "Curator", "Another complete story for lazy Sundays.", _c(7), "#1a1a2e", "weekend_binge", "Completed", 4.7, "Mystery", "Detective", 48, 1),
 ]
+
 
 INKITT_READING_LISTS = [
     ("Finished Reading", "PhoenixWerewolf", 13),

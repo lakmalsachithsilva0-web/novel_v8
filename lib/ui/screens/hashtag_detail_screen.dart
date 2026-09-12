@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
-
+import '../../core/constants/responsive.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
@@ -266,27 +265,6 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
     }
   }
 
-  Future<void> _toggleNotify() async {
-    if (_followBusy) return;
-    setState(() => _followBusy = true);
-    try {
-      final next = !_notify;
-      final res = await widget.apiService.setTagNotify(_tagName, notify: next);
-      if (!mounted) return;
-      setState(() {
-        _notify = (res['notify'] as bool?) ?? next;
-        _following = true;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not update notifications: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _followBusy = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -361,7 +339,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
   Widget _header(bool isDark) {
     final cover = _tagCoverPath.isNotEmpty
         ? _tagCoverPath
-        : _coverPath(_books.first);
+        : (_books.isNotEmpty ? _coverPath(_books.first) : '');
     final coverUrl = cover.isEmpty
         ? null
         : widget.apiService.resolveAssetUrl(cover);
@@ -383,19 +361,19 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Top bar over full-width cover
+        // Full-width cover photo from admin / tag meta
         if (coverUrl != null)
           Stack(
             children: [
               SizedBox(
                 width: double.infinity,
-                height: 200,
+                height: AppBreakpoints.heroCoverHeight(context),
                 child: Image.network(
                   coverUrl,
                   fit: BoxFit.cover,
                   width: double.infinity,
                   errorBuilder: (_, _, _) => Container(
-                    height: 200,
+                    height: AppBreakpoints.heroCoverHeight(context),
                     color: accent.withValues(alpha: 0.3),
                   ),
                 ),
@@ -409,7 +387,10 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                   child: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 18,
+                        ),
                         color: Colors.white,
                         onPressed: () => Navigator.of(context).maybePop(),
                       ),
@@ -428,7 +409,10 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 18,
+                    ),
                     color: textColor,
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
@@ -456,126 +440,128 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
             children: [
               Row(
                 children: [
+                  Expanded(
+                    child: Text(
+                      _displayTag,
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                        color: textColor,
+                        height: 1.1,
+                      ),
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _followBusy ? null : _toggleFollow,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _following
+                          ? AppTheme.border
+                          : const Color(0xFFE8A33D),
+                      foregroundColor:
+                          _following ? AppTheme.ink : const Color(0xFF241804),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: Icon(
+                      _following ? Icons.favorite : Icons.favorite_border,
+                      size: 18,
+                    ),
+                    label: Text(_following ? 'Following' : 'Follow'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$count ${count == 1 ? 'story' : 'stories'} · $_followerCount ${_followerCount == 1 ? 'follower' : 'followers'}',
+                style: TextStyle(
+                  color: mutedText,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _tagDescription,
+                style: TextStyle(color: mutedText, fontSize: 13, height: 1.5),
+              ),
+              const SizedBox(height: 18),
+              // Stories + Followers only (no readers/writers, no notify)
+              Container(
+                decoration: BoxDecoration(
+                  color: tileBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: tileBorder),
+                ),
+                child: Row(
+                  children: [
                     Expanded(
-                      child: Text(
-                        _displayTag,
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
-                          color: textColor,
-                          height: 1.1,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Column(
+                            children: [
+                              Text(
+                                '$count',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Stories',
+                                style: TextStyle(
+                                  color: mutedText,
+                                  fontSize: 10.5,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                    FilledButton.icon(
-                      onPressed: _followBusy ? null : _toggleFollow,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _following
-                            ? AppTheme.border
-                            : const Color(0xFFE8A33D),
-                        foregroundColor: _following
-                            ? AppTheme.ink
-                            : const Color(0xFF241804),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    Container(width: 1, height: 42, color: tileBorder),
+                    Expanded(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Column(
+                            children: [
+                              Text(
+                                '$_followerCount',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Followers',
+                                style: TextStyle(
+                                  color: mutedText,
+                                  fontSize: 10.5,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      icon: Icon(
-                        _following ? Icons.favorite : Icons.favorite_border,
-                        size: 18,
-                      ),
-                      label: Text(_following ? 'Following' : 'Follow'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '$count ${count == 1 ? 'story' : 'stories'} · $_followerCount ${_followerCount == 1 ? 'follower' : 'followers'}',
-                  style: TextStyle(
-                    color: mutedText,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12.5,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _tagDescription,
-                  style: TextStyle(color: mutedText, fontSize: 13, height: 1.5),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: tileBg,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: tileBorder),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Column(
-                        children: [
-                          Text(
-                            '$count',
-                            style: TextStyle(
-                              color: textColor,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 18,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Stories',
-                            style: TextStyle(color: mutedText, fontSize: 10.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Container(width: 1, height: 42, color: tileBorder),
-                Expanded(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Column(
-                        children: [
-                          Text(
-                            '$_followerCount',
-                            style: TextStyle(
-                              color: textColor,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 18,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Followers',
-                            style: TextStyle(color: mutedText, fontSize: 10.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

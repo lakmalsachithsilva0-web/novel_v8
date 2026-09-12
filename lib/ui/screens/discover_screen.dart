@@ -686,40 +686,114 @@ class _DiscoverScreenState extends State<DiscoverScreen>
           ),
         ];
       default:
-        return [
+        // Wattpad / Inkitt style home rails + any admin custom section_name
+        final reserved = {
+          'recently_updated',
+          'recently_completed',
+          'featured',
+          'trending',
+          'popular',
+          'discover',
+          '',
+        };
+        final customSectionNames = <String>{};
+        for (final b in books) {
+          final sn = b.sectionName.trim();
+          if (sn.isNotEmpty && !reserved.contains(sn.toLowerCase())) {
+            customSectionNames.add(sn);
+          }
+        }
+        final editorPicks = takeWhere(
+          (b) =>
+              b.sectionName.toLowerCase() == 'editor_picks' ||
+              b.sectionName.toLowerCase() == 'editors_picks',
+        );
+        final newReleases = takeWhere(
+          (b) =>
+              b.sectionName.toLowerCase() == 'new_releases' ||
+              b.sectionName.toLowerCase() == 'new',
+        );
+        final hotRightNow = takeWhere(
+          (b) =>
+              b.sectionName.toLowerCase() == 'trending' ||
+              b.sectionName.toLowerCase() == 'hot',
+        );
+        final sections = <_DiscoverRailSection>[
           _DiscoverRailSection(
             title: 'Featured',
-            books: featured.take(10).toList(),
+            books: featured.take(12).toList(),
+          ),
+          _DiscoverRailSection(
+            title: 'Hot Right Now',
+            books: (hotRightNow.isNotEmpty ? hotRightNow : topRated)
+                .take(12)
+                .toList(),
+          ),
+          _DiscoverRailSection(
+            title: 'New Releases',
+            books: (newReleases.isNotEmpty ? newReleases : recentlyUpdated)
+                .take(12)
+                .toList(),
           ),
           _DiscoverRailSection(
             title: 'Recently Updated',
-            books: recentlyUpdated.take(10).toList(),
+            books: recentlyUpdated.take(12).toList(),
           ),
           _DiscoverRailSection(
             title: 'Recently Completed',
-            books: recentlyCompleted.take(10).toList(),
+            books: recentlyCompleted.take(12).toList(),
           ),
+          if (editorPicks.isNotEmpty)
+            _DiscoverRailSection(
+              title: "Editors' Picks",
+              books: editorPicks.take(12).toList(),
+            ),
           _DiscoverRailSection(
             title: 'Fantasy & Magic',
-            books: fantasy.take(10).toList(),
-          ),
-          _DiscoverRailSection(
-            title: 'Sci-Fi & Future',
-            books: sciFi.take(10).toList(),
+            books: fantasy.take(12).toList(),
           ),
           _DiscoverRailSection(
             title: 'Romance & Drama',
-            books: romance.take(10).toList(),
+            books: romance.take(12).toList(),
+          ),
+          _DiscoverRailSection(
+            title: 'Sci-Fi & Future',
+            books: sciFi.take(12).toList(),
+          ),
+          _DiscoverRailSection(
+            title: 'Mystery & Thrillers',
+            books: mystery.take(12).toList(),
           ),
           _DiscoverRailSection(
             title: 'Horror & Paranormal',
-            books: horror.take(10).toList(),
+            books: horror.take(12).toList(),
           ),
           _DiscoverRailSection(
             title: 'Action & Adventure',
-            books: action.take(10).toList(),
+            books: action.take(12).toList(),
           ),
         ];
+        // Admin-defined custom story card slider sections (by section_name)
+        for (final name in customSectionNames.toList()..sort()) {
+          final customBooks = takeWhere(
+            (b) => b.sectionName.toLowerCase() == name.toLowerCase(),
+          );
+          if (customBooks.isEmpty) continue;
+          final title = name
+              .replaceAll('_', ' ')
+              .split(' ')
+              .map((w) => w.isEmpty
+                  ? w
+                  : '${w[0].toUpperCase()}${w.substring(1)}')
+              .join(' ');
+          sections.add(
+            _DiscoverRailSection(
+              title: title,
+              books: customBooks.take(12).toList(),
+            ),
+          );
+        }
+        return sections.where((s) => s.books.isNotEmpty).toList();
     }
   }
 }
