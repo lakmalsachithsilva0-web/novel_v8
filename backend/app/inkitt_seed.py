@@ -179,6 +179,15 @@ def ensure_inkitt_catalog(execute_write, fetch_all, USE_SQLITE: bool) -> dict[st
                 LOGGER.warning("inkitt book skip %s: %s", title, ins_exc)
 
         try:
+            # Schema: profile_id, name, story_count, cover_path, sort_order (no owner_name)
+            profile_id = 1
+            try:
+                prows = fetch_all("SELECT id FROM profiles ORDER BY id ASC LIMIT 1") or []
+                if prows:
+                    r0 = prows[0]
+                    profile_id = int(r0.get("id") if isinstance(r0, dict) else r0[0])
+            except Exception:
+                pass
             list_rows = fetch_all("SELECT name FROM reading_lists") or []
             existing_lists = set()
             for r in list_rows:
@@ -186,15 +195,16 @@ def ensure_inkitt_catalog(execute_write, fetch_all, USE_SQLITE: bool) -> dict[st
                     existing_lists.add((r.get("name") or "").strip().lower())
                 else:
                     existing_lists.add((r[0] if r else "").strip().lower())
-            for name, owner, count in INKITT_READING_LISTS:
+            for idx, (name, owner, count) in enumerate(INKITT_READING_LISTS):
                 if name.strip().lower() in existing_lists:
                     continue
                 try:
                     ph = "?" if USE_SQLITE else "%s"
                     execute_write(
-                        f"INSERT INTO reading_lists (name, owner_name, story_count) "
-                        f"VALUES ({ph}, {ph}, {ph})",
-                        (name, owner, int(count)),
+                        f"INSERT INTO reading_lists "
+                        f"(profile_id, name, story_count, cover_path, sort_order) "
+                        f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph})",
+                        (profile_id, name, int(count), "", int(idx + 1)),
                     )
                     result["lists_added"] += 1
                 except Exception as le:
@@ -203,6 +213,7 @@ def ensure_inkitt_catalog(execute_write, fetch_all, USE_SQLITE: bool) -> dict[st
             LOGGER.warning("inkitt lists: %s", lists_exc)
 
         try:
+            # Schema: title, theme, deadline, is_active, is_neon (not description/status/is_open)
             c_rows = fetch_all("SELECT title FROM contests") or []
             existing_c = set()
             for r in c_rows:
@@ -216,9 +227,15 @@ def ensure_inkitt_catalog(execute_write, fetch_all, USE_SQLITE: bool) -> dict[st
                 try:
                     ph = "?" if USE_SQLITE else "%s"
                     execute_write(
-                        f"INSERT INTO contests (title, description, status, is_open, is_featured) "
+                        f"INSERT INTO contests (title, theme, deadline, is_active, is_neon) "
                         f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph})",
-                        (title, desc, status, int(open_entry), int(featured)),
+                        (
+                            title,
+                            desc or "",
+                            status or "Open entry",
+                            int(open_entry),
+                            int(featured),
+                        ),
                     )
                     result["contests_added"] += 1
                 except Exception as ce:
