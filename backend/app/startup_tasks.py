@@ -669,7 +669,10 @@ def run_startup_tasks() -> dict[str, Any]:
     """Startup for serverless: finish in seconds when DB already has data.
 
     Heavy migrations/seeds only run when the books table is empty.
-    Inkitt seed never runs unless ENABLE_INKITT_SEED=1.
+    Inkitt seed is idempotent and runs automatically (local always;
+    Vercel only when books empty or ENABLE_INKITT_SEED=1).
+    Safe SQL scripts and schema ensures run every startup when
+    AUTO_RUN_DB_MIGRATIONS=true (default).
     """
     import os as _os
     global _FULL_STARTUP_MIGRATIONS_DONE
@@ -771,7 +774,22 @@ def run_startup_tasks() -> dict[str, Any]:
             LOGGER.exception("Patch step failed: %s", exc)
 
         result["fast_path"] = True
-        result["inkitt_seed"] = {"skipped": True, "reason": "disabled_on_startup"}
+        # Idempotent inkitt seed on every local start; Vercel only if forced
+        try:
+            enable_inkitt = _os.getenv("ENABLE_INKITT_SEED", "").strip().lower() in ("1", "true", "yes")
+            auto_inkitt = _os.getenv("AUTO_RUN_INKITT_SEED", "true").strip().lower() in ("1", "true", "yes")
+            if (not on_vercel and auto_inkitt) or enable_inkitt:
+                from .inkitt_seed import ensure_inkitt_catalog
+                from .database import execute_write, fetch_all
+                result["inkitt_seed"] = ensure_inkitt_catalog(execute_write, fetch_all, USE_SQLITE)
+            else:
+                result["inkitt_seed"] = {
+                    "skipped": True,
+                    "reason": "vercel_or_disabled",
+                }
+        except Exception as inkitt_exc:
+            LOGGER.warning("fast_path inkitt_seed: %s", inkitt_exc)
+            result["inkitt_seed_error"] = str(inkitt_exc)
         # NEVER run enrichment on Vercel cold starts — it blocks the first request
         # for minutes and causes 504 (Task timed out after 300 seconds).
         # Enable only with RUN_CONTENT_ENRICHMENT=1 (local/admin jobs).
@@ -783,8 +801,8 @@ def run_startup_tasks() -> dict[str, Any]:
                 "skipped": True,
                 "reason": "disabled_on_vercel_cold_start",
             }
-        elif not run_enrich and on_vercel is False and _os.getenv("SKIP_CONTENT_ENRICHMENT", "1").strip().lower() in ("1", "true", "yes"):
-            # Default skip everywhere unless explicitly enabled
+        elif not run_enrich and on_vercel is False and book_count >= 5 and _os.getenv("SKIP_CONTENT_ENRICHMENT", "1").strip().lower() in ("1", "true", "yes"):
+            # Skip enrichment when catalog already healthy unless forced
             result["content_enrichment"] = {"skipped": True, "reason": "SKIP_CONTENT_ENRICHMENT"}
         else:
             try:
@@ -868,8 +886,12 @@ def run_startup_tasks() -> dict[str, Any]:
 
     LOGGER.info("Startup tasks finished: %s", result)
 
-    # Inkitt only if explicitly enabled (never on Vercel by default)
-    if _os.getenv("ENABLE_INKITT_SEED", "").strip().lower() in ("1", "true", "yes"):
+    # Inkitt: always on empty-DB path; optional on Vercel via ENABLE_INKITT_SEED
+    _run_inkitt = True
+    if on_vercel and _os.getenv("ENABLE_INKITT_SEED", "").strip().lower() not in ("1", "true", "yes"):
+        _run_inkitt = False
+        result["inkitt_seed"] = {"skipped": True, "reason": "vercel_empty_db_set_ENABLE_INKITT_SEED"}
+    if _run_inkitt:
         try:
             from .inkitt_seed import ensure_inkitt_catalog
 

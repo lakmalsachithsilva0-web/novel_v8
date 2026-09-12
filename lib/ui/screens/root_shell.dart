@@ -14,6 +14,7 @@ import 'onboarding_profile_screen.dart';
 import 'more_screen.dart';
 import 'notifications_screen.dart';
 import 'write_screen.dart';
+import '../../core/constants/responsive.dart';
 
 /// App shell.
 ///

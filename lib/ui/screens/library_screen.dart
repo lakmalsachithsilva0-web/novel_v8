@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/constants/responsive.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
@@ -282,7 +283,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       children: [
         // Header: title + Premium + bell
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+          padding: EdgeInsets.fromLTRB(AppBreakpoints.pagePadding(context), 12, 8, 4),
           child: Row(
             children: [
               Text(

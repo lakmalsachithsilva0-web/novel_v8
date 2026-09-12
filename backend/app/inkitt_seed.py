@@ -109,18 +109,125 @@ INKITT_CONTESTS = [
 
 
 def ensure_inkitt_catalog(execute_write, fetch_all, USE_SQLITE: bool) -> dict[str, Any]:
-    """NO-OP on purpose.
+    """Idempotent catalog seed — inserts missing books/lists/contests by title.
 
-    Previous version inserted 40+ books with section_name values that MySQL ENUM
-    rejected, taking 5+ minutes on every Vercel cold start and causing 504 timeouts.
-    Baseline seed already provides books. Re-enable only via a one-shot admin script.
+    Safe to run on every backend start. Skips rows that already exist.
+    Widens section_name on MySQL if it is still a restrictive ENUM.
     """
-    LOGGER.info("inkitt_seed: NO-OP (disabled permanently to protect Vercel cold starts)")
-    return {
+    result: dict[str, Any] = {
         "books_added": 0,
         "covers_fixed": 0,
         "lists_added": 0,
         "contests_added": 0,
-        "skipped": True,
-        "reason": "hard_disabled",
+        "skipped": False,
     }
+    try:
+        if not USE_SQLITE:
+            try:
+                execute_write(
+                    "ALTER TABLE books MODIFY COLUMN section_name "
+                    "VARCHAR(64) NOT NULL DEFAULT 'recently_updated'",
+                    (),
+                )
+            except Exception as alter_exc:
+                LOGGER.warning("section_name widen (non-fatal): %s", alter_exc)
+
+        existing_titles: set[str] = set()
+        try:
+            rows = fetch_all("SELECT title FROM books") or []
+            for r in rows:
+                if isinstance(r, dict):
+                    t = (r.get("title") or "").strip().lower()
+                else:
+                    t = (r[0] if r else "").strip().lower()
+                if t:
+                    existing_titles.add(t)
+        except Exception as fetch_exc:
+            LOGGER.warning("inkitt existing titles: %s", fetch_exc)
+
+        for row in INKITT_BOOKS:
+            (
+                title, author, description, cover, accent, section,
+                status, rating, genre, secondary, sort_order, completed,
+            ) = row
+            key = title.strip().lower()
+            if key in existing_titles:
+                continue
+            try:
+                ph = "?" if USE_SQLITE else "%s"
+                cols = (
+                    "title, author, description, cover_path, accent_hex, "
+                    "section_name, status_text, rating, genre, secondary_genre, "
+                    "cta_label, sort_order, is_completed, primary_genre"
+                )
+                sql = (
+                    f"INSERT INTO books ({cols}) VALUES ("
+                    + ", ".join([ph] * 14)
+                    + ")"
+                )
+                execute_write(
+                    sql,
+                    (
+                        title, author, description, cover, accent, section,
+                        status, float(rating), genre, secondary,
+                        "Read Now", int(sort_order), int(completed), genre,
+                    ),
+                )
+                existing_titles.add(key)
+                result["books_added"] += 1
+            except Exception as ins_exc:
+                LOGGER.warning("inkitt book skip %s: %s", title, ins_exc)
+
+        try:
+            list_rows = fetch_all("SELECT name FROM reading_lists") or []
+            existing_lists = set()
+            for r in list_rows:
+                if isinstance(r, dict):
+                    existing_lists.add((r.get("name") or "").strip().lower())
+                else:
+                    existing_lists.add((r[0] if r else "").strip().lower())
+            for name, owner, count in INKITT_READING_LISTS:
+                if name.strip().lower() in existing_lists:
+                    continue
+                try:
+                    ph = "?" if USE_SQLITE else "%s"
+                    execute_write(
+                        f"INSERT INTO reading_lists (name, owner_name, story_count) "
+                        f"VALUES ({ph}, {ph}, {ph})",
+                        (name, owner, int(count)),
+                    )
+                    result["lists_added"] += 1
+                except Exception as le:
+                    LOGGER.warning("inkitt list skip %s: %s", name, le)
+        except Exception as lists_exc:
+            LOGGER.warning("inkitt lists: %s", lists_exc)
+
+        try:
+            c_rows = fetch_all("SELECT title FROM contests") or []
+            existing_c = set()
+            for r in c_rows:
+                if isinstance(r, dict):
+                    existing_c.add((r.get("title") or "").strip().lower())
+                else:
+                    existing_c.add((r[0] if r else "").strip().lower())
+            for title, desc, status, open_entry, featured in INKITT_CONTESTS:
+                if title.strip().lower() in existing_c:
+                    continue
+                try:
+                    ph = "?" if USE_SQLITE else "%s"
+                    execute_write(
+                        f"INSERT INTO contests (title, description, status, is_open, is_featured) "
+                        f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph})",
+                        (title, desc, status, int(open_entry), int(featured)),
+                    )
+                    result["contests_added"] += 1
+                except Exception as ce:
+                    LOGGER.warning("inkitt contest skip %s: %s", title, ce)
+        except Exception as contests_exc:
+            LOGGER.warning("inkitt contests: %s", contests_exc)
+
+        LOGGER.info("inkitt_seed complete: %s", result)
+    except Exception as exc:
+        LOGGER.exception("inkitt_seed failed: %s", exc)
+        result["error"] = str(exc)
+    return result
