@@ -1,6 +1,6 @@
 """
 Content enrichment on startup:
-- Ensure every published book has at least 3 chapters
+- Ensure every published book has at least 5 chapters (30 paragraphs each)
 - Sample wall posts + book reviews
 Uses main.fetch_all / execute_write (not db_runtime).
 """
@@ -45,6 +45,16 @@ SAMPLE_PARAGRAPHS = [
     "Tomorrow would demand courage; tonight only required honesty.",
     "And so the chapter closed not with an ending, but with a door left ajar.",
 ]
+
+
+
+def _db() -> tuple[Callable, Callable]:
+    """Resolve fetch_all / execute_write from main (circular-import safe)."""
+    try:
+        from . import main as main_mod
+    except Exception:
+        import app.main as main_mod  # type: ignore
+    return main_mod.fetch_all, main_mod.execute_write
 
 
 def _chapter_body(hero: str, chapter_num: int, paragraphs: int = 30) -> str:
