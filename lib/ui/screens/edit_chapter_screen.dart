@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/services/api_service.dart';
+import 'root_shell.dart';
 
 class EditChapterScreen extends StatefulWidget {
   const EditChapterScreen({
@@ -189,8 +190,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
       if (maxN + 1 > nextNo) nextNo = maxN + 1;
     } catch (_) {}
     if (!mounted) return;
-    // Replace this chapter editor so Back never lands on a previous chapter page.
-    await Navigator.of(context).pushReplacement(
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => EditChapterScreen(
           apiService: widget.apiService,
@@ -211,12 +211,11 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
     } catch (_) {}
 
     if (!mounted) return;
-    // Pop all chapter/story editors until the app root (Write tab in RootShell).
-    // Do NOT pushAndRemoveUntil — that wiped history and crashed Navigator.
     final nav = Navigator.of(context);
-    if (nav.canPop()) {
-      nav.popUntil((route) => route.isFirst);
-    }
+    nav.pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const RootShell()),
+      (route) => false,
+    );
   }
 
   Future<void> _publishStoryAndChapter() async {
@@ -311,7 +310,8 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
       scheduledFor: null,
       successMessage: 'Saved as draft',
     );
-    return mounted;
+    await _returnToWriteManager(openDrafts: true);
+    return true;
   }
 
   Future<void> _saveAsDraftChapter() async {
@@ -549,11 +549,41 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
             content: const Text('Do you want to add another chapter?'),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
+                onPressed: () async {
+                  Navigator.pop(ctx, false);
+                  try {
+                    await widget.apiService.updateWriterStory(widget.storyId, {
+                      'status_text': 'Ongoing',
+                    });
+                  } catch (_) {}
+                  try {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool('write_open_submitted', true);
+                    await prefs.setBool('write_open_drafts', false);
+                  } catch (_) {}
+                  if (mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const RootShell(),
+                      ),
+                      (route) => false,
+                    );
+                  }
+                },
                 child: const Text('Done'),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
+                onPressed: () async {
+                  Navigator.pop(ctx, true);
+                  try {
+                    await widget.apiService.updateWriterStory(widget.storyId, {
+                      'status_text': 'Ongoing',
+                    });
+                  } catch (_) {}
+                  if (mounted) {
+                    await _openNextChapterEditor();
+                  }
+                },
                 child: const Text('Add another chapter'),
               ),
             ],
@@ -573,7 +603,16 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
               'status_text': 'Ongoing',
             });
           } catch (_) {}
-          await _returnToWriteManager(openDrafts: false);
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('write_open_submitted', true);
+            await prefs.setBool('write_open_drafts', false);
+          } catch (_) {}
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute<void>(builder: (_) => const RootShell()),
+            (route) => false,
+          );
         }
       }
     } catch (e) {
@@ -906,7 +945,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
 
         final shouldPop = await _onWillPop();
         if (shouldPop == true && context.mounted) {
-          await _returnToWriteManager(openDrafts: true);
+          Navigator.pop(context);
         }
       },
       child: Scaffold(
