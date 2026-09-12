@@ -380,54 +380,82 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
         ? Colors.white.withValues(alpha: 0.16)
         : const Color(0xFFE9E1F6);
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            accent.withValues(alpha: isDark ? 0.95 : 0.18),
-            deep,
-            isDark ? const Color(0xFF14111F) : Colors.white,
-          ],
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Top bar over full-width cover
+        if (coverUrl != null)
+          Stack(
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                color: textColor,
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-              const Spacer(),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (coverUrl != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: SizedBox(
+              SizedBox(
                 width: double.infinity,
-                height: 170,
+                height: 200,
                 child: Image.network(
                   coverUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  width: double.infinity,
+                  errorBuilder: (_, _, _) => Container(
+                    height: 200,
+                    color: accent.withValues(alpha: 0.3),
+                  ),
                 ),
               ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                        color: Colors.white,
+                        onPressed: () => Navigator.of(context).maybePop(),
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          )
+        else
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                    color: textColor,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                  const Spacer(),
+                ],
+              ),
             ),
-          const SizedBox(height: 18),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
+          ),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                accent.withValues(alpha: isDark ? 0.95 : 0.18),
+                deep,
+                isDark ? const Color(0xFF14111F) : Colors.white,
+              ],
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
                     Expanded(
                       child: Text(
                         _displayTag,
@@ -543,6 +571,8 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                 ),
               ],
             ),
+          ),
+            ],
           ),
         ],
       ),

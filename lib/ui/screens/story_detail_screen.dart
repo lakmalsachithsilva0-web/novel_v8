@@ -180,11 +180,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         });
       }
       try {
-        final sc = await widget.apiService.fetchBookComments(_book.id);
+        // Whole-story book comments removed per product request.
+        // Chapter + paragraph comments remain available in the reader.
         if (mounted) {
           setState(() {
-            _storyComments = sc;
-            _storyCommentCount = sc.length;
+            _storyComments = const [];
+            _storyCommentCount = 0;
             _loadingStoryComments = false;
           });
         }
@@ -362,233 +363,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   }
 
   Future<void> _openStoryCommentsSheet() async {
-    var comments = List<Map<String, dynamic>>.from(_storyComments);
-    var loading = false;
-    final controller = TextEditingController();
-    var posting = false;
-    int? myUserId = _currentUserId;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setModal) {
-            Future<void> reload() async {
-              setModal(() => loading = true);
-              try {
-                final list = await widget.apiService.fetchBookComments(
-                  _book.id,
-                );
-                if (ctx.mounted) {
-                  setModal(() {
-                    comments = list;
-                    loading = false;
-                  });
-                }
-                if (mounted) {
-                  setState(() {
-                    _storyComments = list;
-                    _storyCommentCount = list.length;
-                  });
-                }
-              } catch (_) {
-                if (ctx.mounted) setModal(() => loading = false);
-              }
-            }
-
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(ctx).viewInsets.bottom,
-              ),
-              child: SizedBox(
-                height: MediaQuery.of(ctx).size.height * 0.7,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    Text(
-                      'Story comments ($_storyCommentCount)',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const Divider(),
-                    Expanded(
-                      child: loading
-                          ? const Center(child: CircularProgressIndicator())
-                          : comments.isEmpty
-                          ? const Center(child: Text('No story comments yet'))
-                          : ListView.separated(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: comments.length,
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(height: 12),
-                              itemBuilder: (_, i) {
-                                final c = comments[i];
-                                final name =
-                                    (c['display_name'] ??
-                                            c['username'] ??
-                                            'Reader')
-                                        .toString();
-                                final body = (c['body'] ?? '').toString();
-                                final uid = (c['user_id'] as num?)?.toInt();
-                                final cid = (c['id'] as num?)?.toInt() ?? 0;
-                                final isMine =
-                                    myUserId != null && uid == myUserId;
-                                return ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(
-                                    name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  subtitle: Text(body),
-                                  trailing: isMine
-                                      ? PopupMenuButton<String>(
-                                          onSelected: (v) async {
-                                            if (v == 'edit') {
-                                              final ctrl =
-                                                  TextEditingController(
-                                                    text: body,
-                                                  );
-                                              final ok = await showDialog<bool>(
-                                                context: context,
-                                                builder: (d) => AlertDialog(
-                                                  title: const Text(
-                                                    'Edit comment',
-                                                  ),
-                                                  content: TextField(
-                                                    controller: ctrl,
-                                                    maxLines: 4,
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                            d,
-                                                            false,
-                                                          ),
-                                                      child: const Text(
-                                                        'Cancel',
-                                                      ),
-                                                    ),
-                                                    FilledButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                            d,
-                                                            true,
-                                                          ),
-                                                      child: const Text('Save'),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                              if (ok == true &&
-                                                  ctrl.text.trim().isNotEmpty) {
-                                                await widget.apiService
-                                                    .updateChapterComment(
-                                                      commentId: cid,
-                                                      body: ctrl.text.trim(),
-                                                    );
-                                                await reload();
-                                              }
-                                            } else if (v == 'delete') {
-                                              await widget.apiService
-                                                  .deleteChapterComment(cid);
-                                              await reload();
-                                            }
-                                          },
-                                          itemBuilder: (_) => const [
-                                            PopupMenuItem(
-                                              value: 'edit',
-                                              child: Text('Edit'),
-                                            ),
-                                            PopupMenuItem(
-                                              value: 'delete',
-                                              child: Text('Delete'),
-                                            ),
-                                          ],
-                                        )
-                                      : null,
-                                );
-                              },
-                            ),
-                    ),
-                    if (!_isOwner)
-                      SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: controller,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Write a story comment...',
-                                    border: OutlineInputBorder(),
-                                    isDense: true,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              FilledButton(
-                                onPressed: posting
-                                    ? null
-                                    : () async {
-                                        final body = controller.text.trim();
-                                        if (body.isEmpty) return;
-                                        setModal(() => posting = true);
-                                        try {
-                                          await widget.apiService
-                                              .postBookComment(
-                                                bookId: _book.id,
-                                                body: body,
-                                              );
-                                          controller.clear();
-                                          await reload();
-                                        } catch (e) {
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(content: Text('$e')),
-                                            );
-                                          }
-                                        } finally {
-                                          if (ctx.mounted) {
-                                            setModal(() => posting = false);
-                                          }
-                                        }
-                                      },
-                                child: const Text('Post'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          "Authors can't comment on their own story.",
-                          style: TextStyle(color: Colors.grey.shade600),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+    // Whole-story book comments disabled. Use chapter / paragraph comments in the reader.
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Story comments are disabled. Comment on chapters or paragraphs while reading.')),
     );
   }
 
@@ -1576,8 +1354,22 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 ),
               ),
 
-            // Hidden: other authors' recommendation rails (You may also like / Recommended)
-            // Keep only "More stories by author" above.
+            if (_youMayAlsoLike.isNotEmpty)
+             SliverToBoxAdapter(
+                child: _HorizontalBookRail(
+                  title: 'You May Also Like',
+                  books: _youMayAlsoLike,
+                  apiService: widget.apiService,
+                ),
+              ),
+            if (_youMayAlsoLike.length > 6)
+              SliverToBoxAdapter(
+                child: _HorizontalBookRail(
+                  title: 'Recommended for You',
+                  books: _youMayAlsoLike.skip(6).take(6).toList(),
+                  apiService: widget.apiService,
+                ),
+              ),
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),

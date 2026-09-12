@@ -7919,20 +7919,50 @@ def post_user_wall(
     user: dict[str, Any] = Depends(require_user),
 ):
     """Create a wall post on target user's profile (requires login)."""
-    _ensure_wall_posts_table()
+    try:
+        _ensure_wall_posts_table()
+    except Exception as exc:
+        LOGGER.warning("wall ensure before post: %s", exc)
     payload = payload or {}
-    body = (payload.get("body") or payload.get("message") or "").strip()
+    body = (payload.get("body") or payload.get("message") or payload.get("content") or "").strip()
     if not body:
         raise HTTPException(status_code=400, detail="Empty post")
-    image_path = payload.get("image_path") or payload.get("image_url") or ""
-    row_id, _ = execute_write(
-        """
-        INSERT INTO wall_posts (user_id, target_user_id, body, image_path, likes_count, created_at)
-        VALUES (%s, %s, %s, %s, 0, CURRENT_TIMESTAMP)
-        """,
-        (user["user_id"], user_id, body, image_path),
+    image_path = (
+        payload.get("image_path")
+        or payload.get("image_url")
+        or payload.get("image")
+        or ""
     )
-    return {"ok": True, "id": row_id}
+    try:
+        row_id, _ = execute_write(
+            """
+            INSERT INTO wall_posts (user_id, target_user_id, body, image_path, likes_count, created_at)
+            VALUES (%s, %s, %s, %s, 0, CURRENT_TIMESTAMP)
+            """,
+            (user["user_id"], user_id, body, str(image_path) if image_path else ""),
+        )
+        return {"ok": True, "id": row_id, "body": body}
+    except Exception as exc:
+        LOGGER.exception("wall post failed: %s", exc)
+        # Retry once after forcing table ensure
+        try:
+            global _WALL_POSTS_TABLE_READY
+            _WALL_POSTS_TABLE_READY = False
+            _ensure_wall_posts_table()
+            row_id, _ = execute_write(
+                """
+                INSERT INTO wall_posts (user_id, target_user_id, body, image_path, likes_count, created_at)
+                VALUES (%s, %s, %s, %s, 0, CURRENT_TIMESTAMP)
+                """,
+                (user["user_id"], user_id, body, str(image_path) if image_path else ""),
+            )
+            return {"ok": True, "id": row_id, "body": body}
+        except Exception as exc2:
+            LOGGER.exception("wall post retry failed: %s", exc2)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Could not create wall post. Please try again. ({type(exc2).__name__})",
+            ) from exc2
 
 
 def _ensure_wall_post_likes_table() -> None:

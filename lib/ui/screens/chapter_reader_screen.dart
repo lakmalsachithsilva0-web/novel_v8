@@ -1202,9 +1202,10 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     final liked = _likedParagraphs.contains(index);
     final selfCommented = _selfCommentedParagraphs.contains(index);
     final key = _paragraphKeys.putIfAbsent(index, () => GlobalKey());
-    final commentColor = selfCommented || count > 0
+    // Ash/grey when only others commented; purple when current user also commented.
+    final commentColor = selfCommented
         ? const Color(0xFF6C3CE1)
-        : _muted.withValues(alpha: 0.7);
+        : (count > 0 ? const Color(0xFF9CA3AF) : _muted.withValues(alpha: 0.7));
     return Padding(
       key: key,
       padding: const EdgeInsets.only(bottom: 14),
@@ -1229,9 +1230,11 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: selfCommented || count > 0
+                    color: selfCommented
                         ? const Color(0xFFEDE9FE)
-                        : Colors.transparent,
+                        : (count > 0
+                            ? const Color(0xFFF3F4F6)
+                            : Colors.transparent),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -1244,10 +1247,12 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                       if (count > 0)
                         Text(
                           '$count',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF6C3CE1),
+                            color: selfCommented
+                                ? const Color(0xFF6C3CE1)
+                                : const Color(0xFF9CA3AF),
                           ),
                         ),
                     ],

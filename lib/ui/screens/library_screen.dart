@@ -295,31 +295,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                 ),
               ),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF2A2140) : const Color(0xFFF3EEFF),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isDark ? const Color(0xFF4C3A7A) : const Color(0xFFD6C7FF),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.diamond_outlined, size: 14, color: Color(0xFF6C3CE1)),
-                    SizedBox(width: 4),
-                    Text(
-                      'Premium',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF6C3CE1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // Premium button hidden per product request
               IconButton(
                 tooltip: 'Notifications',
                 icon: Icon(Icons.notifications_none_rounded, size: 26, color: fg),
