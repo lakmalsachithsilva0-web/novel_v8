@@ -189,7 +189,8 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
       if (maxN + 1 > nextNo) nextNo = maxN + 1;
     } catch (_) {}
     if (!mounted) return;
-    await Navigator.of(context).push(
+    // Replace this chapter editor so Back never lands on a previous chapter page.
+    await Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => EditChapterScreen(
           apiService: widget.apiService,
@@ -210,10 +211,11 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
     } catch (_) {}
 
     if (!mounted) return;
-    // Never wipe the stack — that caused Navigator _history.isNotEmpty crash.
+    // Pop all chapter/story editors until the app root (Write tab in RootShell).
+    // Do NOT pushAndRemoveUntil — that wiped history and crashed Navigator.
     final nav = Navigator.of(context);
     if (nav.canPop()) {
-      nav.pop();
+      nav.popUntil((route) => route.isFirst);
     }
   }
 
@@ -904,7 +906,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
 
         final shouldPop = await _onWillPop();
         if (shouldPop == true && context.mounted) {
-          Navigator.pop(context);
+          await _returnToWriteManager(openDrafts: true);
         }
       },
       child: Scaffold(
