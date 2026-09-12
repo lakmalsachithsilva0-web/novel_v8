@@ -3211,7 +3211,7 @@ class _HomeCategoryGrid extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        childAspectRatio: 2.15,
+        mainAxisExtent: 72,
       ),
       itemBuilder: (context, index) {
         final name = names[index];
@@ -3273,7 +3273,7 @@ class _HomeCategoryGrid extends StatelessWidget {
             );
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF7F5FC),
               borderRadius: BorderRadius.circular(18),
@@ -3296,31 +3296,36 @@ class _HomeCategoryGrid extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: isDark
-                              ? Colors.white
-                              : const Color(0xFF1A1A1A),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF1A1A1A),
+                          ),
                         ),
-                      ),
-                      Text(
-                        '${genreBooks.length} stories',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark ? Colors.white60 : Colors.grey.shade600,
+                        Text(
+                          '${genreBooks.length} stories',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark
+                                ? Colors.white60
+                                : Colors.grey.shade600,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
