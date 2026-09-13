@@ -202,18 +202,18 @@ class _ExploreStoriesSectionState extends State<_ExploreStoriesSection> {
               final item = _validBooks[index];
               final isActive = index == _activeIndex;
               return AnimatedScale(
-                scale: isActive ? 1.12 : 0.86,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
+                scale: isActive ? 1.14 : 0.88,
+                duration: const Duration(milliseconds: 340),
+                curve: Curves.easeOutBack,
                 child: AnimatedOpacity(
                   opacity: isActive ? 1.0 : 0.55,
-                  duration: const Duration(milliseconds: 220),
+                  duration: const Duration(milliseconds: 280),
                   child: GestureDetector(
                     onTap: () {
                       if (!isActive) {
                         _pageController.animateToPage(
                           index,
-                          duration: const Duration(milliseconds: 280),
+                          duration: const Duration(milliseconds: 320),
                           curve: Curves.easeOutCubic,
                         );
                       } else {
@@ -352,18 +352,18 @@ class _DynamicStoryRailState extends State<_DynamicStoryRail> {
               final item = valid[index];
               final isActive = index == _activeIndex;
               return AnimatedScale(
-                scale: isActive ? 1.12 : 0.86,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
+                scale: isActive ? 1.14 : 0.88,
+                duration: const Duration(milliseconds: 340),
+                curve: Curves.easeOutBack,
                 child: AnimatedOpacity(
                   opacity: isActive ? 1.0 : 0.55,
-                  duration: const Duration(milliseconds: 220),
+                  duration: const Duration(milliseconds: 280),
                   child: GestureDetector(
                     onTap: () {
                       if (!isActive) {
                         _pageController.animateToPage(
                           index,
-                          duration: const Duration(milliseconds: 280),
+                          duration: const Duration(milliseconds: 320),
                           curve: Curves.easeOutCubic,
                         );
                       } else {
@@ -560,21 +560,41 @@ class _ActiveStoryDetail extends StatelessWidget {
             ),
             if (book.secondaryGenre.isNotEmpty)
               _GenreTag(label: book.secondaryGenre, apiService: apiService),
-            ElevatedButton(
-              onPressed: onRead,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.brand,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 6,
-                ),
-                minimumSize: const Size(0, 36),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.brand.withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-              child: Text(
-                book.cta,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelMedium?.copyWith(color: Colors.white),
+              child: ElevatedButton(
+                onPressed: onRead,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.brand,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
+                  minimumSize: const Size(0, 38),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  book.cta,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
           ],
@@ -2946,30 +2966,50 @@ class _HomeRecommendedRailState extends State<_HomeRecommendedRail> {
               final item = valid[index];
               final isActive = index == _activeIndex;
               return AnimatedScale(
-                scale: isActive ? 1.12 : 0.86,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
+                scale: isActive ? 1.14 : 0.88,
+                duration: const Duration(milliseconds: 340),
+                curve: Curves.easeOutBack,
                 child: AnimatedOpacity(
-                  opacity: isActive ? 1 : 0.75,
-                  duration: const Duration(milliseconds: 220),
-                  child: GestureDetector(
-                    onTap: () {
-                      if (!isActive) {
-                        _pageController.animateToPage(
-                          index,
-                          duration: const Duration(milliseconds: 280),
-                          curve: Curves.easeOutCubic,
-                        );
-                      } else {
-                        _openBook(item);
-                      }
-                    },
-                    child: Center(
-                      child: _StoryCard(
-                        book: item,
-                        // width <= 140 → compact cover-only
-                        width: isActive ? 148 : 118,
-                        apiService: widget.apiService,
+                  opacity: isActive ? 1 : 0.72,
+                  duration: const Duration(milliseconds: 280),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    margin: EdgeInsets.symmetric(
+                      vertical: isActive ? 0 : 10,
+                      horizontal: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: isActive
+                          ? [
+                              BoxShadow(
+                                color: AppTheme.brand.withValues(alpha: 0.28),
+                                blurRadius: 22,
+                                offset: const Offset(0, 10),
+                              ),
+                            ]
+                          : [],
+                    ),
+                    child: GestureDetector(
+                      onTap: () {
+                        if (!isActive) {
+                          _pageController.animateToPage(
+                            index,
+                            duration: const Duration(milliseconds: 320),
+                            curve: Curves.easeOutCubic,
+                          );
+                        } else {
+                          _openBook(item);
+                        }
+                      },
+                      child: Center(
+                        child: _StoryCard(
+                          book: item,
+                          // width <= 140 → compact cover-only
+                          width: isActive ? 148 : 118,
+                          apiService: widget.apiService,
+                        ),
                       ),
                     ),
                   ),

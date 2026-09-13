@@ -1495,15 +1495,37 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                         height: 1.75,
                       ),
                     )
-                  else ...[
-                    for (var i = 0; i < paragraphs.length; i++) ...[
-                      _buildParagraphBlock(paragraphs[i], i),
-                      if (i == paragraphs.length ~/ 2 && paragraphs.length > 2)
-                        _buildAdBanner(
-                          label: 'Discover more stories you\'ll love',
-                        ),
-                    ],
-                  ],
+                  else
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 420),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, anim) {
+                        final slide = Tween<Offset>(
+                          begin: const Offset(0.06, 0),
+                          end: Offset.zero,
+                        ).animate(anim);
+                        return FadeTransition(
+                          opacity: anim,
+                          child: SlideTransition(position: slide, child: child),
+                        );
+                      },
+                      child: Column(
+                        key: ValueKey<int>(_chapterNumber),
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var i = 0; i < paragraphs.length; i++) ...[
+                            _buildParagraphBlock(paragraphs[i], i),
+                            if (i == paragraphs.length ~/ 2 &&
+                                paragraphs.length > 2)
+                              _buildAdBanner(
+                                label:
+                                    'Discover more stories you\'ll love',
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 24),
                   // Ad near Next Chapter button
                   if (hasNext)
@@ -1552,8 +1574,10 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF6C3CE1),
                                   foregroundColor: Colors.white,
+                                  elevation: 4,
+                                  shadowColor: const Color(0xFF6C3CE1),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
                                 child: const FittedBox(

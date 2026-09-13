@@ -1396,26 +1396,38 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         minimum: const EdgeInsets.only(bottom: 8),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: SizedBox(
+          child: Container(
             width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: _readNow,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: inkittGreen,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+            height: 54,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6C3CE1), Color(0xFF4B27B8)],
               ),
-              child: const FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  'Read Now',
-                  maxLines: 1,
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6C3CE1).withValues(alpha: 0.42),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _readNow,
+                child: const Center(
+                  child: Text(
+                    'Read Now',
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
                 ),
               ),
             ),
