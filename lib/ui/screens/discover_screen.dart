@@ -103,7 +103,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               final fg = isDark ? Colors.white : const Color(0xFF1A1A1A);
               return SliverToBoxAdapter(
                 child: Container(
-                  color: isDark ? const Color(0xFF121212) : Colors.white,
+                  color: isDark ? const Color(0xFF121218) : AppTheme.background,
                   padding: EdgeInsets.fromLTRB(
                     AppBreakpoints.pagePadding(context),
                     10,
@@ -119,10 +119,10 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 28,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                             letterSpacing: -0.8,
                             fontFamily: 'cursive',
-                            color: fg,
+                            color: isDark ? Colors.white : AppTheme.brand,
                           ),
                         ),
                       ),
@@ -1224,9 +1224,9 @@ class _SearchScreenState extends State<SearchScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF121218) : AppTheme.background,
       appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+        backgroundColor: isDark ? const Color(0xFF121218) : AppTheme.background,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(

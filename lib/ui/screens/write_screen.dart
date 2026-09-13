@@ -1155,7 +1155,7 @@ class _StoryListCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(7),
+                borderRadius: BorderRadius.circular(12),
                 child: Container(
                   width: 52,
                   height: 74,

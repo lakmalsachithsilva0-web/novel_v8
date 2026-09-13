@@ -282,6 +282,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121218) : AppTheme.background,
       appBar: AppBar(
         title: const Text('Notifications'),
         centerTitle: true,

@@ -1392,7 +1392,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                     const SizedBox(height: 8),
                     Center(
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(14),
                         child: Image.network(
                           coverUrl,
                           width: 140,

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
+
 import '../../core/constants/responsive.dart';
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
@@ -798,8 +800,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF121212) : Colors.white;
-    final fg = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final bg = isDark ? const Color(0xFF121218) : AppTheme.background;
+    final fg = isDark ? Colors.white : AppTheme.ink;
     final muted = isDark ? Colors.white70 : Colors.black54;
     const inkittGreen = Color(0xFF6C3CE1); // brand purple
 
@@ -920,7 +922,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                             : (AppBreakpoints.isLargePhone(context) ? 180.0 : 160.0);
                         final coverH = coverW * 1.4375;
                         return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(16),
                       child: SizedBox(
                         width: coverW,
                         height: coverH,

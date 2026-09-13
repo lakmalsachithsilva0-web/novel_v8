@@ -2605,6 +2605,15 @@ class _HomeSectionHeader extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
+        Container(
+          width: 4,
+          height: 18,
+          margin: const EdgeInsets.only(right: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.brand,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
         Expanded(
           child: Text(
             title,
@@ -2612,7 +2621,7 @@ class _HomeSectionHeader extends StatelessWidget {
               fontSize: 18,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.3,
-              color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+              color: isDark ? Colors.white : AppTheme.ink,
             ),
           ),
         ),
@@ -2620,7 +2629,7 @@ class _HomeSectionHeader extends StatelessWidget {
           TextButton(
             onPressed: onSeeAll,
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF6C3CE1),
+              foregroundColor: AppTheme.brand,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,

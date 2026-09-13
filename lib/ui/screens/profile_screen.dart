@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../core/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
@@ -878,8 +880,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                       expandedHeight: 200,
                       pinned: true,
                       backgroundColor: isDark
-                          ? Colors.black
-                          : const Color(0xFF3B2A6B),
+                          ? const Color(0xFF121218)
+                          : AppTheme.brandDeep,
                       leading: IconButton(
                         icon: const Icon(Icons.arrow_back, color: Colors.white),
                         onPressed: () => Navigator.of(context).maybePop(),
