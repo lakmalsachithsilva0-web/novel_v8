@@ -15,6 +15,7 @@ import 'more_screen.dart';
 import 'notifications_screen.dart';
 import 'write_screen.dart';
 import '../../core/constants/responsive.dart';
+import '../../core/theme/app_theme.dart';
 
 /// App shell.
 ///
@@ -500,16 +501,14 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
       ),
       bottomNavigationBar: NavigationBar(
         backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF1E1E1E)
+            ? AppTheme.darkCard
             : Colors.white,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF2C2C2C)
-            : const Color(0xFFEDE9FE),
-        elevation: 8,
-        shadowColor: Colors.black12,
-        height: 72,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+        indicatorColor: AppTheme.brand.withValues(alpha: 0.14),
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        height: 70,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         selectedIndex: _selectedIndex,
         onDestinationSelected: (value) {
           // Guests and logged-out users: Discover only; other tabs need real account

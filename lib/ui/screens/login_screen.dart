@@ -101,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final topH = MediaQuery.of(context).size.height * 0.34;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF6F3FC),
       body: Column(
         children: [
           // Header band (mock: gradient + shield)

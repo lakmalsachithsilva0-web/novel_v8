@@ -328,11 +328,20 @@ class MoreScreen extends StatelessWidget {
   }
 
   BoxDecoration _card(bool isDark) => BoxDecoration(
-    color: isDark ? const Color(0xFF121212) : Colors.white,
-    borderRadius: BorderRadius.circular(16),
+    color: isDark ? const Color(0xFF1C1C22) : Colors.white,
+    borderRadius: BorderRadius.circular(20),
     border: Border.all(
-      color: isDark ? Colors.white24 : const Color(0xFFE9E4F5),
+      color: isDark ? const Color(0xFF2F2F3A) : AppTheme.border,
     ),
+    boxShadow: isDark
+        ? const []
+        : [
+            BoxShadow(
+              color: AppTheme.brand.withValues(alpha: 0.06),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
   );
   Widget _sectionLabel(String t) => Padding(
     padding: const EdgeInsets.only(left: 4, bottom: 8),
