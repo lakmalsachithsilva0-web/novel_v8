@@ -2278,6 +2278,7 @@ def get_connection():
     )
 
     last_exc = None
+    db_ensured = False
     retries = max(1, int(os.getenv("MYSQL_CONNECT_RETRIES", "1" if on_vercel else "2")))
     for attempt in range(retries):
         try:
@@ -2292,6 +2293,17 @@ def get_connection():
             return conn
         except Exception as exc:
             last_exc = exc
+            msg = str(exc).lower()
+            # Auto-create missing database once, then retry.
+            if (not db_ensured) and (
+                "unknown database" in msg or "1049" in msg
+            ):
+                try:
+                    _ensure_database_exists()
+                    db_ensured = True
+                    continue
+                except Exception as ensure_exc:
+                    last_exc = ensure_exc
             if attempt + 1 < retries:
                 import time as _t
                 _t.sleep(0.25 * (attempt + 1))

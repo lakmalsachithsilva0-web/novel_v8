@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.novel_mobile_app"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // ndkVersion removed so build works without accepting NDK license
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
