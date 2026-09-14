@@ -852,6 +852,17 @@ class _SearchScreenState extends State<SearchScreen> {
   static const _kResultsProfileBase = 'search_results_profile_v1';
   Timer? _searchDebounce;
 
+  List<String> get _recentForScope {
+    switch (_searchScope) {
+      case 'tag':
+        return _recentTag;
+      case 'profile':
+        return _recentProfile;
+      default:
+        return _recentTitle;
+    }
+  }
+
   Future<String> _historyScope() async {
     try {
       final prefs = await SharedPreferences.getInstance();
