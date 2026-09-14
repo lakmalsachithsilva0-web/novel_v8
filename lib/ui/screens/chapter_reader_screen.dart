@@ -220,6 +220,8 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     return 'continue_reading_v1_guest';
   }
 
+  Timer? _librarySaveTimer;
+
   Future<void> _markLibraryProgress({bool completed = false}) async {
 
     final bookId = widget.bookId;
@@ -292,10 +294,22 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     } catch (e) {
       debugPrint('Local continue cache failed: $e');
     }
-    try {
-      await widget.apiService.addLibraryEntry(payload);
-    } catch (e) {
-      debugPrint('Library progress save failed: $e');
+    Future<void> doSave() async {
+      try {
+        await widget.apiService.addLibraryEntry(payload);
+      } catch (e) {
+        debugPrint('Library progress save failed: $e');
+      }
+    }
+
+    if (completed) {
+      _librarySaveTimer?.cancel();
+      await doSave();
+    } else {
+      _librarySaveTimer?.cancel();
+      _librarySaveTimer = Timer(const Duration(milliseconds: 800), () {
+        unawaited(doSave());
+      });
     }
   }
 

@@ -115,13 +115,10 @@ class _LibraryScreenState extends State<LibraryScreen>
         myId = prefs.getInt('auth_id');
       } catch (_) {}
       if (!mounted) return;
-      final mapped = rows.map(LibraryEntryModel.fromMap).where((e) {
-        final aid = e.book.authorUserId;
-        if (myId != null && myId > 0 && aid != null && aid > 0 && aid == myId) {
-          return false; // own books never in Continue / Completed
-        }
-        return true;
-      }).toList();
+      final mapped = rows
+          .map(LibraryEntryModel.fromMap)
+          .where((e) => e.book.id > 0)
+          .toList();
       setState(() {
         _myUserId = myId;
         _entries = mapped;

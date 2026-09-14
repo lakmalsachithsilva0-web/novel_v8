@@ -1226,14 +1226,9 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
         return false;
       }
       final st = e.readingStatus.toLowerCase().trim();
-      // Only hide clearly finished books
+      // Only hide when explicitly marked completed (not by chapters math —
+      // 1-chapter books were incorrectly treated as finished).
       if (st == 'completed' || st == 'finished' || st == 'done') return false;
-      if (e.progressFraction >= 0.99) return false;
-      if (e.chapters > 0 &&
-          e.chaptersRead > 0 &&
-          e.chaptersRead >= e.chapters) {
-        return false;
-      }
       return true;
     }).toList();
   }
@@ -1402,10 +1397,10 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // Hide books the user already finished (all chapters / progress complete)
     final books = _items.where((e) {
-      if (e.progressFraction >= 0.98) return false;
-      final st = e.readingStatus.toLowerCase();
+      if (e.book.id <= 0) return false;
+      final st = e.readingStatus.toLowerCase().trim();
+      if (st == 'completed' || st == 'finished' || st == 'done') return false;
       if (st.contains('complete') || st.contains('finish')) return false;
-      if (e.chapters > 0 && e.chaptersRead >= e.chapters) return false;
       return true;
     }).toList();
 

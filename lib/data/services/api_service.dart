@@ -770,10 +770,23 @@ class ApiService {
         '/api/library',
         timeout: const Duration(seconds: 90),
       );
-      if (response.statusCode != 200) return const <Map<String, dynamic>>[];
-      final payload = jsonDecode(response.body) as Map<String, dynamic>;
-      return List<Map<String, dynamic>>.from(payload['items'] as List<dynamic>);
-    } catch (_) {
+      if (response.statusCode != 200) {
+        debugPrint('fetchLibraryEntries status=${response.statusCode}');
+        return const <Map<String, dynamic>>[];
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) return const <Map<String, dynamic>>[];
+      final payload = Map<String, dynamic>.from(decoded);
+      final raw = payload['items'] ?? payload['library_entries'] ?? const [];
+      if (raw is! List) return const <Map<String, dynamic>>[];
+      final items = raw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      debugPrint('fetchLibraryEntries count=${items.length}');
+      return items;
+    } catch (e) {
+      debugPrint('fetchLibraryEntries error: $e');
       return const <Map<String, dynamic>>[];
     }
   }
@@ -1932,3 +1945,4 @@ class ApiService {
     'achievements': [],
   };
 }
+  
