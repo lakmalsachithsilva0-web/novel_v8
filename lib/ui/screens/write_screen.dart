@@ -1017,6 +1017,8 @@ class _ManageStoriesTab extends StatelessWidget {
         ),
       ],
     );
+      },
+    );
   }
 }
 
@@ -1334,8 +1336,6 @@ class _StoryListCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-      },
     );
   }
 }
