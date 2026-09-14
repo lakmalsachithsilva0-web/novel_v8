@@ -1238,7 +1238,21 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
     }).toList();
   }
 
+  Future<String> _continueReadingKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = prefs.getInt('auth_id');
+      if (id != null && id > 0) return 'continue_reading_v1_u$id';
+      final device = prefs.getString('auth_device_id');
+      if (device != null && device.isNotEmpty) {
+        return 'continue_reading_v1_d${device.hashCode}';
+      }
+    } catch (_) {}
+    return 'continue_reading_v1_guest';
+  }
+
   Future<void> _refresh() async {
+
     final merged = <int, LibraryEntryModel>{};
 
     // 1) Bootstrap seed
@@ -1246,10 +1260,19 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
       if (e.book.id > 0) merged[e.book.id] = e;
     }
 
-    // 2) Local cache (always works offline / even if API 401)
+        // 2) Local cache (always works offline / even if API 401)
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString('continue_reading_v1') ?? '{}';
+      final key = await _continueReadingKey();
+      var raw = prefs.getString(key) ?? '{}';
+      // One-time migrate from legacy unscoped cache
+      if ((raw == '{}' || raw.isEmpty) && prefs.containsKey('continue_reading_v1')) {
+        final legacy = prefs.getString('continue_reading_v1') ?? '{}';
+        if (legacy != '{}' && legacy.isNotEmpty) {
+          await prefs.setString(key, legacy);
+          raw = legacy;
+        }
+      }
       final map = Map<String, dynamic>.from(
         (jsonDecode(raw) as Map?) ?? const {},
       );
@@ -1317,7 +1340,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
     // Prefer freshest local cache for chapter/paragraph (written on every scroll)
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString('continue_reading_v1') ?? '{}';
+      final raw = prefs.getString(await _continueReadingKey()) ?? '{}';
       final map = Map<String, dynamic>.from(
         (jsonDecode(raw) as Map?) ?? const {},
       );

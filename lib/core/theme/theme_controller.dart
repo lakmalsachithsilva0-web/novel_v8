@@ -9,7 +9,7 @@ class ThemeController extends ChangeNotifier {
 
   static const _prefsKey = 'app_theme_mode';
 
-  ThemeMode _mode = ThemeMode.light;
+  ThemeMode _mode = ThemeMode.dark;
   bool _loaded = false;
 
   ThemeMode get mode => _mode;
@@ -20,16 +20,16 @@ class ThemeController extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_prefsKey);
       if (raw == null || raw.isEmpty) {
-        _mode = ThemeMode.light;
+        _mode = ThemeMode.dark;
       } else {
         _mode = switch (raw) {
-          'dark' => ThemeMode.dark,
+          'light' => ThemeMode.light,
           'system' => ThemeMode.system,
-          _ => ThemeMode.light,
+          _ => ThemeMode.dark,
         };
       }
     } catch (_) {
-      _mode = ThemeMode.light;
+      _mode = ThemeMode.dark;
     }
     _loaded = true;
     notifyListeners();

@@ -207,7 +207,21 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     Future<void>.delayed(const Duration(milliseconds: 900), tryScroll);
   }
 
+  Future<String> _continueReadingKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = prefs.getInt('auth_id');
+      if (id != null && id > 0) return 'continue_reading_v1_u$id';
+      final device = prefs.getString('auth_device_id');
+      if (device != null && device.isNotEmpty) {
+        return 'continue_reading_v1_d${device.hashCode}';
+      }
+    } catch (_) {}
+    return 'continue_reading_v1_guest';
+  }
+
   Future<void> _markLibraryProgress({bool completed = false}) async {
+
     final bookId = widget.bookId;
     if (bookId == null || bookId <= 0) return;
     // Author reading their own book must NOT enter Continue Reading / Completed.
@@ -221,12 +235,12 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
               myId > 0 &&
               authorId > 0 &&
               myId == authorId)) {
-        final raw = prefs.getString('continue_reading_v1') ?? '{}';
+        final raw = prefs.getString(await _continueReadingKey()) ?? '{}';
         final cache = Map<String, dynamic>.from(
           (jsonDecode(raw) as Map?) ?? const {},
         );
         cache.remove('$bookId');
-        await prefs.setString('continue_reading_v1', jsonEncode(cache));
+        await prefs.setString(await _continueReadingKey(), jsonEncode(cache));
         return;
       }
     } catch (_) {}
@@ -255,7 +269,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     // Local cache so Continue reading works even if API fails / offline
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString('continue_reading_v1') ?? '{}';
+      final raw = prefs.getString(await _continueReadingKey()) ?? '{}';
       final map = Map<String, dynamic>.from(
         (jsonDecode(raw) as Map?) ?? const {},
       );
@@ -274,7 +288,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
           'updated_at': DateTime.now().toIso8601String(),
         };
       }
-      await prefs.setString('continue_reading_v1', jsonEncode(map));
+      await prefs.setString(await _continueReadingKey(), jsonEncode(map));
     } catch (e) {
       debugPrint('Local continue cache failed: $e');
     }

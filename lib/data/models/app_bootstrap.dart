@@ -365,9 +365,33 @@ class LibraryEntryModel {
     final bookMap = Map<String, dynamic>.from(
       (map['book'] as Map?) ?? const <String, dynamic>{},
     );
-    // Ensure book id is present for navigation
+    // Flatten API /api/library rows (book fields live at top level).
     if (bookMap['id'] == null && map['book_id'] != null) {
       bookMap['id'] = map['book_id'];
+    }
+    if (bookMap['id'] == null && map['id'] != null && map['book_id'] == null && map['title'] != null) {
+      // rare: id is book id
+    }
+    for (final k in [
+      'title',
+      'author',
+      'cover_path',
+      'accent_hex',
+      'description',
+      'status_text',
+      'rating',
+      'primary_genre',
+      'secondary_genre',
+      'author_user_id',
+      'user_id',
+    ]) {
+      if ((bookMap[k] == null || '${bookMap[k]}'.isEmpty) && map[k] != null) {
+        bookMap[k] = map[k];
+      }
+    }
+    // Prefer author_user_id from join
+    if (map['author_user_id'] != null) {
+      bookMap['author_user_id'] = map['author_user_id'];
     }
     return LibraryEntryModel(
       id: (map['id'] as num?)?.toInt() ?? 0,

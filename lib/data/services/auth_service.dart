@@ -364,7 +364,8 @@ class AuthService {
       for (final k in keys) {
         final isSearch =
             k.startsWith('search_hist_') || k.startsWith('search_results_');
-        if (!isSearch) continue;
+        final isContinue = k.startsWith('continue_reading_v1');
+        if (!isSearch && !isContinue) continue;
         if (userId != null && k.contains('_u$userId')) {
           await prefs.remove(k);
         } else if (userId == null &&
@@ -372,7 +373,8 @@ class AuthService {
           await prefs.remove(k);
         }
         // Also remove legacy unscoped keys from older builds.
-        if (k == 'search_hist_title_v1' ||
+        if (k == 'continue_reading_v1' ||
+            k == 'search_hist_title_v1' ||
             k == 'search_hist_tag_v1' ||
             k == 'search_hist_profile_v1' ||
             k == 'search_results_title_v1' ||
