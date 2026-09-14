@@ -72,7 +72,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   DateTime? _lastProgressScanAt;
   final Map<int, GlobalKey> _paragraphKeys = {};
 
-  _ReaderTheme _theme = _ReaderTheme.white;
+  _ReaderTheme _theme = _ReaderTheme.nightowl;
   double _fontSize = 17;
   bool _showThemePanel = false;
   final Set<String> _selectedReactions = {};
@@ -441,7 +441,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
       case _ReaderTheme.eggshell:
         return const Color(0xFFF5F0E6);
       case _ReaderTheme.nightowl:
-        return const Color(0xFF1A1A1A);
+        return const Color(0xFF0A0A0B);
     }
   }
 
@@ -569,7 +569,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: _bg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -590,7 +590,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: const Color(0xFF2A2F2A),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -629,7 +629,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                             Text(
                               'By ${widget.author}',
                               style: TextStyle(
-                                color: Colors.grey.shade600,
+                                color: _muted,
                                 fontSize: 13,
                               ),
                             ),
@@ -1081,21 +1081,40 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                             Expanded(
                               child: TextField(
                                 controller: controller,
-                                style: TextStyle(color: _fg),
+                                style: const TextStyle(
+                                  color: Color(0xFFF5F7F5),
+                                  fontSize: 15,
+                                ),
+                                cursorColor: const Color(0xFF8CFF9A),
                                 textInputAction: TextInputAction.send,
                                 onSubmitted: (_) async {
                                   // same as send button
                                 },
                                 decoration: InputDecoration(
                                   hintText: 'Add a comment…',
-                                  hintStyle: TextStyle(color: _muted),
+                                  hintStyle: const TextStyle(
+                                    color: Color(0xFFB8C0B8),
+                                  ),
                                   filled: true,
-                                  fillColor: _theme == _ReaderTheme.nightowl
-                                      ? const Color(0xFF2A2A2A)
-                                      : const Color(0xFFF2F2F2),
+                                  fillColor: const Color(0xFF222228),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF2A2F2A),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF8CFF9A),
+                                      width: 1.4,
+                                    ),
+                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(24),
-                                    borderSide: BorderSide.none,
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF2A2F2A),
+                                    ),
                                   ),
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 16,
@@ -1197,7 +1216,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
         );
       },
     );
-    Future.delayed(const Duration(milliseconds: 300), controller.dispose);
+    // dispose after sheet closes (see end of method)
   }
 
   Widget _buildParagraphBlock(String text, int index) {
@@ -2202,7 +2221,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: _bg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -2487,17 +2506,40 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                               child: TextField(
                                 controller: controller,
                                 enabled: !posting,
+                                style: const TextStyle(
+                                  color: Color(0xFFF5F7F5),
+                                  fontSize: 15,
+                                ),
+                                cursorColor: const Color(0xFF8CFF9A),
                                 decoration: InputDecoration(
                                   hintText: 'Add a comment…',
+                                  hintStyle: const TextStyle(
+                                    color: Color(0xFFB8C0B8),
+                                  ),
                                   filled: true,
-                                  fillColor: const Color(0xFFF3F4F6),
+                                  fillColor: const Color(0xFF222228),
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 14,
                                     vertical: 10,
                                   ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF2A2F2A),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF8CFF9A),
+                                      width: 1.4,
+                                    ),
+                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(24),
-                                    borderSide: BorderSide.none,
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF2A2F2A),
+                                    ),
                                   ),
                                 ),
                                 onSubmitted: posting
@@ -2635,18 +2677,26 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     required VoidCallback onTap,
     Color? color,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 22, color: color ?? _muted),
-            const SizedBox(height: 2),
-            Text(label, style: TextStyle(color: color ?? _muted, fontSize: 10)),
-          ],
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 22, color: color ?? _muted),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: color ?? _muted, fontSize: 10),
+              ),
+            ],
+          ),
         ),
       ),
     );
