@@ -738,16 +738,14 @@ class _ManageStoriesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final showTools = constraints.maxHeight > 180;
-        return Column(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
       children: [
         Container(
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: Theme.of(context).brightness == Brightness.dark
+                color: isDark
                     ? const Color(0xFF2C2C2C)
                     : const Color(0xFFEDE9FE),
               ),
@@ -763,113 +761,9 @@ class _ManageStoriesTab extends StatelessWidget {
               fontWeight: FontWeight.w700,
               fontSize: 13,
             ),
-            // Fixed labels — do not use bootstrap "Stories/Series"
             tabs: const [
               Tab(text: 'Submitted'),
               Tab(text: 'Drafts'),
-            ],
-          ),
-        ),
-        if (showTools)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-          child: TextField(
-            onChanged: onQueryChange,
-            decoration: InputDecoration(
-              hintText: 'Search your stories…',
-              hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-              prefixIcon: Icon(
-                Icons.search_rounded,
-                size: 20,
-                color: Colors.grey.shade500,
-              ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              filled: true,
-              fillColor: Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFF2A2A2A)
-                  : const Color(0xFFF3F0FF),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(28),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-        ),
-        if (showTools)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-          child: Row(
-            children: [
-              InkWell(
-                onTap: () async {
-                  final picked = await showModalBottomSheet<String>(
-                    context: context,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(16),
-                      ),
-                    ),
-                    builder: (ctx) {
-                      Widget opt(String id, String label) => ListTile(
-                        title: Text(label),
-                        trailing: listFilter == id
-                            ? const Icon(Icons.check, color: AppTheme.brand)
-                            : null,
-                        onTap: () => Navigator.pop(ctx, id),
-                      );
-                      return SafeArea(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const ListTile(
-                              title: Text(
-                                'Filter stories',
-                                style: TextStyle(fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                            opt('all', 'All'),
-                            opt('ongoing', 'Ongoing'),
-                            opt('completed', 'Completed'),
-                            opt('recent', 'Recently updated'),
-                            const SizedBox(height: 8),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                  if (picked != null) onListFilterChange(picked);
-                },
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.filter_list_rounded,
-                      size: 16,
-                      color: AppTheme.muted,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      listFilter == 'all'
-                          ? 'Filter: All'
-                          : listFilter == 'ongoing'
-                          ? 'Filter: Ongoing'
-                          : listFilter == 'completed'
-                          ? 'Filter: Completed'
-                          : 'Filter: Recent',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              const Icon(Icons.south_rounded, size: 16, color: AppTheme.muted),
-              const SizedBox(width: 4),
-              Text(
-                listFilter == 'recent' ? 'Sort: Newest' : writeModel.sortLabel,
-                style: const TextStyle(fontSize: 12, color: AppTheme.muted),
-              ),
             ],
           ),
         ),
@@ -880,13 +774,16 @@ class _ManageStoriesTab extends StatelessWidget {
               future: storiesFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(height: 120),
+                      Center(child: CircularProgressIndicator()),
+                    ],
+                  );
                 }
 
-                // Tab 0 = Submitted → Ongoing + Completed/Published (with published chapters)
-                // Tab 1 = Drafts → stories with draft/private chapters or draft status
                 final all = snapshot.data ?? <Map<String, dynamic>>[];
-
                 var stories = all.where((story) {
                   final matchesTab = storyMatchesWriteTab(
                     story,
@@ -900,94 +797,186 @@ class _ManageStoriesTab extends StatelessWidget {
                       story['author']?.toString().toLowerCase() ?? '';
                   return title.contains(q) || author.contains(q);
                 }).toList();
-                // Extra toolbar filter
+
                 if (listFilter == 'ongoing') {
                   stories = stories.where((s) {
-                    final st = (s['status_text'] ?? '')
-                        .toString()
-                        .toLowerCase();
+                    final st =
+                        (s['status_text'] ?? '').toString().toLowerCase();
                     return st.contains('ongoing') || st.contains('publish');
                   }).toList();
                 } else if (listFilter == 'completed') {
                   stories = stories.where((s) {
-                    final st = (s['status_text'] ?? '')
-                        .toString()
-                        .toLowerCase();
+                    final st =
+                        (s['status_text'] ?? '').toString().toLowerCase();
                     return st.contains('complete');
                   }).toList();
-                } else if (listFilter == 'recent') {
-                  stories = List<Map<String, dynamic>>.from(stories);
-                  stories.sort((a, b) {
-                    final ai = (a['id'] as num?)?.toInt() ?? 0;
-                    final bi = (b['id'] as num?)?.toInt() ?? 0;
-                    return bi.compareTo(ai);
-                  });
                 }
 
-                // One card per story (never list same book twice after chapter saves)
-                final seenIds = <int>{};
-                stories = stories.where((s) {
-                  final id = (s['id'] as num?)?.toInt() ?? 0;
-                  if (id <= 0) return true;
-                  if (seenIds.contains(id)) return false;
-                  seenIds.add(id);
-                  return true;
-                }).toList();
+                final header = <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                    child: TextField(
+                      onChanged: onQueryChange,
+                      decoration: InputDecoration(
+                        hintText: 'Search your stories…',
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 14,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search_rounded,
+                          size: 20,
+                          color: Colors.grey.shade500,
+                        ),
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 12),
+                        filled: true,
+                        fillColor: isDark
+                            ? const Color(0xFF2A2A2A)
+                            : const Color(0xFFF3F0FF),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(28),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                    child: Row(
+                      children: [
+                        InkWell(
+                          onTap: () async {
+                            final picked =
+                                await showModalBottomSheet<String>(
+                              context: context,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(16),
+                                ),
+                              ),
+                              builder: (ctx) {
+                                Widget opt(String id, String label) =>
+                                    ListTile(
+                                      title: Text(label),
+                                      onTap: () => Navigator.pop(ctx, id),
+                                    );
+                                return SafeArea(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      opt('all', 'All'),
+                                      opt('ongoing', 'Ongoing'),
+                                      opt('completed', 'Completed'),
+                                      opt('recent', 'Recent'),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                            if (picked != null) onListFilterChange(picked);
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.filter_list_rounded,
+                                size: 16,
+                                color: AppTheme.muted,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                listFilter == 'ongoing'
+                                    ? 'Filter: Ongoing'
+                                    : listFilter == 'completed'
+                                        ? 'Filter: Completed'
+                                        : listFilter == 'recent'
+                                            ? 'Filter: Recent'
+                                            : 'Filter: All',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          listFilter == 'recent'
+                              ? 'Sort: Newest'
+                              : writeModel.sortLabel,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ];
 
                 if (stories.isEmpty) {
+                  final otherCount = all
+                      .where(
+                        (s) => !storyMatchesWriteTab(s, storySubTabs.index),
+                      )
+                      .length;
                   final onDrafts = storySubTabs.index == 1;
-                  final otherCount = all.where((s) {
-                    final done = storyMatchesWriteTab(s, 0);
-                    return onDrafts ? done : !done;
-                  }).length;
                   return ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: [
-                      const SizedBox(height: 140),
+                      ...header,
+                      const SizedBox(height: 40),
                       Center(
-                        child: Column(
-                          children: [
-                            const Icon(
-                              Icons.menu_book_rounded,
-                              size: 56,
-                              color: AppTheme.muted,
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              onDrafts
-                                  ? 'No draft stories yet'
-                                  : 'No ongoing or completed stories yet',
-                              style: Theme.of(context).textTheme.titleMedium,
-                              textAlign: TextAlign.center,
-                            ),
-                            if (otherCount > 0) ...[
-                              const SizedBox(height: 6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.menu_book_outlined,
+                                size: 48,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 12),
                               Text(
                                 onDrafts
-                                    ? '$otherCount ongoing/completed story(ies) are under Submitted'
-                                    : '$otherCount draft story(ies) are under Drafts',
+                                    ? 'No drafts yet'
+                                    : 'No submitted stories yet',
                                 style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AppTheme.muted,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
                                 ),
-                                textAlign: TextAlign.center,
+                              ),
+                              if (otherCount > 0) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  onDrafts
+                                      ? '$otherCount ongoing/completed story(ies) are under Submitted'
+                                      : '$otherCount draft story(ies) are under Drafts',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.muted,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                              const SizedBox(height: 6),
+                              GestureDetector(
+                                onTap: onCreateStory,
+                                child: Text(
+                                  writeModel.emptyCta.isNotEmpty
+                                      ? writeModel.emptyCta
+                                      : 'Create story',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: AppTheme.brand,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
                               ),
                             ],
-                            const SizedBox(height: 6),
-                            GestureDetector(
-                              onTap: onCreateStory,
-                              child: Text(
-                                writeModel.emptyCta.isNotEmpty
-                                    ? writeModel.emptyCta
-                                    : 'Create story',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: AppTheme.brand,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ],
@@ -996,18 +985,29 @@ class _ManageStoriesTab extends StatelessWidget {
 
                 return ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
-                  itemCount: stories.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+                  itemCount: stories.length + 1,
+                  separatorBuilder: (_, index) =>
+                      index == 0 ? const SizedBox.shrink() : const SizedBox(height: 10),
                   itemBuilder: (context, index) {
-                    final story = stories[index];
-                    return _StoryListCard(
-                      story: story,
-                      apiService: apiService,
-                      onEdit: () => onEditStory(story),
-                      onEditChapter: () => onEditChapter(story),
-                      onDelete: () => onDeleteStory(story),
-                      onStatusChange: (status) => onStatusChange(story, status),
+                    if (index == 0) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: header,
+                      );
+                    }
+                    final story = stories[index - 1];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: _StoryListCard(
+                        story: story,
+                        apiService: apiService,
+                        onEdit: () => onEditStory(story),
+                        onEditChapter: () => onEditChapter(story),
+                        onDelete: () => onDeleteStory(story),
+                        onStatusChange: (status) =>
+                            onStatusChange(story, status),
+                      ),
                     );
                   },
                 );
@@ -1017,10 +1017,9 @@ class _ManageStoriesTab extends StatelessWidget {
         ),
       ],
     );
-      },
-    );
   }
 }
+
 
 bool _storyDetailsComplete(Map<String, dynamic> story) {
   final title = story['title']?.toString().trim() ?? '';
