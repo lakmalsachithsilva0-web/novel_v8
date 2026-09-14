@@ -50,7 +50,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   String _storySort = 'Recently Updated';
   String _storyFilter = 'All stories';
 
-  static const Color brand = Color(0xFF6C3CE1);
+  static const Color brand = Color(0xFF8CFF9A);
   static const Color muted = Color(0xFF8A8F98);
   static const Color cardBg = Color(0xFFF7F8FA);
   static const Color border = Color(0xFFE8EAED);
@@ -1018,7 +1018,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF3B2A6B), Color(0xFF6C3CE1)],
+          colors: [Color(0xFF3B2A6B), Color(0xFF8CFF9A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1063,7 +1063,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   width: 18,
                   height: 18,
                   decoration: const BoxDecoration(
-                    color: Color(0xFF6C3CE1),
+                    color: Color(0xFF8CFF9A),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.check, size: 12, color: Colors.white),
@@ -1124,7 +1124,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               onPressed: _editProfile,
               style: OutlinedButton.styleFrom(
                 foregroundColor: brand,
-                side: const BorderSide(color: Color(0xFF6C3CE1), width: 1.4),
+                side: const BorderSide(color: Color(0xFF8CFF9A), width: 1.4),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 40,
                   vertical: 10,
@@ -1143,7 +1143,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               onPressed: _toggleFollow,
               style: OutlinedButton.styleFrom(
                 foregroundColor: brand,
-                side: const BorderSide(color: Color(0xFF6C3CE1), width: 1.4),
+                side: const BorderSide(color: Color(0xFF8CFF9A), width: 1.4),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 40,
                   vertical: 10,
@@ -2753,7 +2753,7 @@ class _WallComposeSheetState extends State<_WallComposeSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final brand = const Color(0xFF6C3CE1);
+    final brand = const Color(0xFF8CFF9A);
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -2842,7 +2842,7 @@ class _WallPostText extends StatelessWidget {
         TextSpan(
           text: displayToken,
           style: const TextStyle(
-            color: Color(0xFF6C3CE1),
+            color: Color(0xFF8CFF9A),
             fontWeight: FontWeight.w600,
           ),
           recognizer: TapGestureRecognizer()

@@ -924,7 +924,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                         ? const Color(0xFF1E1E1E)
                         : const Color(0xFFF7F5FC),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFEDE9FE)),
+                    border: Border.all(color: const Color(0xFF1F3D2A)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

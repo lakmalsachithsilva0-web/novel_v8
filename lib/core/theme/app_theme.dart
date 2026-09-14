@@ -4,26 +4,32 @@ import 'package:flutter/services.dart';
 
 import 'app_styles.dart';
 
-/// Noir Mint — black / white / light-green. Dark is the primary look.
+/// Noir Mint — ONLY black, white, and light green.
+/// Dark mode is the default product look.
 class AppTheme {
-  static const Color brand = AppStyles.green;
-  static const Color brandDeep = AppStyles.greenDeep;
+  // Accent = light green only
+  static const Color brand = AppStyles.green; // #8CFF9A
+  static const Color brandDeep = AppStyles.greenDeep; // #3DDC84
   static const Color accent = AppStyles.green;
-  static const Color rose = Color(0xFFFF6B9D);
-  static const Color coral = Color(0xFFFF6B4A);
-  static const Color amber = Color(0xFFFFB020);
+
+  // Legacy aliases mapped to green so old call sites stay green (no purple/blue)
+  static const Color rose = AppStyles.green;
+  static const Color coral = AppStyles.greenDeep;
+  static const Color amber = AppStyles.green;
   static const Color teal = AppStyles.greenDeep;
-  static const Color sky = Color(0xFF38BDF8);
+  static const Color sky = AppStyles.green;
   static const Color mint = AppStyles.green;
-  static const Color pink = Color(0xFFF472B6);
+  static const Color pink = AppStyles.green;
 
+  // Light surfaces (rarely used — app defaults dark)
   static const Color ink = AppStyles.black;
-  static const Color muted = Color(0xFF6B7280);
-  static const Color surface = Colors.white;
-  static const Color border = Color(0xFFE5E7EB);
-  static const Color background = Color(0xFFF3F4F6);
-  static const Color field = Color(0xFFF9FAFB);
+  static const Color muted = Color(0xFF6B7A6E);
+  static const Color surface = AppStyles.white;
+  static const Color border = Color(0xFFD4DED6);
+  static const Color background = Color(0xFFF2F6F3);
+  static const Color field = Color(0xFFEAF2EC);
 
+  // Dark surfaces
   static const Color darkInk = AppStyles.white;
   static const Color darkMuted = AppStyles.whiteMuted;
   static const Color darkCard = AppStyles.blackCard;
@@ -32,7 +38,6 @@ class AppTheme {
   static const Color darkBg = AppStyles.black;
 
   static ThemeData get lightTheme {
-    // Light is available but app defaults to dark.
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
@@ -66,7 +71,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
-        indicatorColor: brand.withValues(alpha: 0.2),
+        indicatorColor: brand.withValues(alpha: 0.25),
         height: 70,
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -124,7 +129,7 @@ class AppTheme {
         secondary: brandDeep,
         surface: darkCard,
         onSurface: darkInk,
-        error: AppStyles.danger,
+        error: Color(0xFFFF6B6B),
       ),
       textTheme: textTheme,
       pageTransitionsTheme: const PageTransitionsTheme(

@@ -351,7 +351,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                   icon: Icons.menu_book_outlined,
                   value: '${_entries.length}',
                   label: 'Stories',
-                  color: const Color(0xFF6C3CE1),
+                  color: const Color(0xFF8CFF9A),
                 ),
               ),
               Expanded(
@@ -657,13 +657,13 @@ class _EntriesList extends StatelessWidget {
                           border: Border.all(
                             color: isDark
                                 ? const Color(0xFF2C2C2C)
-                                : const Color(0xFFEDE9FE),
+                                : const Color(0xFF1F3D2A),
                           ),
                           boxShadow: isDark
                               ? const []
                               : [
                                   BoxShadow(
-                                    color: const Color(0xFF6C3CE1).withValues(alpha: 0.05),
+                                    color: const Color(0xFF8CFF9A).withValues(alpha: 0.05),
                                     blurRadius: 10,
                                     offset: const Offset(0, 3),
                                   ),
@@ -793,8 +793,8 @@ class _EntriesList extends StatelessWidget {
                                         minHeight: 6,
                                         backgroundColor: isDark
                                             ? const Color(0xFF333333)
-                                            : const Color(0xFFEDE9FE),
-                                        color: const Color(0xFF6C3CE1),
+                                            : const Color(0xFF1F3D2A),
+                                        color: const Color(0xFF8CFF9A),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -818,7 +818,7 @@ class _EntriesList extends StatelessWidget {
                                           style: const TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w700,
-                                            color: Color(0xFF6C3CE1),
+                                            color: Color(0xFF8CFF9A),
                                           ),
                                         ),
                                       ],
@@ -862,7 +862,7 @@ class _EntriesList extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: onDiscover,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF6C3CE1),
+                  backgroundColor: const Color(0xFF8CFF9A),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -946,7 +946,7 @@ class _ListsPane extends StatelessWidget {
                         border: Border.all(
                           color: isDark
                               ? const Color(0xFF2C2C2C)
-                              : const Color(0xFFEDE9FE),
+                              : const Color(0xFF1F3D2A),
                         ),
                       ),
                       child: Column(
@@ -956,12 +956,12 @@ class _ListsPane extends StatelessWidget {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF6C3CE1).withValues(alpha: 0.12),
+                              color: const Color(0xFF8CFF9A).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
                               Icons.collections_bookmark_outlined,
-                              color: Color(0xFF6C3CE1),
+                              color: Color(0xFF8CFF9A),
                             ),
                           ),
                           const Spacer(),
@@ -995,7 +995,7 @@ class _ListsPane extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: () => onCreate(),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF6C3CE1),
+                backgroundColor: const Color(0xFF8CFF9A),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(

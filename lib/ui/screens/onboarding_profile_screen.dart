@@ -368,7 +368,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                     children: [
                       CircleAvatar(
                         radius: 44,
-                        backgroundColor: const Color(0xFFEDE9FE),
+                        backgroundColor: const Color(0xFF1F3D2A),
                         backgroundImage: _avatarProvider,
                         child: _avatarProvider == null
                             ? const Icon(
@@ -384,7 +384,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: const BoxDecoration(
-                            color: Color(0xFF6C3CE1),
+                            color: Color(0xFF8CFF9A),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(

@@ -46,7 +46,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   File? _photo;
   String _photoUrl = '';
 
-  static const _purple = Color(0xFF6C3CE1);
+  static const _purple = Color(0xFF8CFF9A);
   static const _genders = ['Female', 'Male', 'Non-binary', 'Prefer not to say'];
   static const _countries = [
     'United States',
@@ -216,7 +216,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       prefixIcon: Icon(icon, color: _purple, size: 22),
       suffixIcon: suffix,
       filled: true,
-      fillColor: const Color(0xFFF5F3FF),
+      fillColor: const Color(0xFF141416),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -224,7 +224,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFEDE9FE)),
+        borderSide: const BorderSide(color: Color(0xFF1F3D2A)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -257,7 +257,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       children: [
                         CircleAvatar(
                           radius: 32,
-                          backgroundColor: const Color(0xFFEDE9FE),
+                          backgroundColor: const Color(0xFF1F3D2A),
                           backgroundImage:
                               _photo != null ? FileImage(_photo!) : null,
                           child: _photo == null

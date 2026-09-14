@@ -33,14 +33,14 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   static const Color _panel = Color(0xFFFFFFFF); // cards
   static const Color _panelAlt = Color(0xFFF3F0FF); // secondary surfaces
   static const Color _border = Color(0xFFE8E8E8);
-  static const Color _borderSoft = Color(0xFFEDE9FE);
+  static const Color _borderSoft = Color(0xFF1F3D2A);
   static const Color _textHi = Color(0xFF231F20); // primary text
   static const Color _textLo = Color(0xFF767676); // secondary text
   static const Color _textFaint = Color(0xFF9A9A9A);
-  static const Color _magenta = Color(0xFF6C3CE1); // brand
+  static const Color _magenta = Color(0xFF8CFF9A); // brand
   static const Color _violet = Color(0xFFB794F6);
   static const Color _amber = Color(0xFFF0B357);
-  static const Color _green = Color(0xFF6C3CE1);
+  static const Color _green = Color(0xFF8CFF9A);
 
   static const List<String> _defaultGenres = [
     'Romance',
@@ -1337,7 +1337,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                           Text(
                                             '#$t',
                                             style: const TextStyle(
-                                              color: Color(0xFF6C3CE1),
+                                              color: Color(0xFF8CFF9A),
                                               fontSize: 12.5,
                                             ),
                                           ),
@@ -1347,7 +1347,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                             child: const Icon(
                                               Icons.close,
                                               size: 12,
-                                              color: Color(0xFF6C3CE1),
+                                              color: Color(0xFF8CFF9A),
                                             ),
                                           ),
                                         ],
