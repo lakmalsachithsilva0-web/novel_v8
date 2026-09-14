@@ -798,21 +798,28 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            if (genre.isNotEmpty)
-                              _chip(
-                                genre,
-                                const Color(0xFFFCE7F3),
-                                const Color(0xFFBE185D),
+                            Expanded(
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  if (genre.isNotEmpty)
+                                    _chip(
+                                      genre,
+                                      const Color(0xFFFCE7F3),
+                                      const Color(0xFFBE185D),
+                                    ),
+                                  if (status.isNotEmpty)
+                                    _chip(
+                                      status,
+                                      const Color(0xFFD1FAE5),
+                                      const Color(0xFF047857),
+                                    ),
+                                ],
                               ),
-                            if (status.isNotEmpty) ...[
-                              const SizedBox(width: 6),
-                              _chip(
-                                status,
-                                const Color(0xFFD1FAE5),
-                                const Color(0xFF047857),
-                              ),
-                            ],
-                            const Spacer(),
+                            ),
+                            const SizedBox(width: 6),
                             Icon(
                               Icons.visibility_outlined,
                               size: 14,
@@ -854,15 +861,20 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
   }
 
   Widget _chip(String label, Color bg, Color fg) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 120),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg),
+        ),
       ),
     );
   }

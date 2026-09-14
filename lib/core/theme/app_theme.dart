@@ -2,28 +2,36 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Lumina Ink — literary violet theme for the novel app.
-/// Brand hex kept compatible with existing hardcoded Color(0xFF6C3CE1).
+/// Aurora Spectrum — vivid, colorful literary theme.
 class AppTheme {
-  static const Color brand = Color(0xFF6C3CE1);
-  static const Color brandDeep = Color(0xFF4B27B8);
-  static const Color accent = Color(0xFFB794F6);
-  static const Color rose = Color(0xFFFF6B9D);
+  // Core brand (magenta-violet, more vivid)
+  static const Color brand = Color(0xFF7C3AED);
+  static const Color brandDeep = Color(0xFF5B21B6);
+  static const Color accent = Color(0xFFA78BFA);
+
+  // Colorful accents
+  static const Color rose = Color(0xFFFF4D8D);
+  static const Color coral = Color(0xFFFF6B4A);
+  static const Color amber = Color(0xFFFFB020);
   static const Color teal = Color(0xFF14B8A6);
-  static const Color ink = Color(0xFF1A1425);
-  static const Color muted = Color(0xFF6B6680);
+  static const Color sky = Color(0xFF38BDF8);
+  static const Color mint = Color(0xFF34D399);
+  static const Color pink = Color(0xFFF472B6);
+
+  static const Color ink = Color(0xFF1E1B2E);
+  static const Color muted = Color(0xFF6B6480);
   static const Color surface = Colors.white;
-  static const Color border = Color(0xFFE8E2F7);
-  static const Color background = Color(0xFFF6F3FC);
-  static const Color field = Color(0xFFF5F2FB);
+  static const Color border = Color(0xFFE9E0FF);
+  static const Color background = Color(0xFFF8F4FF);
+  static const Color field = Color(0xFFF3ECFF);
 
   // Dark
-  static const Color darkInk = Color(0xFFF3F0FA);
-  static const Color darkMuted = Color(0xFFA39BB8);
-  static const Color darkCard = Color(0xFF1C1C22);
-  static const Color darkField = Color(0xFF26262E);
-  static const Color darkBorder = Color(0xFF2F2F3A);
-  static const Color darkBg = Color(0xFF121218);
+  static const Color darkInk = Color(0xFFF5F0FF);
+  static const Color darkMuted = Color(0xFFB0A5C9);
+  static const Color darkCard = Color(0xFF1A1625);
+  static const Color darkField = Color(0xFF261F36);
+  static const Color darkBorder = Color(0xFF3A314F);
+  static const Color darkBg = Color(0xFF100E17);
 
   static ThemeData get lightTheme {
     const textTheme = TextTheme(
@@ -79,7 +87,7 @@ class AppTheme {
         tertiary: teal,
         surface: surface,
         onSurface: ink,
-        error: Color(0xFFE53935),
+        error: Color(0xFFE11D48),
       ),
       textTheme: textTheme,
       appBarTheme: const AppBarTheme(
@@ -109,7 +117,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: field,
-        selectedColor: brand.withValues(alpha: 0.14),
+        selectedColor: brand.withValues(alpha: 0.16),
         side: const BorderSide(color: border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         labelStyle: const TextStyle(
@@ -124,7 +132,7 @@ class AppTheme {
           backgroundColor: brand,
           foregroundColor: Colors.white,
           elevation: 0,
-          shadowColor: brand.withValues(alpha: 0.3),
+          shadowColor: brand.withValues(alpha: 0.35),
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -166,7 +174,7 @@ class AppTheme {
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: brand,
+        backgroundColor: rose,
         foregroundColor: Colors.white,
         elevation: 4,
         shape: RoundedRectangleBorder(
@@ -176,8 +184,8 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
         elevation: 0,
-        height: 68,
-        indicatorColor: brand.withValues(alpha: 0.12),
+        height: 70,
+        indicatorColor: brand.withValues(alpha: 0.14),
         indicatorShape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -221,7 +229,7 @@ class AppTheme {
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        titleTextStyle: const TextStyle(
+        titleTextStyle: TextStyle(
           color: ink,
           fontSize: 18,
           fontWeight: FontWeight.w700,
@@ -230,7 +238,7 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         backgroundColor: ink,
         contentTextStyle: const TextStyle(color: Colors.white),
-        actionTextColor: accent,
+        actionTextColor: amber,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
@@ -283,7 +291,7 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFE53935)),
+          borderSide: const BorderSide(color: Color(0xFFE11D48)),
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -347,6 +355,7 @@ class AppTheme {
         primary: brand,
         onPrimary: Colors.white,
         secondary: rose,
+        tertiary: teal,
         surface: darkCard,
         onSurface: darkInk,
       ),
@@ -369,7 +378,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: darkField,
-        selectedColor: brand.withValues(alpha: 0.25),
+        selectedColor: brand.withValues(alpha: 0.28),
         side: const BorderSide(color: darkBorder),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         labelStyle: const TextStyle(color: darkInk, fontWeight: FontWeight.w600),
@@ -396,8 +405,8 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: darkCard,
         elevation: 0,
-        height: 68,
-        indicatorColor: brand.withValues(alpha: 0.22),
+        height: 70,
+        indicatorColor: brand.withValues(alpha: 0.25),
         labelTextStyle: WidgetStateProperty.resolveWith((s) {
           final selected = s.contains(WidgetState.selected);
           return TextStyle(
@@ -439,7 +448,7 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         backgroundColor: darkField,
         contentTextStyle: const TextStyle(color: darkInk),
-        actionTextColor: accent,
+        actionTextColor: amber,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),

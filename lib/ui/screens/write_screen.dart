@@ -738,7 +738,10 @@ class _ManageStoriesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showTools = constraints.maxHeight > 180;
+        return Column(
       children: [
         Container(
           decoration: BoxDecoration(
@@ -767,6 +770,7 @@ class _ManageStoriesTab extends StatelessWidget {
             ],
           ),
         ),
+        if (showTools)
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
           child: TextField(
@@ -791,6 +795,7 @@ class _ManageStoriesTab extends StatelessWidget {
             ),
           ),
         ),
+        if (showTools)
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
           child: Row(
@@ -1329,6 +1334,8 @@ class _StoryListCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+      },
     );
   }
 }
