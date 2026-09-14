@@ -72,7 +72,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   DateTime? _lastProgressScanAt;
   final Map<int, GlobalKey> _paragraphKeys = {};
 
-  _ReaderTheme _theme = _ReaderTheme.nightowl;
+  _ReaderTheme _theme = _ReaderTheme.white;
   double _fontSize = 17;
   bool _showThemePanel = false;
   final Set<String> _selectedReactions = {};
@@ -441,7 +441,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
       case _ReaderTheme.eggshell:
         return const Color(0xFFF5F0E6);
       case _ReaderTheme.nightowl:
-        return const Color(0xFF0A0A0B);
+        return const Color(0xFF1A1A1A);
     }
   }
 
@@ -569,7 +569,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: _bg,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -590,7 +590,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2F2A),
+                    color: Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -629,7 +629,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                             Text(
                               'By ${widget.author}',
                               style: TextStyle(
-                                color: _muted,
+                                color: Colors.grey.shade600,
                                 fontSize: 13,
                               ),
                             ),
@@ -1081,40 +1081,21 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                             Expanded(
                               child: TextField(
                                 controller: controller,
-                                style: const TextStyle(
-                                  color: Color(0xFFF5F7F5),
-                                  fontSize: 15,
-                                ),
-                                cursorColor: const Color(0xFF8CFF9A),
+                                style: TextStyle(color: _fg),
                                 textInputAction: TextInputAction.send,
                                 onSubmitted: (_) async {
                                   // same as send button
                                 },
                                 decoration: InputDecoration(
                                   hintText: 'Add a comment…',
-                                  hintStyle: const TextStyle(
-                                    color: Color(0xFFB8C0B8),
-                                  ),
+                                  hintStyle: TextStyle(color: _muted),
                                   filled: true,
-                                  fillColor: const Color(0xFF222228),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(24),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF2A2F2A),
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(24),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF8CFF9A),
-                                      width: 1.4,
-                                    ),
-                                  ),
+                                  fillColor: _theme == _ReaderTheme.nightowl
+                                      ? const Color(0xFF2A2A2A)
+                                      : const Color(0xFFF2F2F2),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(24),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF2A2F2A),
-                                    ),
+                                    borderSide: BorderSide.none,
                                   ),
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 16,
@@ -1135,7 +1116,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                     )
                                   : const Icon(
                                       Icons.send,
-                                      color: Color(0xFF8CFF9A),
+                                      color: Color(0xFF6C3CE1),
                                     ),
                               onPressed: posting
                                   ? null
@@ -1216,7 +1197,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
         );
       },
     );
-    // dispose after sheet closes (see end of method)
+    Future.delayed(const Duration(milliseconds: 300), controller.dispose);
   }
 
   Widget _buildParagraphBlock(String text, int index) {
@@ -1227,7 +1208,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     final key = _paragraphKeys.putIfAbsent(index, () => GlobalKey());
     // Ash/grey when only others commented; purple when current user also commented.
     final commentColor = selfCommented
-        ? const Color(0xFF8CFF9A)
+        ? const Color(0xFF6C3CE1)
         : (count > 0 ? const Color(0xFF9CA3AF) : _muted.withValues(alpha: 0.7));
     return Padding(
       key: key,
@@ -1254,7 +1235,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: selfCommented
-                        ? const Color(0xFF1F3D2A)
+                        ? const Color(0xFFEDE9FE)
                         : (count > 0
                             ? const Color(0xFFF3F4F6)
                             : Colors.transparent),
@@ -1274,7 +1255,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: selfCommented
-                                ? const Color(0xFF8CFF9A)
+                                ? const Color(0xFF6C3CE1)
                                 : const Color(0xFF9CA3AF),
                           ),
                         ),
@@ -1560,9 +1541,9 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                               child: OutlinedButton(
                                 onPressed: () => unawaited(_goPrev()),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF8CFF9A),
+                                  foregroundColor: const Color(0xFF6C3CE1),
                                   side: const BorderSide(
-                                    color: Color(0xFF8CFF9A),
+                                    color: Color(0xFF6C3CE1),
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
@@ -1591,10 +1572,10 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                               child: ElevatedButton(
                                 onPressed: _goNext,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF8CFF9A),
+                                  backgroundColor: const Color(0xFF6C3CE1),
                                   foregroundColor: Colors.white,
                                   elevation: 4,
-                                  shadowColor: const Color(0xFF8CFF9A),
+                                  shadowColor: const Color(0xFF6C3CE1),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
                                   ),
@@ -1657,14 +1638,14 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: selected
-                                    ? const Color(0xFF1F3D2A)
+                                    ? const Color(0xFFEDE9FE)
                                     : (_theme == _ReaderTheme.nightowl
                                           ? Colors.white12
                                           : const Color(0xFFF3F4F6)),
                                 shape: BoxShape.circle,
                                 border: selected
                                     ? Border.all(
-                                        color: const Color(0xFF8CFF9A),
+                                        color: const Color(0xFF6C3CE1),
                                         width: 2,
                                       )
                                     : Border.all(
@@ -1686,7 +1667,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: selected
-                                    ? const Color(0xFF8CFF9A)
+                                    ? const Color(0xFF6C3CE1)
                                     : _muted,
                                 fontSize: 11,
                                 fontWeight: selected
@@ -1700,7 +1681,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: selected
-                                      ? const Color(0xFF8CFF9A)
+                                      ? const Color(0xFF6C3CE1)
                                       : _muted,
                                 ),
                               ),
@@ -1806,8 +1787,8 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                 Expanded(
                   child: SliderTheme(
                     data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: const Color(0xFF8CFF9A),
-                      thumbColor: const Color(0xFF8CFF9A),
+                      activeTrackColor: const Color(0xFF6C3CE1),
+                      thumbColor: const Color(0xFF6C3CE1),
                       overlayColor: const Color(0x336C3CE1),
                     ),
                     child: Slider(
@@ -1860,7 +1841,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: selected
-                      ? const Color(0xFF8CFF9A)
+                      ? const Color(0xFF6C3CE1)
                       : Colors.grey.shade400,
                   width: selected ? 2.5 : 1,
                 ),
@@ -1868,7 +1849,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                     ? [
                         BoxShadow(
                           color: const Color(
-                            0xFF8CFF9A,
+                            0xFF6C3CE1,
                           ).withValues(alpha: 0.35),
                           blurRadius: 8,
                         ),
@@ -1888,7 +1869,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
             Text(
               label,
               style: TextStyle(
-                color: selected ? const Color(0xFF8CFF9A) : _muted,
+                color: selected ? const Color(0xFF6C3CE1) : _muted,
                 fontSize: 11,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
@@ -2221,7 +2202,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: _bg,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -2348,7 +2329,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                             ? Text(
                                                 letter,
                                                 style: const TextStyle(
-                                                  color: Color(0xFF8CFF9A),
+                                                  color: Color(0xFF6C3CE1),
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               )
@@ -2506,40 +2487,17 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                               child: TextField(
                                 controller: controller,
                                 enabled: !posting,
-                                style: const TextStyle(
-                                  color: Color(0xFFF5F7F5),
-                                  fontSize: 15,
-                                ),
-                                cursorColor: const Color(0xFF8CFF9A),
                                 decoration: InputDecoration(
                                   hintText: 'Add a comment…',
-                                  hintStyle: const TextStyle(
-                                    color: Color(0xFFB8C0B8),
-                                  ),
                                   filled: true,
-                                  fillColor: const Color(0xFF222228),
+                                  fillColor: const Color(0xFFF3F4F6),
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 14,
                                     vertical: 10,
                                   ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(24),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF2A2F2A),
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(24),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF8CFF9A),
-                                      width: 1.4,
-                                    ),
-                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(24),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF2A2F2A),
-                                    ),
+                                    borderSide: BorderSide.none,
                                   ),
                                 ),
                                 onSubmitted: posting
@@ -2613,7 +2571,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                     )
                                   : const Icon(
                                       Icons.send_rounded,
-                                      color: Color(0xFF8CFF9A),
+                                      color: Color(0xFF6C3CE1),
                                     ),
                             ),
                           ],
@@ -2677,26 +2635,18 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     required VoidCallback onTap,
     Color? color,
   }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 22, color: color ?? _muted),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: color ?? _muted, fontSize: 10),
-              ),
-            ],
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 22, color: color ?? _muted),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(color: color ?? _muted, fontSize: 10)),
+          ],
         ),
       ),
     );

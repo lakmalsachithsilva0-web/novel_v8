@@ -8,7 +8,6 @@ from .database import (
     run_startup_migrations,
     get_connection,
     USE_SQLITE,
-    _ensure_database_exists,
 )
 from . import mysql_compat
 
@@ -801,14 +800,6 @@ def run_startup_tasks() -> dict[str, Any]:
     Safe SQL scripts and schema ensures run every startup when
     AUTO_RUN_DB_MIGRATIONS=true (default).
     """
-
-    # Always ensure the configured MySQL database exists before any queries.
-    try:
-        if not USE_SQLITE:
-            _ensure_database_exists()
-    except Exception as ensure_exc:
-        LOGGER.warning("ensure database exists failed: %s", ensure_exc)
-
     import os as _os
     global _FULL_STARTUP_MIGRATIONS_DONE
 

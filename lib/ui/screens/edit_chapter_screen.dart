@@ -1033,7 +1033,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                   child: FilledButton(
                     onPressed: _isSaving ? null : _publishStoryAndChapter,
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF8CFF9A),
+                      backgroundColor: const Color(0xFF6C3CE1),
                     ),
                     child: const Text('Publish'),
                   ),

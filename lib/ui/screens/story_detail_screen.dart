@@ -803,7 +803,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     final bg = isDark ? const Color(0xFF121218) : AppTheme.background;
     final fg = isDark ? Colors.white : AppTheme.ink;
     final muted = isDark ? Colors.white70 : Colors.black54;
-    const inkittGreen = Color(0xFF8CFF9A); // brand purple
+    const inkittGreen = Color(0xFF6C3CE1); // brand purple
 
     final coverUrl = _book.coverPath.trim().isEmpty
         ? null
@@ -1105,7 +1105,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               ? Colors.grey
                               : (_saved
                                     ? const Color(
-                                        0xFF8CFF9A,
+                                        0xFF6C3CE1,
                                       ) // primary purple when saved
                                     : fg),
                         ),
@@ -1216,12 +1216,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               label: Text(
                                 t.startsWith('#') ? t.substring(1) : t,
                                 style: const TextStyle(
-                                  color: Color(0xFF8CFF9A),
+                                  color: Color(0xFF6C3CE1),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                               onPressed: () => _openTag(t),
-                              backgroundColor: const Color(0xFF1F3D2A),
+                              backgroundColor: const Color(0xFFEDE9FE),
                               side: BorderSide.none,
                             ),
                         ],
@@ -1402,11 +1402,11 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               gradient: const LinearGradient(
-                colors: [Color(0xFF8CFF9A), Color(0xFF4B27B8)],
+                colors: [Color(0xFF6C3CE1), Color(0xFF4B27B8)],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF8CFF9A).withValues(alpha: 0.42),
+                  color: const Color(0xFF6C3CE1).withValues(alpha: 0.42),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -1631,7 +1631,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                   Text(
                     'By ${widget.book.author}',
                     style: const TextStyle(
-                      color: Color(0xFF8CFF9A),
+                      color: Color(0xFF6C3CE1),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -1652,7 +1652,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                     Center(
                       child: FilledButton(
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF8CFF9A),
+                          backgroundColor: const Color(0xFF6C3CE1),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 28,
                             vertical: 12,
@@ -2133,7 +2133,7 @@ class _WriteReviewScreenState extends State<_WriteReviewScreen> {
               child: FilledButton(
                 onPressed: _saving ? null : _submit,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF8CFF9A),
+                  backgroundColor: const Color(0xFF6C3CE1),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(28),
                   ),
@@ -2257,13 +2257,13 @@ class _HorizontalBookRail extends StatelessWidget {
                                   errorBuilder: (_, _, _) => Container(
                                     width: cardW,
                                     height: coverH,
-                                    color: const Color(0xFF1F3D2A),
+                                    color: const Color(0xFFEDE9FE),
                                   ),
                                 )
                               : Container(
                                   width: cardW,
                                   height: coverH,
-                                  color: const Color(0xFF1F3D2A),
+                                  color: const Color(0xFFEDE9FE),
                                 ),
                         ),
                         const SizedBox(height: 6),

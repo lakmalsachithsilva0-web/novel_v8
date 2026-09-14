@@ -475,7 +475,7 @@ class _WriteScreenState extends State<WriteScreen>
                     Icon(
                       Icons.diamond_outlined,
                       size: 14,
-                      color: Color(0xFF8CFF9A),
+                      color: Color(0xFF6C3CE1),
                     ),
                     SizedBox(width: 4),
                     Text(
@@ -483,7 +483,7 @@ class _WriteScreenState extends State<WriteScreen>
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF8CFF9A),
+                        color: Color(0xFF6C3CE1),
                       ),
                     ),
                   ],
@@ -516,11 +516,11 @@ class _WriteScreenState extends State<WriteScreen>
                   end: Alignment.bottomRight,
                   colors: isDark
                       ? const [Color(0xFF3B2A6B), Color(0xFF1A1228)]
-                      : const [Color(0xFF8CFF9A), Color(0xFF9B6DFF)],
+                      : const [Color(0xFF6C3CE1), Color(0xFF9B6DFF)],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF8CFF9A).withValues(alpha: 0.28),
+                    color: const Color(0xFF6C3CE1).withValues(alpha: 0.28),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
@@ -614,7 +614,7 @@ class _WriteScreenState extends State<WriteScreen>
               bottom: BorderSide(
                 color: isDark
                     ? const Color(0xFF2C2C2C)
-                    : const Color(0xFF1F3D2A),
+                    : const Color(0xFFEDE9FE),
               ),
             ),
           ),
@@ -683,7 +683,7 @@ class _WriteToolChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           child: Column(
             children: [
-              Icon(icon, size: 22, color: const Color(0xFF8CFF9A)),
+              Icon(icon, size: 22, color: const Color(0xFF6C3CE1)),
               const SizedBox(height: 6),
               Text(
                 label,
@@ -747,7 +747,7 @@ class _ManageStoriesTab extends StatelessWidget {
               bottom: BorderSide(
                 color: isDark
                     ? const Color(0xFF2C2C2C)
-                    : const Color(0xFF1F3D2A),
+                    : const Color(0xFFEDE9FE),
               ),
             ),
           ),
@@ -1111,8 +1111,8 @@ class _StoryListCard extends StatelessWidget {
       statusFg = const Color(0xFF047857);
     } else if (stLower.contains('ongoing') || stLower.contains('publish')) {
       statusLabel = 'Ongoing';
-      statusBg = const Color(0xFF1F3D2A);
-      statusFg = const Color(0xFF8CFF9A);
+      statusBg = const Color(0xFFEDE9FE);
+      statusFg = const Color(0xFF6C3CE1);
     } else {
       statusLabel = 'Draft';
       statusBg = const Color(0xFFFEF3C7);
@@ -1145,13 +1145,13 @@ class _StoryListCard extends StatelessWidget {
             border: Border.all(
               color: Theme.of(context).brightness == Brightness.dark
                   ? const Color(0xFF2C2C2C)
-                  : const Color(0xFF1F3D2A),
+                  : const Color(0xFFEDE9FE),
             ),
             boxShadow: Theme.of(context).brightness == Brightness.dark
                 ? const []
                 : [
                     BoxShadow(
-                      color: const Color(0xFF8CFF9A).withValues(alpha: 0.06),
+                      color: const Color(0xFF6C3CE1).withValues(alpha: 0.06),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),

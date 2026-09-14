@@ -843,13 +843,12 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _showRecent = true;
   List<Map<String, dynamic>> _recentRows = const [];
 
-  // Base keys — always suffixed with user/device scope so accounts never share history.
-  static const _kHistTitleBase = 'search_hist_title_v1';
-  static const _kHistTagBase = 'search_hist_tag_v1';
-  static const _kHistProfileBase = 'search_hist_profile_v1';
-  static const _kResultsTitleBase = 'search_results_title_v1';
-  static const _kResultsTagBase = 'search_results_tag_v1';
-  static const _kResultsProfileBase = 'search_results_profile_v1';
+  static const _kHistTitle = 'search_hist_title_v1';
+  static const _kHistTag = 'search_hist_tag_v1';
+  static const _kHistProfile = 'search_hist_profile_v1';
+  static const _kResultsTitle = 'search_results_title_v1';
+  static const _kResultsTag = 'search_results_tag_v1';
+  static const _kResultsProfile = 'search_results_profile_v1';
   Timer? _searchDebounce;
 
   List<String> get _recentForScope {
@@ -863,72 +862,23 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  Future<String> _historyScope() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final id = prefs.getInt('auth_id');
-      if (id != null && id > 0) return 'u$id';
-      final device = prefs.getString('auth_device_id');
-      if (device != null && device.isNotEmpty) {
-        return 'd${device.hashCode}';
-      }
-    } catch (_) {}
-    return 'guest';
-  }
-
-  Future<String> _scoped(String base) async =>
-      '${base}_${await _historyScope()}';
-
-  Future<String> _keyHistTitle() async => _scoped(_kHistTitleBase);
-  Future<String> _keyHistTag() async => _scoped(_kHistTagBase);
-  Future<String> _keyHistProfile() async => _scoped(_kHistProfileBase);
-
-  Future<String> _resultsKeyAsync() async {
-    switch (_searchScope) {
-      case 'tag':
-        return _scoped(_kResultsTagBase);
-      case 'profile':
-        return _scoped(_kResultsProfileBase);
-      default:
-        return _scoped(_kResultsTitleBase);
-    }
-  }
-
-  Future<String> _histKeyForScope() async {
-    switch (_searchScope) {
-      case 'tag':
-        return _keyHistTag();
-      case 'profile':
-        return _keyHistProfile();
-      default:
-        return _keyHistTitle();
-    }
-  }
-
   Future<void> _loadSearchHistory() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final histTitle = await _keyHistTitle();
-      final histTag = await _keyHistTag();
-      final histProfile = await _keyHistProfile();
-      final resultsKey = await _resultsKeyAsync();
-      final rawResults = prefs.getString(resultsKey);
+      final rawResults = prefs.getString(_resultsKey);
       final decodedResults = rawResults == null ? null : jsonDecode(rawResults);
-      final title = prefs.getStringList(histTitle) ?? const <String>[];
-      final tag = prefs.getStringList(histTag) ?? const <String>[];
-      final profile = prefs.getStringList(histProfile) ?? const <String>[];
-      final rows = decodedResults is List
-          ? decodedResults
-                .whereType<Map>()
-                .map((e) => Map<String, dynamic>.from(e))
-                .toList()
-          : const <Map<String, dynamic>>[];
       if (!mounted) return;
       setState(() {
-        _recentTitle = title;
-        _recentTag = tag;
-        _recentProfile = profile;
-        _recentRows = rows;
+        _recentTitle = prefs.getStringList(_kHistTitle) ?? const [];
+        _recentTag = prefs.getStringList(_kHistTag) ?? const [];
+        _recentProfile = prefs.getStringList(_kHistProfile) ?? const [];
+        _recentRows = decodedResults is List
+            ? decodedResults
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList()
+            : const [];
+        // Keep recent panel open when search field is empty
         if (_searchQuery.trim().isEmpty) {
           _showRecent = true;
         }
@@ -937,14 +887,45 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _reloadRecentForScope() async {
+    // Reload ALL scope histories so Title/Tag/Profile chips stay in sync
     await _loadSearchHistory();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawResults = prefs.getString(_resultsKey);
+      final decodedResults = rawResults == null ? null : jsonDecode(rawResults);
+      if (!mounted) return;
+      setState(() {
+        _recentTitle = prefs.getStringList(_kHistTitle) ?? _recentTitle;
+        _recentTag = prefs.getStringList(_kHistTag) ?? _recentTag;
+        _recentProfile = prefs.getStringList(_kHistProfile) ?? _recentProfile;
+        _recentRows = decodedResults is List
+            ? decodedResults
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList()
+            : const [];
+        _showRecent = true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _showRecent = true);
+    }
+  }
+
+  String get _resultsKey {
+    switch (_searchScope) {
+      case 'tag':
+        return _kResultsTag;
+      case 'profile':
+        return _kResultsProfile;
+      default:
+        return _kResultsTitle;
+    }
   }
 
   Future<void> _saveRecentResults(List<Map<String, dynamic>> rows) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final key = await _resultsKeyAsync();
-      await prefs.setString(key, jsonEncode(rows.take(5).toList()));
+      await prefs.setString(_resultsKey, jsonEncode(rows.take(5).toList()));
     } catch (_) {}
   }
 
@@ -953,33 +934,38 @@ class _SearchScreenState extends State<SearchScreen> {
     if (q.isEmpty) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final histTitle = await _keyHistTitle();
-      final histTag = await _keyHistTag();
-      final histProfile = await _keyHistProfile();
-      final diskTitle = prefs.getStringList(histTitle) ?? <String>[];
-      final diskTag = prefs.getStringList(histTag) ?? <String>[];
-      final diskProfile = prefs.getStringList(histProfile) ?? <String>[];
+      // Always re-read disk first so we never overwrite with empty memory state
+      final diskTitle = prefs.getStringList(_kHistTitle) ?? <String>[];
+      final diskTag = prefs.getStringList(_kHistTag) ?? <String>[];
+      final diskProfile = prefs.getStringList(_kHistProfile) ?? <String>[];
       List<String> list;
       String key;
       switch (_searchScope) {
         case 'tag':
           list = List<String>.from(diskTag);
-          key = histTag;
+          key = _kHistTag;
           break;
         case 'profile':
           list = List<String>.from(diskProfile);
-          key = histProfile;
+          key = _kHistProfile;
           break;
         default:
           list = List<String>.from(diskTitle);
-          key = histTitle;
+          key = _kHistTitle;
       }
       list.removeWhere((e) => e.toLowerCase() == q.toLowerCase());
       list.insert(0, q);
       if (list.length > 5) list = list.take(5).toList();
-      await prefs.setStringList(key, list);
+      final ok = await prefs.setStringList(key, list);
+      if (!ok) {
+        // fallback write once more
+        await prefs.setStringList(key, list);
+      }
       if (!mounted) return;
       setState(() {
+        _recentTitle = prefs.getStringList(_kHistTitle) ?? list;
+        _recentTag = prefs.getStringList(_kHistTag) ?? _recentTag;
+        _recentProfile = prefs.getStringList(_kHistProfile) ?? _recentProfile;
         switch (_searchScope) {
           case 'tag':
             _recentTag = list;
@@ -1324,7 +1310,7 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.tune_rounded, color: Color(0xFF8CFF9A)),
+            icon: const Icon(Icons.tune_rounded, color: Color(0xFF6C3CE1)),
             onPressed: () async {
               final selected = await showModalBottomSheet<_SearchFilters>(
                 context: context,
@@ -1379,23 +1365,23 @@ class _SearchScreenState extends State<SearchScreen> {
                         }
                       },
                       selectedColor: const Color(
-                        0xFF8CFF9A,
+                        0xFF6C3CE1,
                       ).withValues(alpha: 0.18),
                       backgroundColor: isDark
                           ? const Color(0xFF1E1E1E)
                           : const Color(0xFFF7F5FC),
                       side: BorderSide(
                         color: _searchScope == entry['id']
-                            ? const Color(0xFF8CFF9A)
+                            ? const Color(0xFF6C3CE1)
                             : (isDark
                                   ? const Color(0xFF2C2C2C)
-                                  : const Color(0xFF1F3D2A)),
+                                  : const Color(0xFFEDE9FE)),
                       ),
                       labelStyle: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
                         color: _searchScope == entry['id']
-                            ? const Color(0xFF8CFF9A)
+                            ? const Color(0xFF6C3CE1)
                             : muted,
                       ),
                     ),
@@ -1447,7 +1433,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               side: BorderSide(
                                 color: isDark
                                     ? const Color(0xFF2C2C2C)
-                                    : const Color(0xFF1F3D2A),
+                                    : const Color(0xFFEDE9FE),
                               ),
                               onPressed: () {
                                 _searchController.text = term;
@@ -1498,7 +1484,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                 border: Border.all(
                                   color: isDark
                                       ? const Color(0xFF2C2C2C)
-                                      : const Color(0xFF1F3D2A),
+                                      : const Color(0xFFEDE9FE),
                                 ),
                               ),
                               child: Column(
@@ -1506,7 +1492,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                 children: [
                                   Icon(
                                     g.$2,
-                                    color: const Color(0xFF8CFF9A),
+                                    color: const Color(0xFF6C3CE1),
                                     size: 26,
                                   ),
                                   const SizedBox(height: 8),
@@ -1566,7 +1552,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                   border: Border.all(
                                     color: isDark
                                         ? const Color(0xFF2C2C2C)
-                                        : const Color(0xFF1F3D2A),
+                                        : const Color(0xFFEDE9FE),
                                   ),
                                 ),
                                 child: Row(
@@ -1577,7 +1563,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                       alignment: Alignment.center,
                                       decoration: BoxDecoration(
                                         color: i < 3
-                                            ? const Color(0xFF8CFF9A)
+                                            ? const Color(0xFF6C3CE1)
                                             : (isDark
                                                   ? const Color(0xFF2A2A2A)
                                                   : const Color(0xFFF3F0FF)),
@@ -1590,7 +1576,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                           fontSize: 12,
                                           color: i < 3
                                               ? Colors.white
-                                              : const Color(0xFF8CFF9A),
+                                              : const Color(0xFF6C3CE1),
                                         ),
                                       ),
                                     ),
@@ -1694,14 +1680,14 @@ class _SearchScreenState extends State<SearchScreen> {
                           Widget leading;
                           if (kind == 'profile') {
                             leading = CircleAvatar(
-                              backgroundColor: const Color(0xFF1F3D2A),
+                              backgroundColor: const Color(0xFFEDE9FE),
                               backgroundImage: coverUrl.isNotEmpty
                                   ? NetworkImage(coverUrl)
                                   : null,
                               child: coverUrl.isEmpty
                                   ? const Icon(
                                       Icons.person,
-                                      color: Color(0xFF8CFF9A),
+                                      color: Color(0xFF6C3CE1),
                                     )
                                   : null,
                             );
@@ -1711,12 +1697,12 @@ class _SearchScreenState extends State<SearchScreen> {
                               height: 44,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1F3D2A),
+                                color: const Color(0xFFEDE9FE),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Icon(
                                 Icons.tag,
-                                color: Color(0xFF8CFF9A),
+                                color: Color(0xFF6C3CE1),
                               ),
                             );
                           } else {
@@ -1730,12 +1716,12 @@ class _SearchScreenState extends State<SearchScreen> {
                                         coverUrl,
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, _, _) => Container(
-                                          color: const Color(0xFF1F3D2A),
+                                          color: const Color(0xFFEDE9FE),
                                           child: const Icon(Icons.menu_book),
                                         ),
                                       )
                                     : Container(
-                                        color: const Color(0xFF1F3D2A),
+                                        color: const Color(0xFFEDE9FE),
                                         child: const Icon(Icons.menu_book),
                                       ),
                               ),
@@ -1821,7 +1807,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                   border: Border.all(
                                     color: isDark
                                         ? const Color(0xFF2C2C2C)
-                                        : const Color(0xFF1F3D2A),
+                                        : const Color(0xFFEDE9FE),
                                   ),
                                 ),
                                 child: Row(
@@ -2012,7 +1998,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                 ),
               ),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF8CFF9A),
+                backgroundColor: const Color(0xFF6C3CE1),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -2032,4 +2018,3 @@ class _FilterSheetState extends State<_FilterSheet> {
 // ---------------------------------------------------------------------------
 // Story detail (matches video: cover, stats, summary, genres, chapters, CTA)
 // ---------------------------------------------------------------------------
-  

@@ -31,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
   bool _busy = false;
 
-  static const _purple = Color(0xFF8CFF9A);
+  static const _purple = Color(0xFF6C3CE1);
   static const _purpleDeep = Color(0xFF4C2BB8);
   static const _purpleSoft = Color(0xFF8B6CF0);
 
@@ -80,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
       prefixIcon: Icon(icon, color: _purple, size: 22),
       suffixIcon: suffix,
       filled: true,
-      fillColor: const Color(0xFF141416),
+      fillColor: const Color(0xFFF5F3FF),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF1F3D2A)),
+        borderSide: const BorderSide(color: Color(0xFFEDE9FE)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -433,12 +433,12 @@ class _SocialBtn extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF1F3D2A)),
+            border: Border.all(color: const Color(0xFFEDE9FE)),
           ),
           child: Icon(
             icon,
             size: 28,
-            color: onTap == null ? Colors.grey.shade400 : const Color(0xFF8CFF9A),
+            color: onTap == null ? Colors.grey.shade400 : const Color(0xFF6C3CE1),
           ),
         ),
       ),

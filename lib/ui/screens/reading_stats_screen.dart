@@ -23,7 +23,7 @@ class _ReadingStatsScreenState extends State<ReadingStatsScreen> {
   int _monthBooks = 0;
   double _goalPct = 0.75;
   final List<(String, int)> _topGenres = [];
-  static const _purple = Color(0xFF8CFF9A);
+  static const _purple = Color(0xFF8B5CF6);
 
   @override
   void initState() {
@@ -96,15 +96,15 @@ class _ReadingStatsScreenState extends State<ReadingStatsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 28), children: [
               Row(children: [
-                Expanded(child: _metric('$_booksRead', 'Books Read', const Color(0xFF3DDC84))),
+                Expanded(child: _metric('$_booksRead', 'Books Read', const Color(0xFF7C3AED))),
                 const SizedBox(width: 10),
-                Expanded(child: _metric('$_pagesRead', 'Pages Read', const Color(0xFF8CFF9A))),
+                Expanded(child: _metric('$_pagesRead', 'Pages Read', const Color(0xFF8B5CF6))),
               ]),
               const SizedBox(height: 10),
               Row(children: [
-                Expanded(child: _metric(_readingTimeLabel, 'Reading Time', const Color(0xFF2A9D5C))),
+                Expanded(child: _metric(_readingTimeLabel, 'Reading Time', const Color(0xFF6D28D9))),
                 const SizedBox(width: 10),
-                Expanded(child: _metric('$_streak', 'Current Streak', const Color(0xFF8CFF9A))),
+                Expanded(child: _metric('$_streak', 'Current Streak', const Color(0xFFA78BFA))),
               ]),
               const SizedBox(height: 16),
               Container(
@@ -173,4 +173,3 @@ class _ReadingStatsScreenState extends State<ReadingStatsScreen> {
     ]),
   );
 }
-  

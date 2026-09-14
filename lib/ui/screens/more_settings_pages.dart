@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/services/api_service.dart';
 
 class MorePageChrome {
-  static const Color purple = Color(0xFF8CFF9A);
+  static const Color purple = Color(0xFF8B5CF6);
   static const Color muted = Color(0xFF6B6575);
   static Color mutedOf(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -499,7 +499,7 @@ class ContactUsScreen extends StatefulWidget {
 }
 
 class _ContactUsScreenState extends State<ContactUsScreen> {
-  static const _purple = Color(0xFF8CFF9A);
+  static const _purple = Color(0xFF6C3CE1);
   static const _paper = Color(0xFFF7F5FC);
   static const _ink = Color(0xFF1A1A2E);
 

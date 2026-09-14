@@ -21,7 +21,7 @@ class MoreScreen extends StatelessWidget {
   final ApiService apiService;
   final AuthSession session;
   final Future<void> Function() onSignOut;
-  static const _purple = Color(0xFF8CFF9A);
+  static const _purple = Color(0xFF8B5CF6);
 
   ProfileModel _profile() {
     final p = data.profile;
@@ -100,7 +100,7 @@ class MoreScreen extends StatelessWidget {
                     radius: 24,
                     backgroundColor: isDark
                         ? Colors.white24
-                        : const Color(0xFF1F3D2A),
+                        : const Color(0xFFEDE9FE),
                     backgroundImage: _profile().photoUrl.trim().isNotEmpty
                         ? NetworkImage(
                             apiService.resolveAssetUrl(_profile().photoUrl),
