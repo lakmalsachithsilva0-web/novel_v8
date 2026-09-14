@@ -348,12 +348,41 @@ class AuthService {
   Future<void> _clearLocalSession({required bool keepDeviceId}) async {
     final prefs = await SharedPreferences.getInstance();
     final deviceId = keepDeviceId ? prefs.getString(_deviceIdKey) : null;
+    final userId = prefs.getInt(_idKey);
+
     await prefs.remove(_methodKey);
     await prefs.remove(_idKey);
     await prefs.remove(_emailKey);
     await prefs.remove(_displayNameKey);
     await prefs.remove(_photoUrlKey);
     await prefs.remove(_tokenKey);
+    _apiService.setAuthToken(null);
+
+    // Drop user-scoped local search history so the next account cannot see it.
+    try {
+      final keys = prefs.getKeys().toList();
+      for (final k in keys) {
+        final isSearch =
+            k.startsWith('search_hist_') || k.startsWith('search_results_');
+        if (!isSearch) continue;
+        if (userId != null && k.contains('_u$userId')) {
+          await prefs.remove(k);
+        } else if (userId == null &&
+            (k.endsWith('_guest') || k.contains('_d'))) {
+          await prefs.remove(k);
+        }
+        // Also remove legacy unscoped keys from older builds.
+        if (k == 'search_hist_title_v1' ||
+            k == 'search_hist_tag_v1' ||
+            k == 'search_hist_profile_v1' ||
+            k == 'search_results_title_v1' ||
+            k == 'search_results_tag_v1' ||
+            k == 'search_results_profile_v1') {
+          await prefs.remove(k);
+        }
+      }
+    } catch (_) {}
+
     if (deviceId != null) {
       await prefs.setString(_deviceIdKey, deviceId);
     }

@@ -843,42 +843,81 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _showRecent = true;
   List<Map<String, dynamic>> _recentRows = const [];
 
-  static const _kHistTitle = 'search_hist_title_v1';
-  static const _kHistTag = 'search_hist_tag_v1';
-  static const _kHistProfile = 'search_hist_profile_v1';
-  static const _kResultsTitle = 'search_results_title_v1';
-  static const _kResultsTag = 'search_results_tag_v1';
-  static const _kResultsProfile = 'search_results_profile_v1';
+  // Base keys — always suffixed with user/device scope so accounts never share history.
+  static const _kHistTitleBase = 'search_hist_title_v1';
+  static const _kHistTagBase = 'search_hist_tag_v1';
+  static const _kHistProfileBase = 'search_hist_profile_v1';
+  static const _kResultsTitleBase = 'search_results_title_v1';
+  static const _kResultsTagBase = 'search_results_tag_v1';
+  static const _kResultsProfileBase = 'search_results_profile_v1';
   Timer? _searchDebounce;
 
-  List<String> get _recentForScope {
+  Future<String> _historyScope() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = prefs.getInt('auth_id');
+      if (id != null && id > 0) return 'u$id';
+      final device = prefs.getString('auth_device_id');
+      if (device != null && device.isNotEmpty) {
+        return 'd${device.hashCode}';
+      }
+    } catch (_) {}
+    return 'guest';
+  }
+
+  Future<String> _scoped(String base) async =>
+      '${base}_${await _historyScope()}';
+
+  Future<String> _keyHistTitle() async => _scoped(_kHistTitleBase);
+  Future<String> _keyHistTag() async => _scoped(_kHistTagBase);
+  Future<String> _keyHistProfile() async => _scoped(_kHistProfileBase);
+
+  Future<String> _resultsKeyAsync() async {
     switch (_searchScope) {
       case 'tag':
-        return _recentTag;
+        return _scoped(_kResultsTagBase);
       case 'profile':
-        return _recentProfile;
+        return _scoped(_kResultsProfileBase);
       default:
-        return _recentTitle;
+        return _scoped(_kResultsTitleBase);
+    }
+  }
+
+  Future<String> _histKeyForScope() async {
+    switch (_searchScope) {
+      case 'tag':
+        return _keyHistTag();
+      case 'profile':
+        return _keyHistProfile();
+      default:
+        return _keyHistTitle();
     }
   }
 
   Future<void> _loadSearchHistory() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final rawResults = prefs.getString(_resultsKey);
+      final histTitle = await _keyHistTitle();
+      final histTag = await _keyHistTag();
+      final histProfile = await _keyHistProfile();
+      final resultsKey = await _resultsKeyAsync();
+      final rawResults = prefs.getString(resultsKey);
       final decodedResults = rawResults == null ? null : jsonDecode(rawResults);
+      final title = prefs.getStringList(histTitle) ?? const <String>[];
+      final tag = prefs.getStringList(histTag) ?? const <String>[];
+      final profile = prefs.getStringList(histProfile) ?? const <String>[];
+      final rows = decodedResults is List
+          ? decodedResults
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList()
+          : const <Map<String, dynamic>>[];
       if (!mounted) return;
       setState(() {
-        _recentTitle = prefs.getStringList(_kHistTitle) ?? const [];
-        _recentTag = prefs.getStringList(_kHistTag) ?? const [];
-        _recentProfile = prefs.getStringList(_kHistProfile) ?? const [];
-        _recentRows = decodedResults is List
-            ? decodedResults
-                  .whereType<Map>()
-                  .map((e) => Map<String, dynamic>.from(e))
-                  .toList()
-            : const [];
-        // Keep recent panel open when search field is empty
+        _recentTitle = title;
+        _recentTag = tag;
+        _recentProfile = profile;
+        _recentRows = rows;
         if (_searchQuery.trim().isEmpty) {
           _showRecent = true;
         }
@@ -887,45 +926,14 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _reloadRecentForScope() async {
-    // Reload ALL scope histories so Title/Tag/Profile chips stay in sync
     await _loadSearchHistory();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final rawResults = prefs.getString(_resultsKey);
-      final decodedResults = rawResults == null ? null : jsonDecode(rawResults);
-      if (!mounted) return;
-      setState(() {
-        _recentTitle = prefs.getStringList(_kHistTitle) ?? _recentTitle;
-        _recentTag = prefs.getStringList(_kHistTag) ?? _recentTag;
-        _recentProfile = prefs.getStringList(_kHistProfile) ?? _recentProfile;
-        _recentRows = decodedResults is List
-            ? decodedResults
-                  .whereType<Map>()
-                  .map((e) => Map<String, dynamic>.from(e))
-                  .toList()
-            : const [];
-        _showRecent = true;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _showRecent = true);
-    }
-  }
-
-  String get _resultsKey {
-    switch (_searchScope) {
-      case 'tag':
-        return _kResultsTag;
-      case 'profile':
-        return _kResultsProfile;
-      default:
-        return _kResultsTitle;
-    }
   }
 
   Future<void> _saveRecentResults(List<Map<String, dynamic>> rows) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_resultsKey, jsonEncode(rows.take(5).toList()));
+      final key = await _resultsKeyAsync();
+      await prefs.setString(key, jsonEncode(rows.take(5).toList()));
     } catch (_) {}
   }
 
@@ -934,38 +942,33 @@ class _SearchScreenState extends State<SearchScreen> {
     if (q.isEmpty) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      // Always re-read disk first so we never overwrite with empty memory state
-      final diskTitle = prefs.getStringList(_kHistTitle) ?? <String>[];
-      final diskTag = prefs.getStringList(_kHistTag) ?? <String>[];
-      final diskProfile = prefs.getStringList(_kHistProfile) ?? <String>[];
+      final histTitle = await _keyHistTitle();
+      final histTag = await _keyHistTag();
+      final histProfile = await _keyHistProfile();
+      final diskTitle = prefs.getStringList(histTitle) ?? <String>[];
+      final diskTag = prefs.getStringList(histTag) ?? <String>[];
+      final diskProfile = prefs.getStringList(histProfile) ?? <String>[];
       List<String> list;
       String key;
       switch (_searchScope) {
         case 'tag':
           list = List<String>.from(diskTag);
-          key = _kHistTag;
+          key = histTag;
           break;
         case 'profile':
           list = List<String>.from(diskProfile);
-          key = _kHistProfile;
+          key = histProfile;
           break;
         default:
           list = List<String>.from(diskTitle);
-          key = _kHistTitle;
+          key = histTitle;
       }
       list.removeWhere((e) => e.toLowerCase() == q.toLowerCase());
       list.insert(0, q);
       if (list.length > 5) list = list.take(5).toList();
-      final ok = await prefs.setStringList(key, list);
-      if (!ok) {
-        // fallback write once more
-        await prefs.setStringList(key, list);
-      }
+      await prefs.setStringList(key, list);
       if (!mounted) return;
       setState(() {
-        _recentTitle = prefs.getStringList(_kHistTitle) ?? list;
-        _recentTag = prefs.getStringList(_kHistTag) ?? _recentTag;
-        _recentProfile = prefs.getStringList(_kHistProfile) ?? _recentProfile;
         switch (_searchScope) {
           case 'tag':
             _recentTag = list;
