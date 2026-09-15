@@ -785,11 +785,15 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
   }
 
   String _statusLabel(String status) {
-    switch (status) {
+    switch (status.toLowerCase().trim()) {
       case 'submitted':
         return 'Submitted';
       case 'scheduled':
         return 'Scheduled';
+      case 'published':
+      case 'ongoing':
+      case 'completed':
+        return 'Published';
       default:
         return 'Draft';
     }
@@ -1175,10 +1179,15 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                       vertical: 4,
                     ),
                     child: Text(
-                      'word count: $_wordCount',
-                      style: const TextStyle(
+                      _wordCount >= 60
+                          ? 'word count: $_wordCount · ready to publish'
+                          : 'word count: $_wordCount · goal 60',
+                      style: TextStyle(
                         fontSize: 11,
-                        color: AppTheme.muted,
+                        fontWeight: FontWeight.w600,
+                        color: _wordCount >= 60
+                            ? const Color(0xFF047857)
+                            : AppTheme.muted,
                       ),
                     ),
                   ),

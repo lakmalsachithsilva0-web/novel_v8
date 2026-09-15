@@ -227,6 +227,7 @@ class _WriteScreenState extends State<WriteScreen>
         'published',
         'submitted',
         'completed',
+        'scheduled',
       }.contains(status);
       return _storySubTabs.index == 0 ? published : !published;
     }).toList();
@@ -281,8 +282,69 @@ class _WriteScreenState extends State<WriteScreen>
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    subtitle: Text(
-                      (c['submission_status'] ?? 'draft').toString(),
+                    subtitle: Builder(
+                      builder: (_) {
+                        final raw = (c['submission_status'] ?? 'draft')
+                            .toString()
+                            .toLowerCase()
+                            .trim();
+                        final label = raw == 'published' ||
+                                raw == 'submitted' ||
+                                raw == 'ongoing' ||
+                                raw == 'completed'
+                            ? 'Published'
+                            : raw == 'scheduled'
+                                ? 'Scheduled'
+                                : 'Draft';
+                        final bg = label == 'Published'
+                            ? const Color(0xFFD1FAE5)
+                            : label == 'Scheduled'
+                                ? const Color(0xFFE0E7FF)
+                                : const Color(0xFFFEF3C7);
+                        final fg = label == 'Published'
+                            ? const Color(0xFF047857)
+                            : label == 'Scheduled'
+                                ? const Color(0xFF3730A3)
+                                : const Color(0xFFB45309);
+                        final words = (c['content'] ?? '')
+                            .toString()
+                            .trim()
+                            .split(RegExp(r'\s+'))
+                            .where((w) => w.isNotEmpty)
+                            .length;
+                        return Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: bg,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: fg,
+                                ),
+                              ),
+                            ),
+                            if (words > 0) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                '$words words',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.muted,
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
