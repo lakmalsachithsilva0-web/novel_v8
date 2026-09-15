@@ -560,9 +560,12 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
       if (asDraft) {
         if (!popAfter && !silent) {
+          final msg = _isEditing
+              ? 'Details updated — chapters unchanged'
+              : 'Draft saved';
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('Draft saved')));
+          ).showSnackBar(SnackBar(content: Text(msg)));
         }
         if (popAfter && mounted) {
           try {

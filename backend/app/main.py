@@ -4669,6 +4669,36 @@ def get_story_chapters(
     return {"items": items}
 
 
+
+def is_public_status(status: str | None) -> bool:
+    """Professional visibility rule (Inkitt-style): Draft / private never public."""
+    s = (status or "").strip().lower()
+    if not s or s.startswith("draft") or s.startswith("unpublish"):
+        return False
+    if s in ("private", "unlisted", "unpublished", "hidden"):
+        return False
+    return True
+
+
+def normalize_story_status(status: str | None) -> str:
+    """Normalize to Draft | Ongoing | Completed (optional Unlisted)."""
+    s = (status or "").strip()
+    if not s:
+        return "Draft"
+    low = s.lower()
+    if low in ("draft", "private", "unpublished", "hidden"):
+        return "Draft"
+    if low in ("unlisted",):
+        return "Unlisted"
+    if low in ("completed", "complete", "finished"):
+        return "Completed"
+    if low in ("ongoing", "published", "publish", "live", "public", "submitted"):
+        return "Ongoing"
+    # Keep known values, else Draft for safety on unknown
+    if s in ("Draft", "Ongoing", "Completed", "Unlisted"):
+        return s
+    return "Draft"
+
 def _require_story_owner(story_id: int, user: dict[str, Any]) -> dict[str, Any]:
     rows = fetch_all(
         "SELECT id, user_id FROM books WHERE id=%s LIMIT 1",
@@ -5210,18 +5240,7 @@ def create_writer_story(
     genre = (payload.genre or "").strip() or "Romance"
     # Draft by default. Visible to others only when status is Published/Completed
     # (requires at least one chapter with >= 50 words — enforced on chapter save / Complete).
-    raw_status = (payload.status_text or "Draft").strip() or "Draft"
-    sl = raw_status.lower()
-    if sl in ("publish", "published", "live", "public"):
-        status = "Published"
-    elif sl in ("complete", "completed"):
-        status = "Completed"
-    elif sl in ("ongoing", "reading"):
-        status = "Ongoing"
-    elif sl in ("draft", "private", "unpublished"):
-        status = "Draft"
-    else:
-        status = "Draft"
+    status = normalize_story_status(payload.status_text)
     story_id, _ = execute_write(
         """
         INSERT INTO books (
@@ -5267,11 +5286,13 @@ def create_writer_story(
 
 
 @app.put("/api/write/stories/{story_id}")
+@app.patch("/api/write/stories/{story_id}")
 def update_writer_story(
     story_id: int,
     payload: StoryUpdateRequest,
     user: dict[str, Any] = Depends(require_user),
 ):
+    """Partial meta update only. Never deletes or touches chapters (Inkitt-style)."""
     rows = fetch_all(
         "SELECT * FROM books WHERE id=%s AND (user_id=%s OR user_id IS NULL)",
         (story_id, user["user_id"]),
@@ -5280,85 +5301,75 @@ def update_writer_story(
         raise HTTPException(status_code=404, detail="Story not found")
 
     current = rows[0]
-    next_warnings = (
-        payload.content_warnings.strip()
-        if payload.content_warnings is not None
-        else (_row_get(current, "content_warnings") or "")
-    )
-    next_cover = (
-        _normalize_cover_path(payload.cover_path)
-        if payload.cover_path is not None
-        else _row_get(current, "cover_path")
-    )
-    next_status = _row_get(current, "status_text") or "Draft"
+    # Build SET only for provided fields — true partial / PATCH semantics
+    sets: list[str] = []
+    params: list[Any] = []
+
+    if payload.title is not None:
+        sets.append("title=%s")
+        params.append((payload.title or "").strip() or (_row_get(current, "title") or "Untitled Story"))
+    if payload.author is not None:
+        sets.append("author=%s")
+        params.append((payload.author or "").strip() or (_row_get(current, "author") or "Author"))
+    if payload.description is not None:
+        sets.append("description=%s")
+        params.append(payload.description)
+    if payload.genre is not None:
+        sets.append("genre=%s")
+        params.append(payload.genre or _row_get(current, "genre") or "Romance")
+        sets.append("primary_genre=%s")
+        params.append(payload.genre or _row_get(current, "primary_genre") or _row_get(current, "genre") or "Romance")
+    if payload.cover_path is not None:
+        sets.append("cover_path=%s")
+        params.append(_normalize_cover_path(payload.cover_path))
+    if payload.content_warnings is not None:
+        sets.append("content_warnings=%s")
+        params.append(payload.content_warnings.strip() if isinstance(payload.content_warnings, str) else payload.content_warnings)
     if payload.status_text is not None:
-        st = payload.status_text.strip() or "Draft"
-        if st.lower() in ("publish", "published", "live", "public"):
-            st = "Published"
-        next_status = st
-    _ensure_book_meta_columns()
-    next_audience = (
-        (payload.audience if payload.audience is not None else None)
-        or _row_get(current, "audience")
-        or ""
-    )
-    next_language = (
-        (payload.language if payload.language is not None else None)
-        or _row_get(current, "language")
-        or ""
-    )
-    try:
-        _, affected = execute_write(
-            """
-            UPDATE books
-            SET title=%s, author=%s, description=%s, genre=%s, primary_genre=%s,
-                cover_path=%s, user_id=%s, content_warnings=%s, status_text=%s,
-                audience=%s, language=%s
-            WHERE id=%s
-            """,
-            (
-                payload.title or _row_get(current, "title"),
-                payload.author or _row_get(current, "author"),
-                payload.description if payload.description is not None else _row_get(current, "description"),
-                payload.genre or _row_get(current, "genre"),
-                payload.genre or _row_get(current, "primary_genre") or _row_get(current, "genre"),
-                next_cover,
-                user["user_id"],
-                next_warnings,
-                next_status,
-                next_audience,
-                next_language,
-                story_id,
-            ),
-        )
-    except Exception:
-        _, affected = execute_write(
-            """
-            UPDATE books
-            SET title=%s, author=%s, description=%s, genre=%s, primary_genre=%s, cover_path=%s, user_id=%s, content_warnings=%s, status_text=%s
-            WHERE id=%s
-            """,
-            (
-                payload.title or _row_get(current, "title"),
-                payload.author or _row_get(current, "author"),
-                payload.description if payload.description is not None else _row_get(current, "description"),
-                payload.genre or _row_get(current, "genre"),
-                payload.genre or _row_get(current, "primary_genre") or _row_get(current, "genre"),
-                next_cover,
-                user["user_id"],
-                next_warnings,
-                next_status,
-                story_id,
-            ),
-        )
-    if affected == 0 and not rows:
-        raise HTTPException(status_code=400, detail="Failed to update story")
+        sets.append("status_text=%s")
+        params.append(normalize_story_status(payload.status_text))
+    if payload.audience is not None:
+        sets.append("audience=%s")
+        params.append(payload.audience or "")
+    if payload.language is not None:
+        sets.append("language=%s")
+        params.append(payload.language or "")
+
+    # Always bind ownership to current user
+    sets.append("user_id=%s")
+    params.append(user["user_id"])
+
+    if sets:
+        _ensure_book_meta_columns()
+        sql = f"UPDATE books SET {', '.join(sets)} WHERE id=%s"
+        params.append(story_id)
+        try:
+            execute_write(sql, tuple(params))
+        except Exception as exc:
+            # Fallback without audience/language if columns missing
+            LOGGER.warning("partial story update retry without meta cols: %s", exc)
+            safe_sets = [s for s in sets if not s.startswith("audience") and not s.startswith("language")]
+            if safe_sets:
+                # rebuild params without audience/language
+                safe_params: list[Any] = []
+                i = 0
+                for s in sets:
+                    if s.startswith("audience") or s.startswith("language"):
+                        i += 1
+                        continue
+                    safe_params.append(params[i])
+                    i += 1
+                safe_params.append(story_id)
+                execute_write(
+                    f"UPDATE books SET {', '.join(safe_sets)} WHERE id=%s",
+                    tuple(safe_params),
+                )
 
     if payload.tags is not None:
         _set_story_tags(story_id, payload.tags)
 
     bump_content_version()
-    return {"ok": True}
+    return {"ok": True, "message": "Details updated — chapters unchanged"}
 
 
 @app.get("/api/write/stories/{story_id}")
@@ -5408,8 +5419,8 @@ def get_writer_story(story_id: int, user: dict[str, Any] = Depends(require_user)
 
 
 @app.get("/api/books/{book_id}")
-def get_public_book(book_id: int):
-    """Public book detail — never 500; degrade gracefully if optional cols/joins fail."""
+def get_public_book(book_id: int, user: dict[str, Any] | None = Depends(optional_user)):
+    """Public book detail — Draft only visible to owner; never 500."""
     try:
         _ensure_book_view_count_column()
     except Exception:
@@ -5440,12 +5451,11 @@ def get_public_book(book_id: int):
         )
     if not rows:
         raise HTTPException(status_code=404, detail="Book not found")
-    status = str(_row_get(rows[0], "status_text") or "").strip().lower()
-    if (
-        status.startswith("draft")
-        or status.startswith("unpublish")
-        or status in ("private", "unlisted")
-    ):
+    status_raw = str(_row_get(rows[0], "status_text") or "")
+    owner_id = int(_row_get(rows[0], "user_id") or 0)
+    current_uid = int(user["user_id"]) if user and user.get("user_id") is not None else 0
+    is_owner = current_uid > 0 and owner_id == current_uid
+    if not is_public_status(status_raw) and not is_owner:
         raise HTTPException(status_code=404, detail="Book not found")
     try:
         new_views = _increment_book_views(book_id)

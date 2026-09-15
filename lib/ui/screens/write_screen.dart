@@ -379,6 +379,37 @@ class _WriteScreenState extends State<WriteScreen>
   ) async {
     final id = (story['id'] as num?)?.toInt() ?? 0;
     if (id <= 0) return;
+
+    // Professional status transition confirmations (Inkitt-style)
+    String confirmMsg;
+    if (status == 'Ongoing') {
+      confirmMsg = 'Readers will see this story. Continue?';
+    } else if (status == 'Completed') {
+      confirmMsg = 'Mark as finished? Chapters stay available.';
+    } else if (status == 'Draft') {
+      confirmMsg = 'Unpublish? Story will be hidden from readers. Chapters are kept.';
+    } else {
+      confirmMsg = 'Change status to $status?';
+    }
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Change status'),
+        content: Text(confirmMsg),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true) return;
+
     try {
       await widget.apiService.updateWriterStory(id, {'status_text': status});
       if (!mounted) return;
@@ -408,7 +439,9 @@ class _WriteScreenState extends State<WriteScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Story'),
-        content: Text('Delete "${story['title']}" permanently?'),
+        content: Text(
+          'Delete "${story['title']}" permanently?\n\nAll chapters will also be deleted. This cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
