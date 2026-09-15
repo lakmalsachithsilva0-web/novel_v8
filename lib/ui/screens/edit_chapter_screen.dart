@@ -771,10 +771,20 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                     if (createdAt != null)
                       '${createdAt.year}-${createdAt.month.toString().padLeft(2, '0')}-${createdAt.day.toString().padLeft(2, '0')} ${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}',
                   ];
+                  final revId = (revision['id'] as num?)?.toInt();
                   return ListTile(
                     leading: const Icon(Icons.history_rounded),
                     title: Text(revision['title']?.toString() ?? 'Untitled'),
                     subtitle: Text(subtitleParts.join(' • ')),
+                    trailing: revId == null
+                        ? null
+                        : TextButton(
+                            onPressed: () async {
+                              Navigator.pop(context);
+                              await _restoreRevision(revId, revision);
+                            },
+                            child: const Text('Restore'),
+                          ),
                   );
                 },
                 separatorBuilder: (_, _) => const Divider(height: 1),
@@ -782,6 +792,68 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
               ),
       ),
     );
+  }
+
+  Future<void> _restoreRevision(
+    int revisionId,
+    Map<String, dynamic> revision,
+  ) async {
+    if (_chapterId == null) return;
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restore revision?'),
+        content: const Text(
+          'Current chapter content will be saved as a new revision, then replaced with the selected version. Other chapters are not changed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true) return;
+    try {
+      final result = await widget.apiService.restoreStoryChapterRevision(
+        _chapterId!,
+        revisionId,
+      );
+      if (!mounted) return;
+      final chapter = result['chapter'];
+      if (chapter is Map) {
+        final title = chapter['title']?.toString();
+        final content = chapter['content']?.toString();
+        if (title != null) _titleController.text = title;
+        if (content != null) _textController.text = content;
+        final st = chapter['submission_status']?.toString();
+        if (st != null && st.isNotEmpty) {
+          setState(() => _submissionStatus = st);
+        }
+      } else {
+        // Fallback: load fields from the revision map itself
+        final title = revision['title']?.toString();
+        final content = revision['content']?.toString();
+        if (title != null) _titleController.text = title;
+        if (content != null) _textController.text = content;
+      }
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Revision restored — other chapters unchanged'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not restore: $e')),
+      );
+    }
   }
 
   String _statusLabel(String status) {

@@ -4719,7 +4719,7 @@ def get_story_chapter_revisions(
     _require_story_owner(int(_row_get(chapter_rows[0], "story_id") or 0), user)
     rows = fetch_all(
         """
-        SELECT id, chapter_id, title, notes, submission_status, scheduled_for, created_at
+        SELECT id, chapter_id, title, content, notes, submission_status, scheduled_for, created_at
         FROM chapter_revisions
         WHERE chapter_id=%s
         ORDER BY created_at DESC, id DESC
@@ -4735,6 +4735,79 @@ def get_story_chapter_revisions(
             }
             for row in rows
         ]
+    }
+
+
+@app.post("/api/write/chapters/{chapter_id}/revisions/{revision_id}/restore")
+def restore_story_chapter_revision(
+    chapter_id: int,
+    revision_id: int,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Restore one previous revision into the live chapter (Inkitt-style)."""
+    chapter_rows = fetch_all(
+        "SELECT id, story_id, title, content, notes, submission_status, scheduled_for FROM chapters WHERE id=%s LIMIT 1",
+        (chapter_id,),
+    )
+    if not chapter_rows:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    chapter = chapter_rows[0]
+    _require_story_owner(int(_row_get(chapter, "story_id") or 0), user)
+
+    rev_rows = fetch_all(
+        """
+        SELECT id, chapter_id, title, content, notes, submission_status, scheduled_for
+        FROM chapter_revisions
+        WHERE id=%s AND chapter_id=%s
+        LIMIT 1
+        """,
+        (revision_id, chapter_id),
+    )
+    if not rev_rows:
+        raise HTTPException(status_code=404, detail="Revision not found")
+    rev = rev_rows[0]
+
+    # Snapshot current chapter before restore
+    try:
+        _record_chapter_revision(
+            chapter_id,
+            title=str(_row_get(chapter, "title") or ""),
+            content=str(_row_get(chapter, "content") or ""),
+            notes=str(_row_get(chapter, "notes") or ""),
+            submission_status=str(_row_get(chapter, "submission_status") or "draft"),
+            scheduled_for=_row_get(chapter, "scheduled_for"),
+        )
+    except Exception as exc:
+        LOGGER.warning("revision snapshot before restore failed: %s", exc)
+
+    new_title = str(_row_get(rev, "title") or _row_get(chapter, "title") or "Chapter")
+    new_content = str(_row_get(rev, "content") or "")
+    new_notes = str(_row_get(rev, "notes") or "")
+    new_status = str(_row_get(rev, "submission_status") or "draft")
+    scheduled_value = _row_get(rev, "scheduled_for")
+    if isinstance(scheduled_value, datetime):
+        scheduled_value = scheduled_value.isoformat()
+
+    execute_write(
+        """
+        UPDATE chapters
+        SET title=%s, content=%s, notes=%s, submission_status=%s, scheduled_for=%s, updated_at=CURRENT_TIMESTAMP
+        WHERE id=%s
+        """,
+        (new_title, new_content, new_notes, new_status, scheduled_value, chapter_id),
+    )
+    bump_content_version()
+    return {
+        "ok": True,
+        "message": "Revision restored — other chapters unchanged",
+        "chapter": {
+            "id": chapter_id,
+            "title": new_title,
+            "content": new_content,
+            "notes": new_notes,
+            "submission_status": new_status,
+            "scheduled_for": _serialize_datetime(scheduled_value),
+        },
     }
 
 

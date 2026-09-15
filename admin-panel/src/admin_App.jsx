@@ -77,7 +77,7 @@ const EMPTY_BOOK = {
   cover_path: "",
   accent_hex: "#3b82f6",
   section_name: "recently_updated",
-  status_text: "Published",
+  status_text: "Ongoing",
   rating: 0,
   genre: "",
   cta_label: "Read now",
@@ -94,7 +94,7 @@ const DUMMY_NOVELS = [
     description: "A librarian discovers books that rewrite the memories of anyone who reads them.",
     genre: "Fantasy",
     section_name: "recently_updated",
-    status_text: "Published",
+    status_text: "Ongoing",
     rating: 4.6,
     accent_hex: "#5B6CFF",
     cta_label: "Read now",
@@ -110,7 +110,7 @@ const DUMMY_NOVELS = [
     description: "In a coastal city powered by storms, a courier delivers messages that can change the weather.",
     genre: "Sci-Fi",
     section_name: "recently_updated",
-    status_text: "Published",
+    status_text: "Ongoing",
     rating: 4.4,
     accent_hex: "#14B8A6",
     cta_label: "Read now",
@@ -126,7 +126,7 @@ const DUMMY_NOVELS = [
     description: "A year of unsent letters becomes the only map back to a lost hometown.",
     genre: "Drama",
     section_name: "recently_completed",
-    status_text: "Published",
+    status_text: "Ongoing",
     rating: 4.8,
     accent_hex: "#F59E0B",
     cta_label: "Read now",
@@ -378,7 +378,7 @@ export default function App() {
       let ok = 0;
       for (const novel of DUMMY_NOVELS) {
         const { chapters = [], ...bookPayload } = novel;
-        const created = await createBook({ ...bookPayload, status_text: "Published" });
+        const created = await createBook({ ...bookPayload, status_text: "Ongoing" });
         const bookId = created?.id || created?.book_id;
         if (bookId && chapters.length) {
           for (let i = 0; i < chapters.length; i++) {
@@ -405,7 +405,7 @@ export default function App() {
   async function saveBook(payload, id) {
     try {
       // Admin novels are always published (no separate Publish step)
-      const body = { ...payload, status_text: "Published" };
+      const body = { ...payload, status_text: "Ongoing" };
       const chapters = Array.isArray(payload.chapters) ? payload.chapters : [];
       let bookId = id;
       if (id) {
@@ -1011,7 +1011,7 @@ function NovelsPage({
             ))}
           </select>
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            {["All", "Published", "Draft", "Pending"].map((s) => (
+            {["All", "Draft", "Ongoing", "Completed", "Published"].map((s) => (
               <option key={s} value={s}>{s === "All" ? "All Status" : s}</option>
             ))}
           </select>
@@ -1358,8 +1358,8 @@ function ModerationPage({ books, supportRequests, modTab, setModTab, onStatus, o
                   <td>{b.author}</td>
                   <td><span className={`badge ${statusBadge(b.status_text)}`}>{b.status_text}</span></td>
                   <td className="btn-row">
-                    <button type="button" className="btn btn-sm btn-primary" onClick={() => onStatus(b, "Published")}>Approve</button>
-                    <button type="button" className="btn btn-sm btn-danger" onClick={() => onStatus(b, "Rejected")}>Reject</button>
+                    <button type="button" className="btn btn-sm btn-primary" onClick={() => onStatus(b, "Ongoing")}>Approve (Ongoing)</button>
+                    <button type="button" className="btn btn-sm btn-danger" onClick={() => onStatus(b, "Draft")}>Reject (Draft)</button>
                   </td>
                 </tr>
               ))}
@@ -1533,8 +1533,8 @@ function BookModal({ book, storyImages, onClose, onSave, onUpload }) {
           <div className="field"><label>Genre</label>
             <input value={form.genre || ""} onChange={(e) => set("genre", e.target.value)} /></div>
           <div className="field"><label>Status</label>
-            <input value="Published" disabled readOnly title="All admin novels publish by default" />
-            <input type="hidden" value="Published" />
+            <input value="Ongoing" disabled readOnly title="Admin novels default to Ongoing (public)" />
+            <input type="hidden" value="Ongoing" />
           </div>
           <div className="field"><label>Section</label>
             <select value={form.section_name || "recently_updated"} onChange={(e) => set("section_name", e.target.value)}>
@@ -1636,7 +1636,7 @@ function BookModal({ book, storyImages, onClose, onSave, onUpload }) {
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => onSave({ ...form, status_text: "Published" }, book.id)}
+            onClick={() => onSave({ ...form, status_text: "Ongoing" }, book.id)}
           >
             Save &amp; publish
           </button>

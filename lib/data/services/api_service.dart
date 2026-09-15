@@ -1896,6 +1896,24 @@ class ApiService {
     }
   }
 
+  /// Restore a previous chapter revision into the live chapter.
+  Future<Map<String, dynamic>> restoreStoryChapterRevision(
+    int chapterId,
+    int revisionId,
+  ) async {
+    final response = await _post(
+      '/api/write/chapters/$chapterId/revisions/$revisionId/restore',
+      {},
+      timeout: const Duration(seconds: 45),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Could not restore revision (${response.statusCode})');
+    }
+    final payload = jsonDecode(response.body);
+    if (payload is Map<String, dynamic>) return payload;
+    return {'ok': true};
+  }
+
   Future<void> deleteStoryChapter(int chapterId) async {
     final response = await _delete(
       '/api/write/chapters/$chapterId',
