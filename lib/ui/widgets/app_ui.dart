@@ -189,7 +189,7 @@ class GradientAura extends StatelessWidget {
             bottom: 10,
             child: _blob(100, Colors.white.withValues(alpha: 0.08)),
           ),
-          if (child != null) child!,
+          ?child,
         ],
       ),
     );

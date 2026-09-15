@@ -8,7 +8,6 @@ import 'package:share_plus/share_plus.dart';
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
 import 'story_detail_screen.dart';
-import '../../core/constants/responsive.dart';
 
 /// Galatea-style profile: cover + overlapping avatar, stats, About/Stories/Wall/Activity/Reviews.
 class ProfileScreen extends StatefulWidget {

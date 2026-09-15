@@ -841,6 +841,7 @@ def _ensure_home_slider_sections_table() -> None:
 def _ensure_wall_posts_table() -> None:
     """Dedicated wall posts (profile Wall tab). Soft schema; never drops data.
     Runs once per process — avoids DDL lock storms that cause 300s Vercel timeouts.
+    Always adds missing columns on older DBs (likes_count, image_path).
     """
     global _WALL_POSTS_TABLE_READY
     if _WALL_POSTS_TABLE_READY:
@@ -871,6 +872,11 @@ def _ensure_wall_posts_table() -> None:
                     "ALTER TABLE wall_posts ADD COLUMN image_path TEXT DEFAULT ''",
                     (),
                 )
+            if "likes_count" not in names:
+                execute_write(
+                    "ALTER TABLE wall_posts ADD COLUMN likes_count INTEGER NOT NULL DEFAULT 0",
+                    (),
+                )
         else:
             execute_write(
                 """
@@ -886,15 +892,20 @@ def _ensure_wall_posts_table() -> None:
                 """,
                 (),
             )
-            columns = fetch_all(
-                "SHOW COLUMNS FROM wall_posts LIKE %s",
-                ("image_path",),
-            )
-            if not columns:
-                execute_write(
-                    "ALTER TABLE wall_posts ADD COLUMN image_path VARCHAR(512) DEFAULT ''",
-                    (),
-                )
+            for col, ddl in (
+                ("image_path", "ALTER TABLE wall_posts ADD COLUMN image_path VARCHAR(512) DEFAULT ''"),
+                ("likes_count", "ALTER TABLE wall_posts ADD COLUMN likes_count INT NOT NULL DEFAULT 0"),
+            ):
+                try:
+                    columns = fetch_all(
+                        "SHOW COLUMNS FROM wall_posts LIKE %s",
+                        (col,),
+                    )
+                    if not columns:
+                        execute_write(ddl, ())
+                        LOGGER.info("wall_posts added missing column: %s", col)
+                except Exception as col_exc:
+                    LOGGER.warning("wall_posts add %s failed: %s", col, col_exc)
         _WALL_POSTS_TABLE_READY = True
     except Exception as exc:
         LOGGER.warning("wall_posts ensure failed: %s", exc)
@@ -8435,18 +8446,28 @@ def post_user_wall(
         return {"ok": True, "id": row_id, "body": body}
     except Exception as exc:
         LOGGER.exception("wall post failed: %s", exc)
-        # Retry once after forcing table ensure
+        # Retry: force-add missing columns then insert
         try:
             global _WALL_POSTS_TABLE_READY
             _WALL_POSTS_TABLE_READY = False
             _ensure_wall_posts_table()
-            row_id, _ = execute_write(
-                """
-                INSERT INTO wall_posts (user_id, target_user_id, body, image_path, likes_count, created_at)
-                VALUES (%s, %s, %s, %s, 0, CURRENT_TIMESTAMP)
-                """,
-                (user["user_id"], user_id, body, str(image_path) if image_path else ""),
-            )
+            try:
+                row_id, _ = execute_write(
+                    """
+                    INSERT INTO wall_posts (user_id, target_user_id, body, image_path, likes_count, created_at)
+                    VALUES (%s, %s, %s, %s, 0, CURRENT_TIMESTAMP)
+                    """,
+                    (user["user_id"], user_id, body, str(image_path) if image_path else ""),
+                )
+            except Exception:
+                # Last resort: legacy schema without likes_count
+                row_id, _ = execute_write(
+                    """
+                    INSERT INTO wall_posts (user_id, target_user_id, body, image_path, created_at)
+                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (user["user_id"], user_id, body, str(image_path) if image_path else ""),
+                )
             return {"ok": True, "id": row_id, "body": body}
         except Exception as exc2:
             LOGGER.exception("wall post retry failed: %s", exc2)

@@ -37,8 +37,9 @@ bool storyMatchesWriteTab(Map<String, dynamic> story, int tabIndex) {
           statusText.contains('live') ||
           publishedCount > 0);
 
-  if (tabIndex == 0)
+  if (tabIndex == 0) {
     return isSubmittedLike || (publishedCount > 0 && !isDraftLike);
+  }
   return isDraftLike || draftCount > 0;
 }
 
