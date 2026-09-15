@@ -4614,14 +4614,8 @@ def get_story_chapters(
     owner_id = int(_row_get(story, "user_id") or 0)
     is_owner = user is not None and owner_id == int(user["user_id"])
     if not is_owner:
-        status = str(_row_get(story, "status_text") or "").strip().lower()
-        is_public = (
-            status in {"ongoing", "completed", "complete", "published", "submitted"}
-            or status.startswith("ongoing")
-            or status.startswith("completed")
-            or status.startswith("published")
-        )
-        if not is_public:
+        status = str(_row_get(story, "status_text") or "")
+        if not is_public_status(status):
             raise HTTPException(status_code=404, detail="Story not found")
 
     rows = fetch_all(
@@ -4694,7 +4688,6 @@ def normalize_story_status(status: str | None) -> str:
         return "Completed"
     if low in ("ongoing", "published", "publish", "live", "public", "submitted"):
         return "Ongoing"
-    # Keep known values, else Draft for safety on unknown
     if s in ("Draft", "Ongoing", "Completed", "Unlisted"):
         return s
     return "Draft"
@@ -5301,7 +5294,6 @@ def update_writer_story(
         raise HTTPException(status_code=404, detail="Story not found")
 
     current = rows[0]
-    # Build SET only for provided fields — true partial / PATCH semantics
     sets: list[str] = []
     params: list[Any] = []
 
@@ -5324,7 +5316,11 @@ def update_writer_story(
         params.append(_normalize_cover_path(payload.cover_path))
     if payload.content_warnings is not None:
         sets.append("content_warnings=%s")
-        params.append(payload.content_warnings.strip() if isinstance(payload.content_warnings, str) else payload.content_warnings)
+        params.append(
+            payload.content_warnings.strip()
+            if isinstance(payload.content_warnings, str)
+            else payload.content_warnings
+        )
     if payload.status_text is not None:
         sets.append("status_text=%s")
         params.append(normalize_story_status(payload.status_text))
@@ -5335,7 +5331,6 @@ def update_writer_story(
         sets.append("language=%s")
         params.append(payload.language or "")
 
-    # Always bind ownership to current user
     sets.append("user_id=%s")
     params.append(user["user_id"])
 
@@ -5346,11 +5341,9 @@ def update_writer_story(
         try:
             execute_write(sql, tuple(params))
         except Exception as exc:
-            # Fallback without audience/language if columns missing
             LOGGER.warning("partial story update retry without meta cols: %s", exc)
             safe_sets = [s for s in sets if not s.startswith("audience") and not s.startswith("language")]
             if safe_sets:
-                # rebuild params without audience/language
                 safe_params: list[Any] = []
                 i = 0
                 for s in sets:
@@ -7177,7 +7170,7 @@ def list_author_books(author_id: int, exclude_id: int | None = None):
                    status_text, rating
             FROM books
             WHERE user_id=%s AND id!=%s
-              AND LOWER(COALESCE(status_text, 'draft')) NOT IN ('draft', 'unpublished', 'private')
+              AND LOWER(TRIM(COALESCE(status_text, ''))) NOT LIKE 'draft%' AND LOWER(TRIM(COALESCE(status_text, ''))) NOT LIKE 'unpublish%' AND LOWER(TRIM(COALESCE(status_text, ''))) NOT IN ('private', 'unlisted', '')
             ORDER BY id DESC
             LIMIT 20
             """,
@@ -7190,7 +7183,7 @@ def list_author_books(author_id: int, exclude_id: int | None = None):
                    status_text, rating
             FROM books
             WHERE user_id=%s
-              AND LOWER(COALESCE(status_text, 'draft')) NOT IN ('draft', 'unpublished', 'private')
+              AND LOWER(TRIM(COALESCE(status_text, ''))) NOT LIKE 'draft%' AND LOWER(TRIM(COALESCE(status_text, ''))) NOT LIKE 'unpublish%' AND LOWER(TRIM(COALESCE(status_text, ''))) NOT IN ('private', 'unlisted', '')
             ORDER BY id DESC
             LIMIT 20
             """,
