@@ -100,7 +100,7 @@ def _insert_chapter(execute_write, book_id: int, num: int, title: str, body: str
 
 
 def seed_chapters_for_empty_books(
-    limit_books: int = 120,
+    limit_books: int = 500,
     chapters_per_book: int = 5,
     paragraphs_per_chapter: int = 30,
 ) -> dict[str, Any]:
@@ -108,14 +108,16 @@ def seed_chapters_for_empty_books(
     report: dict[str, Any] = {"books_touched": 0, "chapters_added": 0, "errors": 0}
     try:
         fetch_all, execute_write = _db()
+        # All non-private books missing chapters (Published/Ongoing/Completed/empty)
         books = fetch_all(
             """
-            SELECT b.id, b.title, b.author,
+            SELECT b.id, b.title, b.author, b.status_text,
                    (SELECT COUNT(*) FROM chapters c
                     WHERE c.story_id = b.id) AS ch_count
             FROM books b
-            WHERE LOWER(COALESCE(b.status_text, 'draft'))
-                  NOT IN ('draft', 'unpublished', 'private', '')
+            WHERE LOWER(COALESCE(b.status_text, 'published'))
+                  NOT IN ('unpublished', 'private', 'unlisted')
+            ORDER BY ch_count ASC, b.id ASC
             LIMIT %s
             """,
             (limit_books,),
@@ -148,6 +150,21 @@ def seed_chapters_for_empty_books(
                 _insert_chapter(execute_write, bid, n, ch_title, body)
                 report["chapters_added"] += 1
             report["books_touched"] += 1
+
+            # Attach to a dummy seed account when author_user_id missing
+            try:
+                user_ids = _ensure_seed_users()
+                if user_ids:
+                    uid = user_ids[bid % len(user_ids)]
+                    execute_write(
+                        """
+                        UPDATE books SET author_user_id=%s
+                        WHERE id=%s AND (author_user_id IS NULL OR author_user_id=0)
+                        """,
+                        (uid, bid),
+                    )
+            except Exception:
+                pass
         except Exception as exc:
             report["errors"] += 1
             LOGGER.warning("seed chapters for book failed: %s", exc)
@@ -352,7 +369,7 @@ def run_content_enrichment(force: bool = False) -> dict[str, Any]:
         return result
 
     # Always try empty books first — do NOT skip based on total chapter count
-    result["chapters"] = seed_chapters_for_empty_books(limit_books=120, chapters_per_book=5, paragraphs_per_chapter=30)
+    result["chapters"] = seed_chapters_for_empty_books(limit_books=500, chapters_per_book=3, paragraphs_per_chapter=12)
 
     try:
         result["wall"] = seed_wall_posts(limit_authors=20)

@@ -18,10 +18,10 @@ def _db():
     return fetch_all, execute_write
 
 
-def ensure_min_chapters(min_chapters: int = 3, limit_books: int = 300) -> dict[str, Any]:
+def ensure_min_chapters(min_chapters: int = 3, limit_books: int = 500) -> dict[str, Any]:
     from .content_enrichment_seed import seed_chapters_for_empty_books
     return seed_chapters_for_empty_books(
-        limit_books=limit_books,
+        limit_books=max(limit_books, 500),
         chapters_per_book=min_chapters,
         paragraphs_per_chapter=12,
     )
@@ -47,8 +47,8 @@ def ensure_genres_and_tag_links(limit_books: int = 500) -> dict[str, Any]:
             """
             SELECT id, genre, primary_genre, secondary_genre
             FROM books
-            WHERE LOWER(COALESCE(status_text, 'draft'))
-                  NOT IN ('draft', 'unpublished', 'private', 'unlisted', '')
+            WHERE LOWER(COALESCE(status_text, 'published'))
+                  NOT IN ('unpublished', 'private', 'unlisted')
             LIMIT %s
             """,
             (limit_books,),

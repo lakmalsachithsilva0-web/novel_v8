@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/responsive.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_styles.dart';
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
 import 'story_detail_screen.dart';
@@ -296,7 +297,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                             controller: _tabs,
                             isScrollable: true,
                             labelColor: AppTheme.brand,
-                            unselectedLabelColor: AppTheme.muted,
+                            unselectedLabelColor: isDark ? const Color(0xFFC4B8D9) : AppTheme.muted,
                             indicatorColor: AppTheme.brand,
                             indicatorWeight: 3,
                             tabs: const [
@@ -345,14 +346,18 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
         : widget.apiService.resolveAssetUrl(cover);
     final count = _books.length;
     final accent = _tagAccent();
-    final deep = Color.alphaBlend(
-      const Color(0xFFFFF7EC),
-      accent.withValues(alpha: 0.18),
-    );
-    final textColor = isDark ? Colors.white : AppTheme.ink;
-    final mutedText = isDark
-        ? const Color(0xFFE7E1F8)
-        : const Color(0xFF584D79);
+    final deep = isDark
+        ? Color.alphaBlend(
+            const Color(0xFF1A1228),
+            accent.withValues(alpha: 0.45),
+          )
+        : Color.alphaBlend(
+            const Color(0xFFFFF7EC),
+            accent.withValues(alpha: 0.18),
+          );
+    final textColor = isDark ? const Color(0xFFF8F5FF) : AppTheme.ink;
+    // High-contrast muted (readable on purple gradients)
+    final mutedText = isDark ? const Color(0xFFE0D6F5) : const Color(0xFF5C5470);
     final tileBg = isDark ? Colors.black.withValues(alpha: 0.15) : Colors.white;
     final tileBorder = isDark
         ? Colors.white.withValues(alpha: 0.16)
@@ -572,9 +577,13 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Row(
             children: [
-              const Text(
+              Text(
                 'Featured Stories',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? const Color(0xFFF5F0FF) : AppTheme.ink,
+                ),
               ),
               const Spacer(),
               Text(
@@ -617,7 +626,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
                                 width: 120,
-                                color: const Color(0xFFF3F0FF),
+                                color: isDark ? const Color(0xFF2A2140) : const Color(0xFFF3F0FF),
                                 child: url == null
                                     ? const Icon(Icons.menu_book)
                                     : Image.network(
@@ -671,7 +680,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey.shade600,
+                          color: const Color(0xFFD4CBE8),
                         ),
                       ),
                     ],
@@ -695,14 +704,18 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
           child: Row(
             children: [
-              const Text(
+              Text(
                 'Top Stories',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? const Color(0xFFF5F0FF) : AppTheme.ink,
+                ),
               ),
               const Spacer(),
               Text(
                 'Sort by Top',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                style: TextStyle(color: const Color(0xFFD4CBE8), fontSize: 12),
               ),
             ],
           ),
@@ -735,7 +748,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                     height: 28,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF3F0FF),
+                      color: isDark ? const Color(0xFF2A2140) : const Color(0xFFF3F0FF),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -752,7 +765,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                     child: Container(
                       width: 56,
                       height: 72,
-                      color: const Color(0xFFF3F0FF),
+                      color: isDark ? const Color(0xFF2A2140) : const Color(0xFFF3F0FF),
                       child: url == null
                           ? const Icon(Icons.menu_book, size: 20)
                           : Image.network(
@@ -772,16 +785,17 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                           title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 14,
+                            color: isDark ? const Color(0xFFF5F0FF) : AppTheme.ink,
                           ),
                         ),
                         Text(
                           'by $author',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade600,
+                            color: const Color(0xFFD4CBE8),
                           ),
                         ),
                         if (desc.isNotEmpty)
@@ -791,7 +805,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade700,
+                              color: const Color(0xFFC4B8D9),
                               height: 1.25,
                             ),
                           ),
@@ -830,7 +844,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                               '$views',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.grey.shade600,
+                                color: const Color(0xFFD4CBE8),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -843,7 +857,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                               rating.toStringAsFixed(1),
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.grey.shade600,
+                                color: const Color(0xFFD4CBE8),
                               ),
                             ),
                           ],
@@ -941,7 +955,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                         '$count stories',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey.shade600,
+                          color: const Color(0xFFD4CBE8),
                         ),
                       ),
                     ],
