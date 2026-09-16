@@ -273,7 +273,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
     } catch (_) {}
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Published — under Submitted as Ongoing')),
+      const SnackBar(content: Text('Chapter submitted — story under Submitted as Ongoing')),
     );
     await _returnToWriteManager(openDrafts: false);
   }

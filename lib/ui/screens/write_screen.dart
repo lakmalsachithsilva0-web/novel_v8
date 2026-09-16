@@ -9,38 +9,34 @@ import '../../data/services/api_service.dart';
 import 'create_story_screen.dart';
 import 'chapter_reader_screen.dart';
 import 'edit_chapter_screen.dart';
+import 'story_manage_screen.dart';
 import 'story_detail_screen.dart';
 
 bool storyMatchesWriteTab(Map<String, dynamic> story, int tabIndex) {
+  // Inkitt-style: tabs are STORY status only.
+  // Drafts = not public. Submitted = Ongoing / Completed / Published.
+  // Chapter draft vs published is managed inside StoryManageScreen.
   final statusText =
       story['status_text']?.toString().toLowerCase().trim() ?? '';
-  final publishedCount =
-      (story['published_chapter_count'] as num?)?.toInt() ?? 0;
-  final draftCount = (story['draft_chapter_count'] as num?)?.toInt() ?? 0;
 
-  final isDraftLike =
-      statusText.isEmpty ||
+  final isDraftStory = statusText.isEmpty ||
       statusText.contains('draft') ||
       statusText.contains('private') ||
-      statusText.contains('unpublished') ||
-      draftCount > 0;
+      statusText.contains('unpublish') ||
+      statusText.contains('hidden');
 
-  final isSubmittedLike =
-      statusText.isNotEmpty &&
-      !statusText.contains('draft') &&
-      !statusText.contains('private') &&
-      !statusText.contains('unpublished') &&
+  final isSubmittedStory = !isDraftStory &&
       (statusText.contains('ongoing') ||
           statusText.contains('submitted') ||
           statusText.contains('published') ||
           statusText.contains('complete') ||
           statusText.contains('live') ||
-          publishedCount > 0);
+          statusText == 'unlisted');
 
   if (tabIndex == 0) {
-    return isSubmittedLike || (publishedCount > 0 && !isDraftLike);
+    return isSubmittedStory;
   }
-  return isDraftLike || draftCount > 0;
+  return isDraftStory || !isSubmittedStory;
 }
 
 class WriteScreen extends StatefulWidget {
@@ -213,202 +209,18 @@ class _WriteScreenState extends State<WriteScreen>
   Future<void> _openEditChapter(Map<String, dynamic> story) async {
     final storyId = (story['id'] as num?)?.toInt();
     if (storyId == null) return;
-    final latestStory = await widget.apiService.fetchWriterStory(storyId);
-    final storyForEditing = latestStory ?? story;
-    if (!mounted) return;
 
-    List<Map<String, dynamic>> chapters = const [];
-    try {
-      chapters = await widget.apiService.fetchStoryChapters(storyId);
-    } catch (_) {}
-
-    if (!mounted) return;
-    // Inkitt-style: chapter list for ONE story shows ALL chapters.
-    // Do NOT filter by Write home Submitted/Drafts tab (that hid chapters
-    // after Edit details and looked like data loss).
-    final visibleChapters = List<Map<String, dynamic>>.from(chapters);
-    if (!_storyDetailsComplete(storyForEditing)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Complete story details before adding chapters'),
+    // Inkitt Manage Stories: full-screen story + all chapters
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => StoryManageScreen(
+          apiService: widget.apiService,
+          story: story,
         ),
-      );
-      return;
-    }
-
-    final choice = await showModalBottomSheet<Object>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Chapters — ${storyForEditing['title'] ?? 'Story'}',
-                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (visibleChapters.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('No chapters yet. Add the first one.'),
-                  ),
-                for (final c in visibleChapters)
-                  ListTile(
-                    leading: CircleAvatar(
-                      radius: 16,
-                      child: Text(
-                        '${(c['chapter_number'] as num?)?.toInt() ?? ''}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                    title: Text(
-                      (c['title'] ??
-                              'Chapter ${(c['chapter_number'] as num?)?.toInt() ?? ''}')
-                          .toString(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Builder(
-                      builder: (_) {
-                        final raw = (c['submission_status'] ?? 'draft')
-                            .toString()
-                            .toLowerCase()
-                            .trim();
-                        final label = raw == 'published' ||
-                                raw == 'submitted' ||
-                                raw == 'ongoing' ||
-                                raw == 'completed'
-                            ? 'Published'
-                            : raw == 'scheduled'
-                                ? 'Scheduled'
-                                : 'Draft';
-                        final bg = label == 'Published'
-                            ? const Color(0xFFD1FAE5)
-                            : label == 'Scheduled'
-                                ? const Color(0xFFE0E7FF)
-                                : const Color(0xFFFEF3C7);
-                        final fg = label == 'Published'
-                            ? const Color(0xFF047857)
-                            : label == 'Scheduled'
-                                ? const Color(0xFF3730A3)
-                                : const Color(0xFFB45309);
-                        final words = (c['content'] ?? '')
-                            .toString()
-                            .trim()
-                            .split(RegExp(r'\s+'))
-                            .where((w) => w.isNotEmpty)
-                            .length;
-                        return Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: bg,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                label,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: fg,
-                                ),
-                              ),
-                            ),
-                            if (words > 0)
-                              Text(
-                                '$words words',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.muted,
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: 'Read chapter',
-                          icon: const Icon(Icons.menu_book_outlined),
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            _readChapter(storyForEditing, c, visibleChapters);
-                          },
-                        ),
-                        IconButton(
-                          tooltip: 'Edit chapter',
-                          icon: const Icon(Icons.edit_outlined),
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            _editSelectedChapter(storyId, c);
-                          },
-                        ),
-                        IconButton(
-                          tooltip: 'Delete chapter',
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.red,
-                          ),
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            _deleteChapter(c);
-                          },
-                        ),
-                      ],
-                    ),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _editSelectedChapter(storyId, c);
-                    },
-                  ),
-                const SizedBox(height: 8),
-                if (_storySubTabs.index == 1)
-                  FilledButton.icon(
-                    onPressed: () => Navigator.pop(ctx, 'new'),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add new chapter'),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
     );
-
-    if (!mounted || choice == null) return;
-
-    if (choice == 'new') {
-      await Navigator.of(context).push<Map<String, dynamic>>(
-        MaterialPageRoute<Map<String, dynamic>>(
-          builder: (_) => EditChapterScreen(
-            apiService: widget.apiService,
-            storyId: storyId,
-            createNew: true,
-            chapterTitle: 'Chapter ${(chapters.length + 1)}',
-          ),
-        ),
-      );
-      await _reloadStories();
-    }
+    if (!mounted) return;
+    await _reloadStories();
   }
 
   Future<void> _editSelectedChapter(
