@@ -126,17 +126,23 @@ class _WriteScreenState extends State<WriteScreen>
   }
 
   Future<void> _openCreateStory({Map<String, dynamic>? story}) async {
+    final wasDraft = story != null &&
+        ((story['status_text'] ?? 'Draft')
+            .toString()
+            .toLowerCase()
+            .contains('draft'));
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) =>
             CreateStoryScreen(apiService: widget.apiService, story: story),
       ),
     );
-    if (!mounted || result != true) return;
+    if (!mounted) return;
     await _reloadStories();
-    // After publishing flow, show Submitted
+    if (result != true) return;
     if (_mainTabs.index != 0) _mainTabs.animateTo(0);
-    _storySubTabs.animateTo(0);
+    // Inkitt-style: stay on Drafts after editing a draft story
+    _storySubTabs.animateTo(wasDraft ? 1 : 0);
   }
 
   Future<void> _readChapter(
@@ -217,20 +223,10 @@ class _WriteScreenState extends State<WriteScreen>
     } catch (_) {}
 
     if (!mounted) return;
-    final visibleChapters = chapters.where((chapter) {
-      final status = (chapter['submission_status'] ?? 'draft')
-          .toString()
-          .toLowerCase()
-          .trim();
-      final published = {
-        'ongoing',
-        'published',
-        'submitted',
-        'completed',
-        'scheduled',
-      }.contains(status);
-      return _storySubTabs.index == 0 ? published : !published;
-    }).toList();
+    // Inkitt-style: chapter list for ONE story shows ALL chapters.
+    // Do NOT filter by Write home Submitted/Drafts tab (that hid chapters
+    // after Edit details and looked like data loss).
+    final visibleChapters = List<Map<String, dynamic>>.from(chapters);
     if (!_storyDetailsComplete(storyForEditing)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -312,7 +308,10 @@ class _WriteScreenState extends State<WriteScreen>
                             .split(RegExp(r'\s+'))
                             .where((w) => w.isNotEmpty)
                             .length;
-                        return Row(
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -332,8 +331,7 @@ class _WriteScreenState extends State<WriteScreen>
                                 ),
                               ),
                             ),
-                            if (words > 0) ...[
-                              const SizedBox(width: 8),
+                            if (words > 0)
                               Text(
                                 '$words words',
                                 style: const TextStyle(
@@ -341,7 +339,6 @@ class _WriteScreenState extends State<WriteScreen>
                                   color: AppTheme.muted,
                                 ),
                               ),
-                            ],
                           ],
                         );
                       },

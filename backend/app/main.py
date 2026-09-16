@@ -5434,8 +5434,23 @@ def update_writer_story(
     if payload.tags is not None:
         _set_story_tags(story_id, payload.tags)
 
+    chapter_count = 0
+    try:
+        cnt_rows = fetch_all(
+            "SELECT COUNT(*) AS c FROM chapters WHERE story_id=%s",
+            (story_id,),
+        )
+        chapter_count = int((cnt_rows[0].get("c") if cnt_rows else 0) or 0)
+    except Exception:
+        chapter_count = 0
+
     bump_content_version()
-    return {"ok": True, "message": "Details updated — chapters unchanged"}
+    return {
+        "ok": True,
+        "message": "Details updated — chapters unchanged",
+        "story_id": story_id,
+        "chapter_count": chapter_count,
+    }
 
 
 @app.get("/api/write/stories/{story_id}")

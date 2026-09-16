@@ -501,9 +501,17 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           (_isEditing ? ((widget.story!['id'] as num?)?.toInt() ?? 0) : 0);
 
       Future<int> persist() async {
-        if (storyId > 0) {
-          await widget.apiService.updateWriterStory(storyId, payload);
-          return storyId;
+        // Inkitt-style: Edit details NEVER creates a new story.
+        if (storyId > 0 || _isEditing) {
+          final id = storyId > 0
+              ? storyId
+              : ((widget.story?['id'] as num?)?.toInt() ?? 0);
+          if (id <= 0) {
+            throw Exception('Missing story id — cannot update details');
+          }
+          await widget.apiService.updateWriterStory(id, payload);
+          _savedStoryId = id;
+          return id;
         }
         final id = await widget.apiService.createWriterStory(payload);
         if (id > 0) _savedStoryId = id;
@@ -560,7 +568,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
       if (asDraft) {
         if (!popAfter && !silent) {
-          final msg = _isEditing
+          final msg = (_isEditing || storyId > 0)
               ? 'Details updated — chapters unchanged'
               : 'Draft saved';
           ScaffoldMessenger.of(
