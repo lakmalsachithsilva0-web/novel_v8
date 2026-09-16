@@ -540,8 +540,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           (_isEditing ? ((widget.story!['id'] as num?)?.toInt() ?? 0) : 0);
 
       Future<int> persist() async {
-        // Inkitt-style: Edit details NEVER creates a new story.
-        if (storyId > 0 || _isEditing) {
+        // Inkitt-style CONTRACT: Edit details NEVER creates a new story
+        // and NEVER touches chapters. Only books row is updated.
+        if (_isEditing || storyId > 0) {
           final id = storyId > 0
               ? storyId
               : ((widget.story?['id'] as num?)?.toInt() ?? 0);
@@ -576,7 +577,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         }
       }
 
-      if (storyId <= 0) {
+      // Never recover-by-title while editing an existing story —
+      // that can attach chapters to the wrong book and look like a wipe.
+      if (storyId <= 0 && !_isEditing) {
         await Future<void>.delayed(const Duration(milliseconds: 600));
         final recovered = await widget.apiService.findWriterStoryIdByTitle(
           safeTitle,

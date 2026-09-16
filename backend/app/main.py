@@ -5482,7 +5482,7 @@ def update_writer_story(
     payload: StoryUpdateRequest,
     user: dict[str, Any] = Depends(require_user),
 ):
-    """Partial meta update only. Never deletes or touches chapters (Inkitt-style)."""
+    """Partial meta update only. Never deletes, inserts, or replaces chapters (Inkitt-style contract)."""
     rows = fetch_all(
         "SELECT * FROM books WHERE id=%s AND (user_id=%s OR user_id IS NULL)",
         (story_id, user["user_id"]),
@@ -5558,6 +5558,7 @@ def update_writer_story(
     if payload.tags is not None:
         _set_story_tags(story_id, payload.tags)
 
+    # Count only — NEVER delete/insert chapters on details update (Inkitt contract).
     chapter_count = 0
     try:
         cnt_rows = fetch_all(
@@ -5565,8 +5566,25 @@ def update_writer_story(
             (story_id,),
         )
         chapter_count = int((cnt_rows[0].get("c") if cnt_rows else 0) or 0)
+        if chapter_count == 0:
+            # Legacy schema: some DBs used book_id
+            try:
+                cnt2 = fetch_all(
+                    "SELECT COUNT(*) AS c FROM chapters WHERE book_id=%s",
+                    (story_id,),
+                )
+                chapter_count = int((cnt2[0].get("c") if cnt2 else 0) or 0)
+            except Exception:
+                pass
     except Exception:
-        chapter_count = 0
+        try:
+            cnt_rows = fetch_all(
+                "SELECT COUNT(*) AS c FROM chapters WHERE book_id=%s",
+                (story_id,),
+            )
+            chapter_count = int((cnt_rows[0].get("c") if cnt_rows else 0) or 0)
+        except Exception:
+            chapter_count = 0
 
     bump_content_version()
     return {
@@ -5574,6 +5592,7 @@ def update_writer_story(
         "message": "Details updated — chapters unchanged",
         "story_id": story_id,
         "chapter_count": chapter_count,
+        "chapters_untouched": True,
     }
 
 
