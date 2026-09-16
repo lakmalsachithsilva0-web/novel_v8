@@ -1249,7 +1249,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                               fontStyle: _isItalic
                                   ? FontStyle.italic
                                   : FontStyle.normal,
-                              color: Colors.black87,
+                              // dark-mode: was Colors.black87
                             ),
                             decoration: const InputDecoration(
                               contentPadding: EdgeInsets.fromLTRB(

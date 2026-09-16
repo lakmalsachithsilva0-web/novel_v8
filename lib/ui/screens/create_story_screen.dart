@@ -14,7 +14,7 @@ import 'root_shell.dart';
 /// genre + New, Ongoing/Completed status, language, audience,
 /// content-warning chips, max-3 hashtags, sticky Save Draft / Publish.
 class CreateStoryScreen extends StatefulWidget {
-  const CreateStoryScreen({
+  CreateStoryScreen({
     super.key,
     required this.apiService,
     this.story,
@@ -31,18 +31,18 @@ class CreateStoryScreen extends StatefulWidget {
 
 class _CreateStoryScreenState extends State<CreateStoryScreen> {
   // Theme-aware colors resolved in build() via AppStyles (dark default OK)
-  Color _ink = const Color(0xFFF7F5FC);
-  Color _panel = const Color(0xFFFFFFFF);
-  Color _panelAlt = const Color(0xFFF3F0FF);
-  Color _border = const Color(0xFFE8E8E8);
-  Color _borderSoft = const Color(0xFFEDE9FE);
-  Color _textHi = const Color(0xFF231F20);
-  Color _textLo = const Color(0xFF767676);
-  Color _textFaint = const Color(0xFF9A9A9A);
-  Color _magenta = const Color(0xFF6C3CE1);
-  Color _violet = const Color(0xFFB794F6);
-  Color _amber = const Color(0xFFF0B357);
-  Color _green = const Color(0xFF6C3CE1);
+  Color _ink = Color(0xFFF7F5FC);
+  Color _panel = Color(0xFFFFFFFF);
+  Color _panelAlt = Color(0xFFF3F0FF);
+  Color _border = Color(0xFFE8E8E8);
+  Color _borderSoft = Color(0xFFEDE9FE);
+  Color _textHi = Color(0xFF231F20);
+  Color _textLo = Color(0xFF767676);
+  Color _textFaint = Color(0xFF9A9A9A);
+  Color _magenta = Color(0xFF6C3CE1);
+  Color _violet = Color(0xFFB794F6);
+  Color _amber = Color(0xFFF0B357);
+  Color _green = Color(0xFF6C3CE1);
 
   void _applyThemeColors(BuildContext context) {
     final c = AppStyles.colors(context);
@@ -56,7 +56,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     _textFaint = c.textFaint;
     _magenta = c.brand;
     _violet = AppStyles.purpleBright;
-    _amber = const Color(0xFFF0B357);
+    _amber = Color(0xFFF0B357);
     _green = c.brand;
   }
 
@@ -834,7 +834,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Center(
                 child: Container(
                   width: 36,
@@ -849,7 +849,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     color: _textLo,
                     fontStyle: FontStyle.italic,
@@ -870,7 +870,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                         ),
                       ),
                       trailing: selected
-                          ? const Icon(Icons.check, color: _magenta, size: 18)
+                          ? Icon(Icons.check, color: _magenta, size: 18)
                           : null,
                       onTap: () {
                         onSelect(opt);
@@ -953,7 +953,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.fromLTRB(8, 10, 16, 10),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: _ink,
                     border: Border(bottom: BorderSide(color: _borderSoft)),
                   ),
@@ -984,9 +984,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                             );
                           }
                         },
-                        icon: const Icon(Icons.arrow_back, color: _textHi),
+                        icon: Icon(Icons.arrow_back, color: _textHi),
                       ),
-                      const Text(
+                      Text(
                         'New Story',
                         style: TextStyle(
                           fontSize: 18,
@@ -995,7 +995,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                           letterSpacing: 0.2,
                         ),
                       ),
-                      const Spacer(),
+                      Spacer(),
                     ],
                   ),
                 ),
@@ -1056,7 +1056,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                     ),
                                   ],
                                 )
-                              : const Column(
+                              : Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
@@ -1076,13 +1076,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
+                      SizedBox(height: 8),
+                      Text(
                         'Shown on Draft & Submitted lists',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 11.5, color: _textFaint),
                       ),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
@@ -1093,7 +1093,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
                                 Text('✒', style: TextStyle(fontSize: 14)),
                                 SizedBox(width: 8),
@@ -1108,7 +1108,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 9),
+                            SizedBox(height: 9),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(999),
                               child: LinearProgressIndicator(
@@ -1120,13 +1120,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 9),
+                            SizedBox(height: 9),
                             Row(
                               children: [
                                 Expanded(
                                   child: Text(
                                     _readinessCaption,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12.5,
                                       fontStyle: FontStyle.italic,
                                       color: _textHi,
@@ -1135,7 +1135,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 ),
                                 Text(
                                   '$_readinessPct%',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 18,
                                     color: _textHi,
                                     fontWeight: FontWeight.w500,
@@ -1146,15 +1146,15 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20),
                       _label('TITLE'),
-                      const SizedBox(height: 7),
+                      SizedBox(height: 7),
                       _darkField(
                         child: TextField(
                           controller: _titleController,
                           maxLength: 100,
-                          style: const TextStyle(color: _textHi, fontSize: 15),
-                          decoration: const InputDecoration(
+                          style: TextStyle(color: _textHi, fontSize: 15),
+                          decoration: InputDecoration(
                             hintText: 'My Story',
                             hintStyle: TextStyle(color: _textFaint),
                             border: InputBorder.none,
@@ -1176,9 +1176,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       _label('AUTHOR (FROM YOUR ACCOUNT)'),
-                      const SizedBox(height: 7),
+                      SizedBox(height: 7),
                       Stack(
                         children: [
                           _darkField(
@@ -1186,11 +1186,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                               controller: _authorController,
                               readOnly: true,
                               enabled: false,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _textFaint,
                                 fontSize: 15,
                               ),
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.symmetric(
                                   horizontal: 14,
@@ -1199,7 +1199,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                               ),
                             ),
                           ),
-                          const Positioned(
+                          Positioned(
                             right: 14,
                             top: 14,
                             child: Icon(
@@ -1210,21 +1210,21 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       _label('SUMMARY'),
-                      const SizedBox(height: 7),
+                      SizedBox(height: 7),
                       _darkField(
                         child: TextField(
                           controller: _summaryController,
                           focusNode: _summaryFocus,
                           maxLength: 500,
                           maxLines: 4,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: _textHi,
                             fontSize: 15,
                             height: 1.45,
                           ),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             hintText: 'Short description of your story...',
                             hintStyle: TextStyle(color: _textFaint),
                             border: InputBorder.none,
@@ -1367,20 +1367,20 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                         width: 1.5,
                                       ),
                                       gradient: checked
-                                          ? const LinearGradient(
+                                          ? LinearGradient(
                                               colors: [_magenta, _violet],
                                             )
                                           : null,
                                     ),
                                     child: checked
-                                        ? const Icon(
+                                        ? Icon(
                                             Icons.check,
                                             size: 11,
                                             color: Colors.white,
                                           )
                                         : null,
                                   ),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       w,
@@ -1398,15 +1398,15 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                         }).toList(),
                       ),
                       if (_selectedWarnings.contains('Other')) ...[
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8),
                         _darkField(
                           child: TextField(
                             controller: _otherWarningController,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: _textHi,
                               fontSize: 15,
                             ),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Describe the other warning...',
                               hintStyle: TextStyle(color: _textFaint),
                               border: InputBorder.none,
@@ -1418,9 +1418,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       _label('HASHTAGS (MAX 3)'),
-                      const SizedBox(height: 7),
+                      SizedBox(height: 7),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -1460,7 +1460,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                         children: [
                                           Text(
                                             '#$t',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               color: Color(0xFF6C3CE1),
                                               fontSize: 12.5,
                                             ),
@@ -1468,7 +1468,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                           const SizedBox(width: 6),
                                           GestureDetector(
                                             onTap: () => _removeTag(t),
-                                            child: const Icon(
+                                            child: Icon(
                                               Icons.close,
                                               size: 12,
                                               color: Color(0xFF6C3CE1),
@@ -1496,11 +1496,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                       return TextField(
                                         controller: controller,
                                         focusNode: focusNode,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           color: _textHi,
                                           fontSize: 14.5,
                                         ),
-                                        decoration: const InputDecoration(
+                                        decoration: InputDecoration(
                                           hintText: 'Search admin hashtags…',
                                           hintStyle: TextStyle(
                                             color: _textFaint,
@@ -1573,7 +1573,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                                   dense: true,
                                                   title: Text(
                                                     '#$option',
-                                                    style: const TextStyle(
+                                                    style: TextStyle(
                                                       color: _textHi,
                                                     ),
                                                   ),
@@ -1609,7 +1609,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                         (t) => ActionChip(
                                           label: Text(
                                             '#$t',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 12,
                                             ),
                                           ),
@@ -1623,7 +1623,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 ),
                               ),
                             if (!_loadingTags && _availableTags.isEmpty)
-                              const Padding(
+                              Padding(
                                 padding: EdgeInsets.only(top: 6),
                                 child: Text(
                                   'No admin hashtags yet. Ask an admin to create tags.',
@@ -1634,7 +1634,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 ),
                               ),
                             if (_loadingTags)
-                              const Padding(
+                              Padding(
                                 padding: EdgeInsets.only(top: 6),
                                 child: LinearProgressIndicator(
                                   minHeight: 2,
@@ -1644,13 +1644,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 80),
+                      SizedBox(height: 80),
                     ],
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: _ink,
                     border: Border(top: BorderSide(color: _borderSoft)),
                   ),
@@ -1663,7 +1663,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                               : () => _save(asDraft: true),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: _textHi,
-                            side: const BorderSide(color: _border),
+                            side: BorderSide(color: _border),
                             backgroundColor: _panelAlt,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -1685,7 +1685,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Expanded(
                         flex: 2,
                         child: ElevatedButton(
@@ -1721,7 +1721,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 )
                               : Text(
                                   _isEditing ? 'Save details' : 'Save',
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  style: TextStyle(fontWeight: FontWeight.w600),
                                 ),
                         ),
                       ),
@@ -1739,7 +1739,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   Widget _label(String text) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 10.5,
         letterSpacing: 0.9,
         color: _textLo,
@@ -1779,7 +1779,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const Icon(Icons.keyboard_arrow_down, color: _textLo, size: 20),
+          Icon(Icons.keyboard_arrow_down, color: _textLo, size: 20),
         ],
       ),
     );
