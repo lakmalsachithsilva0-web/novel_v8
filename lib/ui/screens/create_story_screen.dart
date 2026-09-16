@@ -60,7 +60,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     _green = c.brand;
   }
 
-  static const List<String> _defaultGenres = [
+  static List<String> _defaultGenres = [
     'Romance',
     'Fantasy',
     'Drama',
@@ -78,13 +78,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     'Action',
     'Other',
   ];
-  static const List<String> _languages = ['Sinhala', 'English', 'Tamil'];
-  static const List<String> _audiences = [
+  static List<String> _languages = ['Sinhala', 'English', 'Tamil'];
+  static List<String> _audiences = [
     'All Ages',
     'Teen (13+)',
     'Mature (18+)',
   ];
-  static const List<String> _warningOptions = [
+  static List<String> _warningOptions = [
     'Violence',
     'Strong Language',
     'Sexual Content',
@@ -108,7 +108,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   bool _dirty = false;
   String _coverPath = '';
   final List<String> _selectedTags = [];
-  List<String> _availableTags = const [];
+  List<String> _availableTags = [];
   bool _loadingTags = false;
 
   List<String> _genres = List<String>.from(_defaultGenres);
@@ -243,7 +243,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     setState(() => _loadingTags = true);
     try {
       final items = await widget.apiService.fetchTags().timeout(
-        const Duration(seconds: 8),
+        Duration(seconds: 8),
         onTimeout: () => <Map<String, dynamic>>[],
       );
       if (!mounted) return;
@@ -265,7 +265,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     setState(() => _loadingGenres = true);
     try {
       final remote = await widget.apiService.fetchGenres().timeout(
-        const Duration(seconds: 8),
+        Duration(seconds: 8),
         onTimeout: () => <String>[],
       );
       if (!mounted) return;
@@ -299,8 +299,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cover guidelines'),
-        content: const SingleChildScrollView(
+        title: Text('Cover guidelines'),
+        content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -326,7 +326,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Got it'),
+            child: Text('Got it'),
           ),
         ],
       ),
@@ -357,14 +357,14 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       if (!mounted) return;
       if (path.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cover upload returned empty path')),
+          SnackBar(content: Text('Cover upload returned empty path')),
         );
         return;
       }
       setState(() => _coverPath = path);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Cover uploaded')));
+      ).showSnackBar(SnackBar(content: Text('Cover uploaded')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -441,7 +441,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
   Iterable<String> _tagSuggestions(String text) {
     final q = text.trim().toLowerCase().replaceFirst('#', '');
-    if (q.isEmpty) return const Iterable<String>.empty();
+    if (q.isEmpty) return Iterable<String>.empty();
     return _availableTags
         .where((t) => t.toLowerCase().contains(q))
         .where(
@@ -457,7 +457,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     if (_selectedTags.length >= 3) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Maximum 3 tags')));
+      ).showSnackBar(SnackBar(content: Text('Maximum 3 tags')));
       return;
     }
     setState(() {
@@ -486,18 +486,18 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     final shouldLeave = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Leave page?'),
-        content: const Text(
+        title: Text('Leave page?'),
+        content: Text(
           'Your story details will be saved as a draft before you leave.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Stay'),
+            child: Text('Stay'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Leave'),
+            child: Text('Leave'),
           ),
         ],
       ),
@@ -516,7 +516,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     if (_saving && silent) return;
     if (_saving && !silent) {
       for (var i = 0; i < 20 && _saving; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
+        await Future<void>.delayed(Duration(milliseconds: 100));
       }
     }
     if (_saving && silent) return;
@@ -591,14 +591,14 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               msg.contains('socket') ||
               msg.contains('connection');
           if (!isSlow || attempt >= 2) break;
-          await Future<void>.delayed(const Duration(seconds: 2));
+          await Future<void>.delayed(Duration(seconds: 2));
         }
       }
 
       // Never recover-by-title while editing an existing story —
       // that can attach chapters to the wrong book and look like a wipe.
       if (storyId <= 0 && !_isEditing) {
-        await Future<void>.delayed(const Duration(milliseconds: 600));
+        await Future<void>.delayed(Duration(milliseconds: 600));
         final recovered = await widget.apiService.findWriterStoryIdByTitle(
           safeTitle,
         );
@@ -615,7 +615,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       if (storyId <= 0) {
         if (!silent) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not save — try again')),
+            SnackBar(content: Text('Could not save — try again')),
           );
         }
         return;
@@ -632,7 +632,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       if (_isEditing || (widget.story != null && storyId > 0 && asDraft)) {
         if (!silent && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text('Details updated — chapters unchanged'),
             ),
           );
@@ -654,7 +654,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               await prefs.setBool('write_open_submitted', !isDraft);
             } catch (_) {}
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute<void>(builder: (_) => const RootShell()),
+              MaterialPageRoute<void>(builder: (_) => RootShell()),
               (route) => false,
             );
           }
@@ -665,7 +665,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       if (asDraft) {
         if (!popAfter && !silent) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Draft saved')),
+            SnackBar(content: Text('Draft saved')),
           );
         }
         if (popAfter && mounted) {
@@ -675,7 +675,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             await prefs.setBool('write_open_submitted', false);
           } catch (_) {}
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(builder: (_) => const RootShell()),
+            MaterialPageRoute<void>(builder: (_) => RootShell()),
             (route) => false,
           );
         }
@@ -686,7 +686,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       if (_readinessDone < 3) {
         if (!silent) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
                 'Complete all story details before adding chapters',
               ),
@@ -698,7 +698,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Story saved — add your first chapter')),
+        SnackBar(content: Text('Story saved — add your first chapter')),
       );
       await Navigator.of(context).push<Object?>(
         MaterialPageRoute<Object?>(
@@ -713,7 +713,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       );
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute<void>(builder: (_) => const RootShell()),
+          MaterialPageRoute<void>(builder: (_) => RootShell()),
           (route) => false,
         );
       }
@@ -741,7 +741,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         if (mounted) {
           setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text('Details may have saved — chapters unchanged'),
             ),
           );
@@ -756,7 +756,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         _saving = false;
         if (mounted) setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Story saved — opening chapter editor')),
+          SnackBar(content: Text('Story saved — opening chapter editor')),
         );
         await Navigator.of(context).push<Object?>(
           MaterialPageRoute<Object?>(
@@ -776,7 +776,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             await prefs.setBool('write_open_submitted', false);
           } catch (_) {}
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(builder: (_) => const RootShell()),
+            MaterialPageRoute<void>(builder: (_) => RootShell()),
             (route) => false,
           );
         }
@@ -787,11 +787,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         if (!silent) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('Draft saved')));
+          ).showSnackBar(SnackBar(content: Text('Draft saved')));
         }
         if (popAfter && mounted) {
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(builder: (_) => const RootShell()),
+            MaterialPageRoute<void>(builder: (_) => RootShell()),
             (route) => false,
           );
         }
@@ -825,7 +825,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: _panel,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
@@ -846,7 +846,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Text(
                   title,
                   style: TextStyle(
@@ -881,7 +881,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                   }).toList(),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
             ],
           ),
         );
@@ -941,7 +941,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               await prefs.setBool('write_open_submitted', false);
             } catch (_) {}
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute<void>(builder: (_) => const RootShell()),
+              MaterialPageRoute<void>(builder: (_) => RootShell()),
               (route) => false,
             );
           }
@@ -952,7 +952,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             child: Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.fromLTRB(8, 10, 16, 10),
+                  padding: EdgeInsets.fromLTRB(8, 10, 16, 10),
                   decoration: BoxDecoration(
                     color: _ink,
                     border: Border(bottom: BorderSide(color: _borderSoft)),
@@ -978,7 +978,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                             } catch (_) {}
                             Navigator.of(context).pushAndRemoveUntil(
                               MaterialPageRoute<void>(
-                                builder: (_) => const RootShell(),
+                                builder: (_) => RootShell(),
                               ),
                               (route) => false,
                             );
@@ -1001,7 +1001,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                 ),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+                    padding: EdgeInsets.fromLTRB(16, 18, 16, 24),
                     children: [
                       GestureDetector(
                         onTap: () async { await _showCoverGuidelines(); await _pickCover(); },
@@ -1023,7 +1023,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                         _coverPath,
                                       ),
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, _, _) => const Center(
+                                      errorBuilder: (_, _, _) => Center(
                                         child: Icon(
                                           Icons.image_outlined,
                                           size: 40,
@@ -1035,7 +1035,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                       right: 8,
                                       bottom: 8,
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(
+                                        padding: EdgeInsets.symmetric(
                                           horizontal: 10,
                                           vertical: 4,
                                         ),
@@ -1045,7 +1045,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                             8,
                                           ),
                                         ),
-                                        child: const Text(
+                                        child: Text(
                                           'Change',
                                           style: TextStyle(
                                             color: Colors.white,
@@ -1084,7 +1084,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                       ),
                       SizedBox(height: 18),
                       Container(
-                        padding: const EdgeInsets.all(14),
+                        padding: EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: _panel,
                           borderRadius: BorderRadius.circular(14),
@@ -1115,7 +1115,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 value: _readinessPct / 100,
                                 minHeight: 7,
                                 backgroundColor: _panelAlt,
-                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                valueColor: AlwaysStoppedAnimation<Color>(
                                   _magenta,
                                 ),
                               ),
@@ -1252,9 +1252,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                           },
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       _label('GENRE'),
-                      const SizedBox(height: 7),
+                      SizedBox(height: 7),
                       GestureDetector(
                         onTap: () => _openPicker(
                           title: 'Select genre',
@@ -1268,7 +1268,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       Row(
                         children: [
                           Expanded(
@@ -1276,7 +1276,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _label('LANGUAGE'),
-                                const SizedBox(height: 7),
+                                SizedBox(height: 7),
                                 GestureDetector(
                                   onTap: () => _openPicker(
                                     title: 'Select language',
@@ -1292,13 +1292,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                               ],
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _label('AUDIENCE'),
-                                const SizedBox(height: 7),
+                                SizedBox(height: 7),
                                 GestureDetector(
                                   onTap: () => _openPicker(
                                     title: 'Select audience',
@@ -1319,13 +1319,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       _label('CONTENT WARNINGS (OPTIONAL)'),
-                      const SizedBox(height: 7),
+                      SizedBox(height: 7),
                       GridView.count(
                         crossAxisCount: 2,
                         shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
+                        physics: NeverScrollableScrollPhysics(),
                         mainAxisSpacing: 8,
                         crossAxisSpacing: 8,
                         childAspectRatio: 3.2,
@@ -1342,7 +1342,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                               });
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                 horizontal: 10,
                                 vertical: 11,
                               ),
@@ -1422,7 +1422,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                       _label('HASHTAGS (MAX 3)'),
                       SizedBox(height: 7),
                       Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 10,
                         ),
@@ -1436,23 +1436,23 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                           children: [
                             if (_selectedTags.isNotEmpty)
                               Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
+                                padding: EdgeInsets.only(bottom: 8),
                                 child: Wrap(
                                   spacing: 8,
                                   runSpacing: 8,
                                   children: _selectedTags.map((t) {
                                     return Container(
-                                      padding: const EdgeInsets.symmetric(
+                                      padding: EdgeInsets.symmetric(
                                         horizontal: 10,
                                         vertical: 6,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: const Color(0x1A6C3CE1),
+                                        color: Color(0x1A6C3CE1),
                                         borderRadius: BorderRadius.circular(
                                           999,
                                         ),
                                         border: Border.all(
-                                          color: const Color(0x666C3CE1),
+                                          color: Color(0x666C3CE1),
                                         ),
                                       ),
                                       child: Row(
@@ -1465,7 +1465,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                               fontSize: 12.5,
                                             ),
                                           ),
-                                          const SizedBox(width: 6),
+                                          SizedBox(width: 6),
                                           GestureDetector(
                                             onTap: () => _removeTag(t),
                                             child: Icon(
@@ -1523,7 +1523,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                             ScaffoldMessenger.of(
                                               context,
                                             ).showSnackBar(
-                                              const SnackBar(
+                                              SnackBar(
                                                 content: Text(
                                                   'Pick a hashtag from the suggestion list',
                                                 ),
@@ -1558,7 +1558,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                             10,
                                           ),
                                           child: ConstrainedBox(
-                                            constraints: const BoxConstraints(
+                                            constraints: BoxConstraints(
                                               maxHeight: 200,
                                               maxWidth: 320,
                                             ),
@@ -1592,7 +1592,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 _availableTags.isNotEmpty &&
                                 _selectedTags.length < 3)
                               Padding(
-                                padding: const EdgeInsets.only(top: 8),
+                                padding: EdgeInsets.only(top: 8),
                                 child: Wrap(
                                   spacing: 6,
                                   runSpacing: 6,
@@ -1649,7 +1649,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 16),
                   decoration: BoxDecoration(
                     color: _ink,
                     border: Border(top: BorderSide(color: _borderSoft)),
@@ -1665,13 +1665,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                             foregroundColor: _textHi,
                             side: BorderSide(color: _border),
                             backgroundColor: _panelAlt,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                           child: _saving
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 18,
                                   height: 18,
                                   child: CircularProgressIndicator(
@@ -1679,7 +1679,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                     color: _textHi,
                                   ),
                                 )
-                              : const Text(
+                              : Text(
                                   'Save Draft',
                                   style: TextStyle(fontWeight: FontWeight.w500),
                                 ),
@@ -1704,14 +1704,14 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                               alpha: 0.4,
                             ),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: EdgeInsets.symmetric(vertical: 14),
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                           child: _saving
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
@@ -1761,7 +1761,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
   Widget _dropdownTrigger(String text, {bool isPlaceholder = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
         color: _panelAlt,
         borderRadius: BorderRadius.circular(12),
@@ -1794,7 +1794,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 11),
+        padding: EdgeInsets.symmetric(vertical: 11),
         decoration: BoxDecoration(
           color: active ? _panel : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
