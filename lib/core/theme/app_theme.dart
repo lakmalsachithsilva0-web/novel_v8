@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'app_styles.dart';
 
 /// Dark purple theme matching Novara / Explore reference UI.
+/// Prefer [AppStyles.colors] in widgets for adaptive surfaces.
 class AppTheme {
   static const Color brand = AppStyles.purple;
   static const Color brandDeep = AppStyles.purpleDeep;
@@ -32,17 +33,21 @@ class AppTheme {
   static const Color darkBg = AppStyles.black;
 
   static ThemeData get lightTheme {
+    final base = ColorScheme.light(
+      primary: brandDeep,
+      onPrimary: Colors.white,
+      secondary: brand,
+      onSecondary: Colors.white,
+      surface: surface,
+      onSurface: ink,
+      error: AppStyles.danger,
+      onError: Colors.white,
+    );
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       scaffoldBackgroundColor: background,
-      colorScheme: const ColorScheme.light(
-        primary: brandDeep,
-        onPrimary: Colors.white,
-        secondary: brand,
-        surface: surface,
-        onSurface: ink,
-      ),
+      colorScheme: base,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: CupertinoPageTransitionsBuilder(),
@@ -54,60 +59,119 @@ class AppTheme {
         foregroundColor: ink,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
       ),
-      elevatedButtonTheme: ElevatedButtonThemeData(style: AppStyles.primaryButton()),
+      cardTheme: CardThemeData(
+        color: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppStyles.radiusMd),
+          side: const BorderSide(color: border),
+        ),
+      ),
+      elevatedButtonTheme:
+          ElevatedButtonThemeData(style: AppStyles.primaryButton()),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: brand,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppStyles.radiusMd),
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: brandDeep,
+          side: BorderSide(color: brand.withValues(alpha: 0.4)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppStyles.radiusMd),
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: field,
+        hintStyle: const TextStyle(color: muted),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: brand, width: 1.6),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: border),
+        ),
+      ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
-        indicatorColor: brand.withValues(alpha: 0.2),
+        indicatorColor: brand.withValues(alpha: 0.18),
         height: 70,
+        labelTextStyle: WidgetStateProperty.resolveWith((s) {
+          final sel = s.contains(WidgetState.selected);
+          return TextStyle(
+            fontSize: 11,
+            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+            color: sel ? brandDeep : muted,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((s) {
+          final sel = s.contains(WidgetState.selected);
+          return IconThemeData(size: 24, color: sel ? brandDeep : muted);
+        }),
+      ),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: brandDeep,
+        unselectedLabelColor: muted,
+        indicatorColor: brand,
+      ),
+      dividerTheme: const DividerThemeData(color: border, thickness: 0.8),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: ink,
+        contentTextStyle: const TextStyle(color: Colors.white),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      listTileTheme: const ListTileThemeData(
+        textColor: ink,
+        iconColor: brandDeep,
       ),
     );
   }
 
   static ThemeData get darkTheme {
+    final scheme = ColorScheme.dark(
+      primary: brand,
+      onPrimary: Colors.white,
+      secondary: brandBrightCompat,
+      onSecondary: darkBg,
+      surface: darkCard,
+      onSurface: darkInk,
+      error: AppStyles.danger,
+      onError: Colors.white,
+      surfaceContainerHighest: darkField,
+    );
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: darkBg,
-      colorScheme: const ColorScheme.dark(
-        primary: brand,
-        onPrimary: Colors.white,
-        secondary: brandBrightCompat,
-        surface: darkCard,
-        onSurface: darkInk,
-        error: AppStyles.danger,
-      ),
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(
-          fontSize: 34,
-          fontWeight: FontWeight.w800,
-          color: darkInk,
-          letterSpacing: -1.1,
-        ),
-        headlineSmall: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: darkInk,
-        ),
-        titleLarge: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w700,
-          color: darkInk,
-        ),
-        titleMedium: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: darkInk,
-        ),
-        bodyLarge: TextStyle(fontSize: 15, height: 1.5, color: darkInk),
-        bodyMedium: TextStyle(fontSize: 14, height: 1.4, color: darkMuted),
-        bodySmall: TextStyle(fontSize: 12, color: darkMuted),
-        labelLarge: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-        ),
-      ),
+      colorScheme: scheme,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: CupertinoPageTransitionsBuilder(),
@@ -116,21 +180,16 @@ class AppTheme {
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: darkBg,
+        foregroundColor: darkInk,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        foregroundColor: darkInk,
         systemOverlayStyle: SystemUiOverlayStyle.light,
-        titleTextStyle: TextStyle(
-          color: darkInk,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-        ),
       ),
       cardTheme: CardThemeData(
         color: darkCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppStyles.radiusMd),
           side: const BorderSide(color: darkBorder),
         ),
       ),
@@ -138,7 +197,8 @@ class AppTheme {
         backgroundColor: darkField,
         selectedColor: brand.withValues(alpha: 0.28),
         side: const BorderSide(color: darkBorder),
-        labelStyle: const TextStyle(color: darkInk, fontWeight: FontWeight.w600),
+        labelStyle:
+            const TextStyle(color: darkInk, fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -146,7 +206,9 @@ class AppTheme {
           backgroundColor: brand,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
@@ -154,18 +216,22 @@ class AppTheme {
         style: FilledButton.styleFrom(
           backgroundColor: brand,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: brand,
+          foregroundColor: brandBrightCompat,
           side: BorderSide(color: brand.withValues(alpha: 0.45)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: brand),
+        style: TextButton.styleFrom(foregroundColor: brandBrightCompat),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: brand,
@@ -229,7 +295,8 @@ class AppTheme {
         labelStyle: const TextStyle(color: darkMuted),
         prefixIconColor: brand,
         suffixIconColor: darkMuted,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: darkBorder),
@@ -252,5 +319,4 @@ class AppTheme {
   }
 }
 
-// Local alias so ColorScheme.secondary compiles cleanly
 const Color brandBrightCompat = Color(0xFFA78BFA);

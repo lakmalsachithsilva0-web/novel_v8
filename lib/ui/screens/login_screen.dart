@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_styles.dart';
+import '../../core/theme/app_theme.dart';
 
 
 /// Login — layout matched to product mock (purple theme aligned with home).
@@ -80,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
       prefixIcon: Icon(icon, color: _purple, size: 22),
       suffixIcon: suffix,
       filled: true,
-      fillColor: const Color(0xFFF5F3FF),
+      fillColor: AppStyles.colors(context).field,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -88,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFEDE9FE)),
+        borderSide: BorderSide(color: AppStyles.colors(context).borderSoft),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -101,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final topH = MediaQuery.of(context).size.height * 0.34;
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F3FC),
+      backgroundColor: AppStyles.colors(context).bg,
       body: Column(
         children: [
           // Header band (mock: gradient + shield)
@@ -333,7 +335,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: Text(
                                 'or continue with',
                                 style: TextStyle(
-                                  color: Colors.grey.shade600,
+                                  color: AppStyles.colors(context).textMuted,
                                   fontSize: 13,
                                 ),
                               ),
@@ -372,7 +374,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             Text(
                               "Don't have an account? ",
-                              style: TextStyle(color: Colors.grey.shade700),
+                              style: TextStyle(color: AppStyles.colors(context).textMuted),
                             ),
                             GestureDetector(
                               onTap: widget.onOpenSignUp,
@@ -392,7 +394,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: _busy ? null : widget.onSkipAsReader,
                             child: Text(
                               'Continue as guest',
-                              style: TextStyle(color: Colors.grey.shade600),
+                              style: TextStyle(color: AppStyles.colors(context).textMuted),
                             ),
                           ),
                         ],
@@ -423,7 +425,7 @@ class _SocialBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFFF7F5FC),
+      color: AppStyles.colors(context).card,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -434,7 +436,7 @@ class _SocialBtn extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFEDE9FE)),
+            border: Border.all(color: AppStyles.colors(context).borderSoft),
           ),
           child: Icon(
             icon,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_styles.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -1045,9 +1046,10 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          foregroundColor: Theme.of(context).colorScheme.onSurface,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
@@ -1201,10 +1203,10 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                         ),
                         TextField(
                           controller: _titleController,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: AppTheme.ink,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                           decoration: const InputDecoration(
                             contentPadding: EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -1240,6 +1242,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               height: 1.5,
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontWeight: _isBold
                                   ? FontWeight.bold
                                   : FontWeight.normal,

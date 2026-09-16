@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../../core/theme/app_styles.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../data/services/api_service.dart';
@@ -216,7 +217,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       prefixIcon: Icon(icon, color: _purple, size: 22),
       suffixIcon: suffix,
       filled: true,
-      fillColor: const Color(0xFFF5F3FF),
+      fillColor: AppStyles.colors(context).field,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),

@@ -4,6 +4,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/services/api_service.dart';
+import '../../core/theme/app_styles.dart';
+import '../../core/theme/app_theme.dart';
 import 'edit_chapter_screen.dart';
 import 'root_shell.dart';
 
@@ -28,19 +30,35 @@ class CreateStoryScreen extends StatefulWidget {
 }
 
 class _CreateStoryScreenState extends State<CreateStoryScreen> {
-  // Light theme (default for New Story / story creation page)
-  static const Color _ink = Color(0xFFF7F5FC); // page background
-  static const Color _panel = Color(0xFFFFFFFF); // cards
-  static const Color _panelAlt = Color(0xFFF3F0FF); // secondary surfaces
-  static const Color _border = Color(0xFFE8E8E8);
-  static const Color _borderSoft = Color(0xFFEDE9FE);
-  static const Color _textHi = Color(0xFF231F20); // primary text
-  static const Color _textLo = Color(0xFF767676); // secondary text
-  static const Color _textFaint = Color(0xFF9A9A9A);
-  static const Color _magenta = Color(0xFF6C3CE1); // brand
-  static const Color _violet = Color(0xFFB794F6);
-  static const Color _amber = Color(0xFFF0B357);
-  static const Color _green = Color(0xFF6C3CE1);
+  // Theme-aware colors resolved in build() via AppStyles (dark default OK)
+  Color _ink = const Color(0xFFF7F5FC);
+  Color _panel = const Color(0xFFFFFFFF);
+  Color _panelAlt = const Color(0xFFF3F0FF);
+  Color _border = const Color(0xFFE8E8E8);
+  Color _borderSoft = const Color(0xFFEDE9FE);
+  Color _textHi = const Color(0xFF231F20);
+  Color _textLo = const Color(0xFF767676);
+  Color _textFaint = const Color(0xFF9A9A9A);
+  Color _magenta = const Color(0xFF6C3CE1);
+  Color _violet = const Color(0xFFB794F6);
+  Color _amber = const Color(0xFFF0B357);
+  Color _green = const Color(0xFF6C3CE1);
+
+  void _applyThemeColors(BuildContext context) {
+    final c = AppStyles.colors(context);
+    _ink = c.bg;
+    _panel = c.card;
+    _panelAlt = c.field;
+    _border = c.border;
+    _borderSoft = c.borderSoft;
+    _textHi = c.textPrimary;
+    _textLo = c.textMuted;
+    _textFaint = c.textFaint;
+    _magenta = c.brand;
+    _violet = AppStyles.purpleBright;
+    _amber = const Color(0xFFF0B357);
+    _green = c.brand;
+  }
 
   static const List<String> _defaultGenres = [
     'Romance',
@@ -887,23 +905,25 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _applyThemeColors(context);
+
     final titleLen = _titleController.text.length;
 
-    // Force light theme for the entire New Story / story creation page
+    // Inherit app theme (dark default); only override scaffold surface colors
+    final parent = Theme.of(context);
     return Theme(
-      data: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.light,
+      data: parent.copyWith(
         scaffoldBackgroundColor: _ink,
-        colorScheme: const ColorScheme.light(
+        colorScheme: parent.colorScheme.copyWith(
           primary: _magenta,
           secondary: _violet,
           surface: _panel,
+          onSurface: _textHi,
         ),
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: _textHi),
-          bodyMedium: TextStyle(color: _textLo),
-          titleMedium: TextStyle(color: _textHi),
+        textTheme: parent.textTheme.copyWith(
+          bodyLarge: parent.textTheme.bodyLarge?.copyWith(color: _textHi),
+          bodyMedium: parent.textTheme.bodyMedium?.copyWith(color: _textLo),
+          titleMedium: parent.textTheme.titleMedium?.copyWith(color: _textHi),
         ),
       ),
       child: PopScope(
@@ -934,7 +954,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                 Container(
                   padding: const EdgeInsets.fromLTRB(8, 10, 16, 10),
                   decoration: const BoxDecoration(
-                    color: Color(0xFFF7F5FC),
+                    color: _ink,
                     border: Border(bottom: BorderSide(color: _borderSoft)),
                   ),
                   child: Row(
@@ -1631,7 +1651,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                 Container(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   decoration: const BoxDecoration(
-                    color: Color(0xFFF7F5FC),
+                    color: _ink,
                     border: Border(top: BorderSide(color: _borderSoft)),
                   ),
                   child: Row(
