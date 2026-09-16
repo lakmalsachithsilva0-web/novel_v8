@@ -608,14 +608,47 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       _saving = false;
       if (mounted && !silent) setState(() {});
 
+      // ========== INKITT CONTRACT ==========
+      // Editing existing story details MUST never open "Chapter 1" editor
+      // and MUST never wipe / hide chapters. Only books meta was updated.
+      if (_isEditing || (widget.story != null && storyId > 0 && asDraft)) {
+        if (!silent && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Details updated — chapters unchanged'),
+            ),
+          );
+        }
+        if (mounted) {
+          // Prefer simple pop so StoryManageScreen / Write can reload chapters
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(true);
+          } else {
+            try {
+              final prefs = await SharedPreferences.getInstance();
+              final st = (forceStatus ?? (asDraft ? 'Draft' : 'Ongoing'))
+                  .toString()
+                  .toLowerCase();
+              final isDraft = st.contains('draft') ||
+                  st.contains('private') ||
+                  st.contains('unpublish');
+              await prefs.setBool('write_open_drafts', isDraft);
+              await prefs.setBool('write_open_submitted', !isDraft);
+            } catch (_) {}
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute<void>(builder: (_) => const RootShell()),
+              (route) => false,
+            );
+          }
+        }
+        return;
+      }
+
       if (asDraft) {
         if (!popAfter && !silent) {
-          final msg = (_isEditing || storyId > 0)
-              ? 'Details updated — chapters unchanged'
-              : 'Draft saved';
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(msg)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Draft saved')),
+          );
         }
         if (popAfter && mounted) {
           try {
@@ -631,6 +664,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         return;
       }
 
+      // NEW story only: after first publish-style save, open chapter editor
       if (_readinessDone < 3) {
         if (!silent) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -683,7 +717,24 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         } catch (_) {}
       }
 
-      if (existingId > 0 && !asDraft && !popAfter) {
+      // If we were editing, never open Chapter 1 on error recovery
+      if (existingId > 0 && _isEditing) {
+        _saving = false;
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Details may have saved — chapters unchanged'),
+            ),
+          );
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(true);
+          }
+        }
+        return;
+      }
+
+      if (existingId > 0 && !asDraft && !popAfter && !_isEditing) {
         _saving = false;
         if (mounted) setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1620,8 +1671,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                         child: ElevatedButton(
                           onPressed: _saving
                               ? null
-                              : () =>
-                                    _save(asDraft: false, forceStatus: 'Draft'),
+                              : () => _isEditing
+                                  // Edit details: meta only — never open Chapter 1
+                                  ? _save(asDraft: true, popAfter: true)
+                                  : _save(
+                                      asDraft: false,
+                                      forceStatus: 'Draft',
+                                    ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _magenta,
                             disabledBackgroundColor: _magenta.withValues(
@@ -1643,9 +1699,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text(
-                                  'Save',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
+                              : Text(
+                                  _isEditing ? 'Save details' : 'Save',
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
                                 ),
                         ),
                       ),

@@ -203,6 +203,37 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
     );
   }
 
+  /// After leave/save: if story has any published chapter (or status Ongoing),
+  /// land on Submitted tab so author still sees the story. Drafts only when
+  /// the whole story is still Draft-only.
+  Future<bool> _storyBelongsInDraftsTab() async {
+    try {
+      final chapters = await widget.apiService.fetchStoryChapters(widget.storyId);
+      final hasPublished = chapters.any((c) {
+        final s = (c['submission_status'] ?? 'draft').toString().toLowerCase();
+        return {
+          'published',
+          'submitted',
+          'ongoing',
+          'completed',
+          'scheduled',
+        }.contains(s);
+      });
+      if (hasPublished) return false;
+      final story = await widget.apiService.fetchWriterStory(widget.storyId);
+      final st = (story?['status_text'] ?? 'Draft').toString().toLowerCase();
+      if (st.contains('ongoing') ||
+          st.contains('complete') ||
+          st.contains('publish') ||
+          st.contains('submitted')) {
+        return false;
+      }
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+
   Future<void> _returnToWriteManager({bool openDrafts = true}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -308,25 +339,24 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
     await _saveChapter(
       submissionStatus: 'draft',
       scheduledFor: null,
-      successMessage: 'Saved as draft',
+      successMessage: 'Saved as draft — other chapters unchanged',
     );
-    await _returnToWriteManager(openDrafts: true);
+    // Inkitt: current chapter = draft; previous published chapters stay published.
+    // Land on Submitted if story already has published chapters / Ongoing status.
+    final openDrafts = await _storyBelongsInDraftsTab();
+    await _returnToWriteManager(openDrafts: openDrafts);
     return true;
   }
 
   Future<void> _saveAsDraftChapter() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('write_open_drafts', true);
-      await prefs.setBool('write_open_submitted', false);
-    } catch (_) {}
     await _saveChapter(
       submissionStatus: 'draft',
       scheduledFor: null,
-      successMessage: 'Saved as draft',
+      successMessage: 'Saved as draft — other chapters unchanged',
     );
     if (!mounted) return;
-    await _returnToWriteManager(openDrafts: true);
+    final openDrafts = await _storyBelongsInDraftsTab();
+    await _returnToWriteManager(openDrafts: openDrafts);
   }
 
   /// Convert Latin letters in [input] to Mathematical Bold / Italic code points
@@ -929,11 +959,6 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
     if (title.isEmpty) {
       _titleController.text = 'Chapter $_chapterNumber';
     }
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('write_open_drafts', true);
-      await prefs.setBool('write_open_submitted', false);
-    } catch (_) {}
     return await _confirmLeaveAndSaveDraft();
   }
 
@@ -1013,15 +1038,10 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('write_open_drafts', true);
-          await prefs.setBool('write_open_submitted', false);
-        } catch (_) {}
-
+        // Tab choice is decided after draft save (_storyBelongsInDraftsTab)
         final shouldPop = await _onWillPop();
         if (shouldPop == true && context.mounted) {
-          Navigator.pop(context);
+          // _confirmLeaveAndSaveDraft already navigates via _returnToWriteManager
         }
       },
       child: Scaffold(
