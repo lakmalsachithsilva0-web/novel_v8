@@ -1922,6 +1922,46 @@ class ApiService {
     _ensureSuccessResponse(response);
   }
 
+  /// Inkitt-style: reorder all chapters of a story (full ordered id list).
+  Future<Map<String, dynamic>> reorderStoryChapters(
+    int storyId,
+    List<int> chapterIds,
+  ) async {
+    final response = await _post(
+      '/api/write/stories/$storyId/chapters/reorder',
+      {'chapter_ids': chapterIds},
+      timeout: const Duration(seconds: 60),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_authErrorBody(response));
+    }
+    final payload = jsonDecode(response.body);
+    if (payload is Map<String, dynamic>) return payload;
+    return {'ok': true};
+  }
+
+  /// Publish all eligible draft chapters (min 60 words by default).
+  Future<Map<String, dynamic>> submitAllStoryChapters(
+    int storyId, {
+    List<int>? chapterIds,
+    int minWords = 60,
+  }) async {
+    final response = await _post(
+      '/api/write/stories/$storyId/chapters/submit-all',
+      {
+        if (chapterIds != null) 'chapter_ids': chapterIds,
+        'min_words': minWords,
+      },
+      timeout: const Duration(seconds: 90),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_authErrorBody(response));
+    }
+    final payload = jsonDecode(response.body);
+    if (payload is Map<String, dynamic>) return payload;
+    return {'ok': true};
+  }
+
   static final Map<String, dynamic> _fallbackData = <String, dynamic>{
     'discover_tabs': ['New', 'Popular', 'Fantasy', 'Fanfiction', 'Newsfeed'],
     'recently_updated': [],

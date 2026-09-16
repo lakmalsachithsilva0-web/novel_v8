@@ -182,6 +182,17 @@ class ChapterUpdateRequest(BaseModel):
     scheduled_for: str | None = None
 
 
+class ChapterReorderRequest(BaseModel):
+    """Ordered list of chapter ids for this story (Inkitt-style reorder)."""
+    chapter_ids: list[int]
+
+
+class ChapterSubmitAllRequest(BaseModel):
+    """Optional: only these chapter ids; empty = all eligible drafts."""
+    chapter_ids: list[int] | None = None
+    min_words: int = 60
+
+
 class ProfileUpdateRequest(BaseModel):
     display_name: str | None = None
     username: str | None = None
@@ -5044,6 +5055,119 @@ def delete_story_chapter(
         raise HTTPException(status_code=404, detail="Chapter not found")
     bump_content_version()
     return {"ok": True}
+
+
+
+
+@app.post("/api/write/stories/{story_id}/chapters/reorder")
+def reorder_story_chapters(
+    story_id: int,
+    payload: ChapterReorderRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Reorder chapters. Updates chapter_number + sort_order. Never deletes."""
+    _require_story_owner(story_id, user)
+    ordered = [int(x) for x in (payload.chapter_ids or []) if int(x) > 0]
+    if not ordered:
+        raise HTTPException(status_code=400, detail="chapter_ids required")
+
+    existing = fetch_all(
+        "SELECT id FROM chapters WHERE story_id=%s",
+        (story_id,),
+    )
+    existing_ids = {int(_row_get(r, "id") or 0) for r in existing}
+    if not existing_ids:
+        raise HTTPException(status_code=404, detail="No chapters for this story")
+    if set(ordered) != existing_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="chapter_ids must include every chapter of this story exactly once",
+        )
+
+    for index, chapter_id in enumerate(ordered, start=1):
+        execute_write(
+            """
+            UPDATE chapters
+            SET chapter_number=%s, sort_order=%s, updated_at=CURRENT_TIMESTAMP
+            WHERE id=%s AND story_id=%s
+            """,
+            (index, index, chapter_id, story_id),
+        )
+    bump_content_version()
+    return {"ok": True, "chapter_count": len(ordered), "message": "Chapters reordered"}
+
+
+@app.post("/api/write/stories/{story_id}/chapters/submit-all")
+def submit_all_story_chapters(
+    story_id: int,
+    payload: ChapterSubmitAllRequest | None = None,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Publish eligible draft chapters (min word count). Story meta + other chapters untouched."""
+    _require_story_owner(story_id, user)
+    body = payload or ChapterSubmitAllRequest()
+    min_words = max(1, int(body.min_words or 60))
+    only_ids = set(int(x) for x in (body.chapter_ids or []) if int(x) > 0)
+
+    rows = fetch_all(
+        """
+        SELECT id, title, content, submission_status, chapter_number
+        FROM chapters
+        WHERE story_id=%s
+        ORDER BY chapter_number, sort_order, id
+        """,
+        (story_id,),
+    )
+    submitted = []
+    skipped = []
+    for row in rows:
+        cid = int(_row_get(row, "id") or 0)
+        if only_ids and cid not in only_ids:
+            continue
+        status = str(_row_get(row, "submission_status") or "draft").strip().lower()
+        if status in ("published", "submitted", "ongoing", "completed", "scheduled"):
+            skipped.append({"id": cid, "reason": "already_public"})
+            continue
+        content = str(_row_get(row, "content") or "").strip()
+        words = len([w for w in content.split() if w])
+        if words < min_words:
+            skipped.append({"id": cid, "reason": f"below_{min_words}_words", "words": words})
+            continue
+        execute_write(
+            """
+            UPDATE chapters
+            SET submission_status=%s, scheduled_for=NULL, updated_at=CURRENT_TIMESTAMP
+            WHERE id=%s AND story_id=%s
+            """,
+            ("published", cid, story_id),
+        )
+        submitted.append(cid)
+
+    if submitted:
+        # Promote story to Ongoing if it was Draft — never wipe chapters
+        try:
+            books = fetch_all(
+                "SELECT status_text FROM books WHERE id=%s LIMIT 1",
+                (story_id,),
+            )
+            if books:
+                st = str(_row_get(books[0], "status_text") or "").strip().lower()
+                if not st or st.startswith("draft") or st in ("private", "unpublished", "unlisted"):
+                    execute_write(
+                        "UPDATE books SET status_text=%s, updated_at=CURRENT_TIMESTAMP WHERE id=%s",
+                        ("Ongoing", story_id),
+                    )
+        except Exception as exc:
+            LOGGER.warning("submit-all story promote: %s", exc)
+        bump_content_version()
+
+    return {
+        "ok": True,
+        "submitted_ids": submitted,
+        "submitted_count": len(submitted),
+        "skipped": skipped,
+        "message": f"Submitted {len(submitted)} chapter(s) — others unchanged",
+    }
 
 
 def _ensure_tags_exist(names: list[str]) -> list[int]:

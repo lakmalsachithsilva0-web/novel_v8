@@ -276,6 +276,45 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     }
   }
 
+
+  Future<void> _showCoverGuidelines() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cover guidelines'),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Inkitt-style tips for a strong cover:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: 10),
+              Text('• Portrait orientation works best (roughly 2:3).'),
+              Text('• Keep title text readable on small phones.'),
+              Text('• Avoid heavy watermarks or logos.'),
+              Text('• High contrast: light subject on dark / dark on light.'),
+              Text('• Minimum ~600px on the short side recommended.'),
+              Text('• JPG or PNG, under ~5MB preferred.'),
+              SizedBox(height: 10),
+              Text(
+                'You can still change the cover later — editing details never removes chapters.',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _pickCover() async {
     final picked = await _imagePicker.pickImage(
       source: ImageSource.gallery,
@@ -891,7 +930,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
                     children: [
                       GestureDetector(
-                        onTap: _pickCover,
+                        onTap: () async { await _showCoverGuidelines(); await _pickCover(); },
                         child: Container(
                           width: double.infinity,
                           height: 180,
