@@ -1,6 +1,6 @@
 """
 Content enrichment on startup:
-- Ensure every published book has at least 5 chapters (30 paragraphs each)
+- Ensure every published book has at least N chapters (default 5, min recommended 3)
 - Sample wall posts + book reviews
 Uses main.fetch_all / execute_write (not db_runtime).
 """
@@ -66,6 +66,39 @@ def _chapter_body(hero: str, chapter_num: int, paragraphs: int = 30) -> str:
     return header + "\n\n".join(lines)
 
 
+
+
+def _insert_chapter(execute_write, book_id: int, num: int, title: str, body: str) -> None:
+    """Insert one chapter using story_id (this schema has no chapters.book_id)."""
+    attempts = [
+        (
+            """
+            INSERT INTO chapters
+              (story_id, chapter_number, title, content, sort_order, submission_status)
+            VALUES (%s, %s, %s, %s, %s, 'published')
+            """,
+            (book_id, num, title, body, num),
+        ),
+        (
+            """
+            INSERT INTO chapters (story_id, chapter_number, title, content, sort_order)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (book_id, num, title, body, num),
+        ),
+    ]
+    last_exc = None
+    for sql, params in attempts:
+        try:
+            execute_write(sql, params)
+            return
+        except Exception as exc:
+            last_exc = exc
+            continue
+    if last_exc:
+        raise last_exc
+
+
 def seed_chapters_for_empty_books(
     limit_books: int = 120,
     chapters_per_book: int = 5,
@@ -78,9 +111,11 @@ def seed_chapters_for_empty_books(
         books = fetch_all(
             """
             SELECT b.id, b.title, b.author,
-                   (SELECT COUNT(*) FROM chapters c WHERE c.story_id = b.id) AS ch_count
+                   (SELECT COUNT(*) FROM chapters c
+                    WHERE c.story_id = b.id) AS ch_count
             FROM books b
-            WHERE LOWER(COALESCE(b.status_text, 'draft')) NOT IN ('draft', 'unpublished', 'private')
+            WHERE LOWER(COALESCE(b.status_text, 'draft'))
+                  NOT IN ('draft', 'unpublished', 'private', '')
             LIMIT %s
             """,
             (limit_books,),
@@ -110,13 +145,7 @@ def seed_chapters_for_empty_books(
                 ch_title = f"Chapter {n}"
                 if n == 1:
                     ch_title = "Chapter 1 — Beginning"
-                execute_write(
-                    """
-                    INSERT INTO chapters (story_id, chapter_number, title, content, sort_order)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    (bid, n, ch_title, body, n),
-                )
+                _insert_chapter(execute_write, bid, n, ch_title, body)
                 report["chapters_added"] += 1
             report["books_touched"] += 1
         except Exception as exc:

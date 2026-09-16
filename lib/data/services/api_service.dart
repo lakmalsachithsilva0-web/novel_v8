@@ -1635,6 +1635,30 @@ class ApiService {
     }
   }
 
+
+  /// Books for a genre (public only) — Discover / genre hub.
+  Future<List<Map<String, dynamic>>> fetchBooksByGenre(String genreName) async {
+    try {
+      final encoded = Uri.encodeComponent(genreName.trim());
+      final response = await _get('/api/genres/$encoded/books');
+      if (response.statusCode != 200) return const <Map<String, dynamic>>[];
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        final items = decoded['items'];
+        if (items is List) {
+          return items
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      }
+      return const <Map<String, dynamic>>[];
+    } catch (_) {
+      return const <Map<String, dynamic>>[];
+    }
+  }
+
+
   Future<Map<String, dynamic>> followTag(String tagName) async {
     final encoded = Uri.encodeComponent(tagName.trim().replaceFirst('#', ''));
     final response = await _post(

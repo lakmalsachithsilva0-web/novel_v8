@@ -513,6 +513,19 @@ def _apply_runtime_patches() -> None:
             LOGGER.warning("Inkitt routes not registered: %s", inkitt_exc)
 
         try:
+            from .genre_routes import register_genre_routes
+            register_genre_routes(
+                main_mod.app,
+                fetch_all=main_mod.fetch_all,
+                fetch_one=getattr(main_mod, "fetch_one", None),
+                serialize_book=getattr(main_mod, "serialize_book", None),
+                is_public_status=getattr(main_mod, "is_public_status", None),
+            )
+            LOGGER.info("Registered genre routes")
+        except Exception as genre_exc:
+            LOGGER.warning("Genre routes not registered: %s", genre_exc)
+
+        try:
             from .inkitt_extra_routes import register_inkitt_extra_routes
 
             register_inkitt_extra_routes(
@@ -968,7 +981,7 @@ def run_startup_tasks() -> dict[str, Any]:
                 "skipped": True,
                 "reason": "disabled_on_vercel_cold_start",
             }
-        elif not run_enrich and on_vercel is False and book_count >= 5 and _os.getenv("SKIP_CONTENT_ENRICHMENT", "1").strip().lower() in ("1", "true", "yes"):
+        elif not run_enrich and on_vercel is False and book_count >= 5 and _os.getenv("SKIP_CONTENT_ENRICHMENT", "0").strip().lower() in ("1", "true", "yes"):
             # Skip enrichment when catalog already healthy unless forced
             result["content_enrichment"] = {"skipped": True, "reason": "SKIP_CONTENT_ENRICHMENT"}
         else:
@@ -1002,15 +1015,14 @@ def run_startup_tasks() -> dict[str, Any]:
                     result["book_tag_links"] = link_report
                 except Exception as link_exc:
                     LOGGER.warning("book_tag_links: %s", link_exc)
-                # Chapters: 5 x 30 paragraphs for books missing chapters (local only, not vercel)
+                # Catalog health: min chapters + genre/hashtag links (every local start)
                 if not on_vercel:
                     try:
-                        from .content_enrichment_seed import seed_chapters_for_empty_books
-                        result["chapters_seed"] = seed_chapters_for_empty_books(
-                            limit_books=120, chapters_per_book=5, paragraphs_per_chapter=30
-                        )
+                        from .seed_catalog_links import run_catalog_health
+                        result["catalog_health"] = run_catalog_health()
+                        LOGGER.info("catalog_health: %s", result.get("catalog_health"))
                     except Exception as ch_exc:
-                        LOGGER.warning("chapters_seed: %s", ch_exc)
+                        LOGGER.warning("catalog_health: %s", ch_exc)
 
                 try:
                     _ensure_home_slider_sections(conn)

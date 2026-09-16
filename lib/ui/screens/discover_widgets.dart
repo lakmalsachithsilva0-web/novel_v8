@@ -1745,11 +1745,16 @@ class _BrowseGenresSection extends StatelessWidget {
                   // Prefer API genre search, then local books filter
                   var tagged = <Map<String, dynamic>>[];
                   try {
-                    tagged = await apiService.searchStories(
-                      query: '',
-                      genre: label,
-                    );
+                    tagged = await apiService.fetchBooksByGenre(label);
                   } catch (_) {}
+                  if (tagged.isEmpty) {
+                    try {
+                      tagged = await apiService.searchStories(
+                        query: '',
+                        genre: label,
+                      );
+                    } catch (_) {}
+                  }
                   if (tagged.isEmpty) {
                     try {
                       tagged = await apiService.fetchBooksByTag(label);

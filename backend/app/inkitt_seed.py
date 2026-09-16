@@ -243,6 +243,29 @@ def ensure_inkitt_catalog(execute_write, fetch_all, USE_SQLITE: bool) -> dict[st
         except Exception as contests_exc:
             LOGGER.warning("inkitt contests: %s", contests_exc)
 
+        # Min 3 chapters for every public catalog book (fixes empty chapter lists)
+        try:
+            from .content_enrichment_seed import seed_chapters_for_empty_books
+            result["chapters_seed"] = seed_chapters_for_empty_books(
+                limit_books=200,
+                chapters_per_book=3,
+                paragraphs_per_chapter=12,
+            )
+            LOGGER.info("inkitt_seed chapters: %s", result.get("chapters_seed"))
+        except Exception as ch_exc:
+            LOGGER.warning("inkitt_seed chapters: %s", ch_exc)
+            result["chapters_seed_error"] = str(ch_exc)
+
+        # Link books → tags by genre so hashtag pages are not empty
+        try:
+            from .main import _seed_book_tag_links, _ensure_tags_schema
+            _ensure_tags_schema()
+            result["book_tag_links"] = _seed_book_tag_links(limit=500)
+            LOGGER.info("inkitt_seed tag links: %s", result.get("book_tag_links"))
+        except Exception as tag_exc:
+            LOGGER.warning("inkitt_seed tag links: %s", tag_exc)
+            result["book_tag_links_error"] = str(tag_exc)
+
         LOGGER.info("inkitt_seed complete: %s", result)
     except Exception as exc:
         LOGGER.exception("inkitt_seed failed: %s", exc)
