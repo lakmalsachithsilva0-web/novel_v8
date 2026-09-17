@@ -472,6 +472,26 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     _scheduleDraftSave();
   }
 
+
+  /// Inkitt: never wipe the app stack — return to Write / previous route.
+  Future<void> _softReturnToWrite({bool openDrafts = true}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('write_open_drafts', openDrafts);
+      await prefs.setBool('write_open_submitted', !openDrafts);
+    } catch (_) {}
+    if (!mounted) return;
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop(true);
+    } else {
+      nav.pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => RootShell()),
+        (route) => false,
+      );
+    }
+  }
+
   Future<bool> _confirmLeaveAndSaveDraft() async {
     final hasContent =
         _titleController.text.trim().isNotEmpty ||
@@ -480,29 +500,46 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         _selectedWarnings.isNotEmpty ||
         _selectedTags.isNotEmpty ||
         (_selectedGenre ?? '').trim().isNotEmpty;
+    // Empty new form — leave with no save
     if (!hasContent && !_dirty && _savedStoryId == null) {
       return true;
     }
-    final shouldLeave = await showDialog<bool>(
+    // Edit details with no local changes — leave, chapters untouched
+    if (_isEditing && !_dirty) {
+      return true;
+    }
+
+    final action = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Leave page?'),
+        title: Text(_isEditing ? 'Leave story details?' : 'Leave page?'),
         content: Text(
-          'Your story details will be saved as a draft before you leave.',
+          _isEditing
+              ? 'Save details only (chapters are never removed), discard changes, or keep editing.'
+              : 'Save as Draft, discard, or keep editing.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Stay'),
+            onPressed: () => Navigator.pop(ctx, 'stay'),
+            child: const Text('Keep editing'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'discard'),
+            child: const Text('Discard', style: TextStyle(color: Colors.red)),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Leave'),
+            onPressed: () => Navigator.pop(ctx, 'save'),
+            child: Text(_isEditing ? 'Save details' : 'Save as Draft'),
           ),
         ],
       ),
     );
-    if (shouldLeave != true) return false;
+    if (action == null || action == 'stay') return false;
+    if (action == 'discard') {
+      // Inkitt: discard form changes only — existing chapters stay on server
+      return true;
+    }
+    // save path — edit mode uses meta-only PATCH (no status_text force)
     await _save(asDraft: true, popAfter: true);
     return true;
   }
@@ -663,10 +700,16 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               await prefs.setBool('write_open_drafts', isDraft);
               await prefs.setBool('write_open_submitted', !isDraft);
             } catch (_) {}
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute<void>(builder: (_) => RootShell()),
-              (route) => false,
-            );
+            // Inkitt: return to Write / previous screen — do not reset app stack
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop(true);
+            } else {
+              if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop(_isEditing ? true : true);
+                            } else {
+                              await _softReturnToWrite(openDrafts: true);
+                            }
+            }
           }
         }
         return;
@@ -684,10 +727,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             await prefs.setBool('write_open_drafts', true);
             await prefs.setBool('write_open_submitted', false);
           } catch (_) {}
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(builder: (_) => RootShell()),
-            (route) => false,
-          );
+          if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop(_isEditing ? true : true);
+                            } else {
+                              await _softReturnToWrite(openDrafts: true);
+                            }
         }
         return;
       }
@@ -722,10 +766,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         ),
       );
       if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute<void>(builder: (_) => RootShell()),
-          (route) => false,
-        );
+        if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop(_isEditing ? true : true);
+                            } else {
+                              await _softReturnToWrite(openDrafts: true);
+                            }
       }
     } catch (e) {
       if (!mounted) return;
@@ -785,10 +830,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             await prefs.setBool('write_open_drafts', true);
             await prefs.setBool('write_open_submitted', false);
           } catch (_) {}
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(builder: (_) => RootShell()),
-            (route) => false,
-          );
+          if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop(_isEditing ? true : true);
+                            } else {
+                              await _softReturnToWrite(openDrafts: true);
+                            }
         }
         return;
       }
@@ -800,10 +846,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           ).showSnackBar(SnackBar(content: Text('Draft saved')));
         }
         if (popAfter && mounted) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(builder: (_) => RootShell()),
-            (route) => false,
-          );
+          if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop(_isEditing ? true : true);
+                            } else {
+                              await _softReturnToWrite(openDrafts: true);
+                            }
         }
         return;
       }
@@ -950,10 +997,16 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               await prefs.setBool('write_open_drafts', true);
               await prefs.setBool('write_open_submitted', false);
             } catch (_) {}
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute<void>(builder: (_) => RootShell()),
-              (route) => false,
-            );
+            // Inkitt: return to Write / previous screen — do not reset app stack
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop(true);
+            } else {
+              if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop(_isEditing ? true : true);
+                            } else {
+                              await _softReturnToWrite(openDrafts: true);
+                            }
+            }
           }
         },
         child: Scaffold(
@@ -986,12 +1039,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                 false,
                               );
                             } catch (_) {}
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute<void>(
-                                builder: (_) => RootShell(),
-                              ),
-                              (route) => false,
-                            );
+                            await _softReturnToWrite(openDrafts: true);
                           }
                         },
                         icon: Icon(Icons.arrow_back, color: _textHi),

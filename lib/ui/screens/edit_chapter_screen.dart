@@ -46,6 +46,9 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
   int? _chapterId;
   int _chapterNumber = 1;
   String _chapterNotes = '';
+  String _initialTitle = '';
+  String _initialContent = '';
+  String _initialNotes = '';
   String _submissionStatus = 'draft';
   DateTime? _scheduledFor;
 
@@ -163,9 +166,18 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
       }
     } finally {
       if (mounted) {
+        _initialTitle = _titleController.text;
+        _initialContent = _textController.text;
+        _initialNotes = _chapterNotes;
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  bool get _isDirty {
+    return _titleController.text != _initialTitle ||
+        _textController.text != _initialContent ||
+        _chapterNotes != _initialNotes;
   }
 
   /// Open editor for next chapter on the SAME story (never pops back to create story).
@@ -235,6 +247,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
     }
   }
 
+  /// Inkitt-style: pop back to Story Manage / Write — never wipe the whole stack.
   Future<void> _returnToWriteManager({bool openDrafts = true}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -244,10 +257,18 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
 
     if (!mounted) return;
     final nav = Navigator.of(context);
-    nav.pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const RootShell()),
-      (route) => false,
-    );
+    if (nav.canPop()) {
+      nav.pop(<String, dynamic>{
+        'openDrafts': openDrafts,
+        'refreshed': true,
+      });
+    } else {
+      // Fallback only when editor was the only route
+      nav.pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const RootShell()),
+        (route) => false,
+      );
+    }
   }
 
   Future<void> _publishStoryAndChapter() async {
@@ -310,40 +331,74 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
     await _returnToWriteManager(openDrafts: false);
   }
 
+  /// Inkitt leave flow: Keep editing | Discard | Save as Draft
+  /// - No changes → just leave
+  /// - Discard → leave without saving (published chapters on same story stay)
+  /// - Save draft → this chapter becomes draft; story stays Ongoing if others published
   Future<bool> _confirmLeaveAndSaveDraft() async {
     final title = _titleController.text.trim();
     final content = _textController.text.trim();
     if (title.isEmpty && content.isEmpty && _chapterId == null) {
       return true;
     }
-    final shouldLeave = await showDialog<bool>(
+    // Nothing changed → leave quietly (Inkitt does not nag)
+    if (!_isDirty) {
+      final openDrafts = await _storyBelongsInDraftsTab();
+      await _returnToWriteManager(openDrafts: openDrafts);
+      return true;
+    }
+
+    final action = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Leave page?'),
+        title: const Text('Leave chapter?'),
         content: const Text(
-          'This chapter will be saved as Draft. Other chapters stay as they are (published chapters stay under Submitted).',
+          'You have unsaved changes.\n\n'
+          '• Save as Draft — this chapter stays private; other published chapters stay on Submitted.\n'
+          '• Discard — lose changes on this chapter only.\n'
+          '• Keep editing — stay on this page.',
         ),
         actions: [
- TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Stay'),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'stay'),
+            child: const Text('Keep editing'),
           ),
- FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Leave'),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'discard'),
+            child: const Text('Discard', style: TextStyle(color: Colors.red)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'draft'),
+            child: const Text('Save as Draft'),
           ),
         ],
       ),
     );
-    if (shouldLeave != true) return false;
+    if (action == null || action == 'stay') return false;
     if (!mounted) return false;
-    await _saveChapter(
-      submissionStatus: 'draft',
-      scheduledFor: null,
-      successMessage: 'Saved as draft — other chapters unchanged',
-    );
-    // Inkitt: current chapter = draft; previous published chapters stay published.
-    // Land on Submitted if story already has published chapters / Ongoing status.
+
+    if (action == 'draft') {
+      // Empty content cannot be saved — treat as discard of new empty chapter
+      if (title.isEmpty && content.isEmpty) {
+        final openDrafts = await _storyBelongsInDraftsTab();
+        await _returnToWriteManager(openDrafts: openDrafts);
+        return true;
+      }
+      if (content.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Can't save an empty chapter as draft")),
+          );
+        }
+        return false;
+      }
+      await _saveChapter(
+        submissionStatus: 'draft',
+        scheduledFor: null,
+        successMessage: 'Saved as draft — other chapters unchanged',
+      );
+    }
+    // discard: do not save; published siblings unchanged
     final openDrafts = await _storyBelongsInDraftsTab();
     await _returnToWriteManager(openDrafts: openDrafts);
     return true;
@@ -598,12 +653,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                     await prefs.setBool('write_open_drafts', false);
                   } catch (_) {}
                   if (mounted) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const RootShell(),
-                      ),
-                      (route) => false,
-                    );
+                    await _returnToWriteManager(openDrafts: false);
                   }
                 },
                 child: const Text('Done'),
@@ -645,10 +695,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
             await prefs.setBool('write_open_drafts', false);
           } catch (_) {}
           if (!mounted) return;
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(builder: (_) => const RootShell()),
-            (route) => false,
-          );
+          await _returnToWriteManager(openDrafts: false);
         }
       }
     } catch (e) {
