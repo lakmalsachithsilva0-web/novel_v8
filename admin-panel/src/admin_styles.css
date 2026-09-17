@@ -742,3 +742,25 @@ table.data tr:hover td { background: rgba(59,130,246,.04); }
     position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 30;
   }
 }
+
+
+/* User reports open count on sidebar */
+.nav-badge {
+  margin-left: auto;
+  background: #e11d48;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

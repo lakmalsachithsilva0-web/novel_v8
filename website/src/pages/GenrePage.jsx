@@ -1,32 +1,41 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import BookCard from "../components/BookCard";
-import { getBootstrap } from "../api";
+import { getGenreBooks, getGenreMeta } from "../api";
 
-function collectBooks(data) {
-  if (!data) return [];
-  const map = new Map();
-  for (const list of [data.books, data.recently_updated, data.recently_completed, data.featured]) {
-    if (!Array.isArray(list)) continue;
-    for (const b of list) {
-      if (b?.id != null && !map.has(b.id)) map.set(b.id, b);
-    }
-  }
-  return [...map.values()];
-}
-
+/**
+ * Genre hub — same backend as Flutter:
+ * GET /api/genres/{name}/meta  (cover, description)
+ * GET /api/genres/{name}/books
+ */
 export default function GenrePage() {
   const { genre } = useParams();
   const label = decodeURIComponent(genre || "Stories");
   const [books, setBooks] = useState([]);
+  const [meta, setMeta] = useState({ name: label, cover_path: "", description: "" });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setLoading(true);
       try {
-        const boot = await getBootstrap();
-        if (!cancelled) setBooks(collectBooks(boot));
+        const [metaRes, booksRes] = await Promise.all([
+          getGenreMeta(label).catch(() => ({ name: label, cover_path: "", description: "" })),
+          getGenreBooks(label).catch(() => ({ items: [] })),
+        ]);
+        if (cancelled) return;
+        setMeta({
+          name: metaRes?.name || label,
+          cover_path: metaRes?.cover_path || metaRes?.cover_url || "",
+          description: metaRes?.description || "",
+        });
+        const items = Array.isArray(booksRes?.items)
+          ? booksRes.items
+          : Array.isArray(booksRes)
+            ? booksRes
+            : [];
+        setBooks(items);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -34,35 +43,49 @@ export default function GenrePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [label]);
 
-  const filtered = useMemo(() => {
-    const g = label.toLowerCase();
-    return books.filter((b) => {
-      const hay = `${b.genre || ""} ${b.primary_genre || ""} ${b.title || ""}`.toLowerCase();
-      return hay.includes(g) || g === "more" || g === "stories";
-    });
-  }, [books, label]);
+  const cover = meta.cover_path || "";
 
   return (
     <div className="full-bleed">
       <div className="full-bleed-inner">
-        <div className="genre-page-header">
-          <p className="meta">
-            <Link to="/">Home</Link> · {label}
-          </p>
-          <h1>{label} Stories</h1>
-          <p className="meta">{filtered.length} stories · same database as the app</p>
-        </div>
+        {cover ? (
+          <div
+            className="genre-cover"
+            style={{
+              height: 180,
+              borderRadius: 16,
+              marginBottom: 20,
+              backgroundImage: `linear-gradient(to bottom, transparent, rgba(0,0,0,.55)), url(${cover})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              display: "flex",
+              alignItems: "flex-end",
+              padding: 20,
+            }}
+          >
+            <h1 style={{ color: "#fff", margin: 0 }}>{meta.name || label}</h1>
+          </div>
+        ) : (
+          <div className="genre-page-header">
+            <p className="meta">
+              <Link to="/">Home</Link> · {label}
+            </p>
+            <h1>{meta.name || label} Stories</h1>
+          </div>
+        )}
+        {meta.description ? <p className="meta">{meta.description}</p> : null}
+        <p className="meta">{books.length} stories · same database as the app</p>
         {loading ? <p className="meta">Loading…</p> : null}
         <div className="trending-grid" style={{ marginBottom: 48 }}>
-          {filtered.map((b) => (
+          {books.map((b) => (
             <div key={b.id} className="trending-cell">
               <BookCard book={b} variant="grid" />
             </div>
           ))}
         </div>
-        {!loading && filtered.length === 0 ? (
+        {!loading && books.length === 0 ? (
           <p className="meta">No stories in this genre yet.</p>
         ) : null}
       </div>

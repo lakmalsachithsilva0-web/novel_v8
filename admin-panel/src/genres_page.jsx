@@ -4,7 +4,69 @@ import {
   createAdminGenre,
   updateAdminGenre,
   deleteAdminGenre,
+  uploadImage,
+  listAdminUserReports,
+  resolveAdminUserReport,
 } from "./api";
+
+/** Cover field: path paste + file upload (uses /api/upload-image). */
+function CoverField({ value, onChange, disabled }) {
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function onFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    setErr("");
+    try {
+      const res = await uploadImage(file);
+      const path = res?.path || res?.cover_path || res?.url || "";
+      if (!path) throw new Error("Upload returned no path");
+      onChange(path);
+    } catch (ex) {
+      setErr(ex.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 200, flex: 1 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Cover path / URL or upload →"
+          style={{ flex: 1, minWidth: 140 }}
+          disabled={disabled || uploading}
+        />
+        <label className="btn-ghost" style={{ cursor: "pointer", margin: 0 }}>
+          {uploading ? "Uploading…" : "Upload"}
+          <input
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            disabled={disabled || uploading}
+            onChange={onFile}
+          />
+        </label>
+      </div>
+      {value ? (
+        <img
+          src={value.startsWith("http") || value.startsWith("/") ? value : value}
+          alt=""
+          style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8 }}
+          onError={(e) => {
+            e.currentTarget.style.opacity = "0.3";
+          }}
+        />
+      ) : null}
+      {err ? <span style={{ color: "#f87171", fontSize: 12 }}>{err}</span> : null}
+    </div>
+  );
+}
 
 export function GenresPage() {
   const [items, setItems] = useState([]);
@@ -58,7 +120,10 @@ export function GenresPage() {
   async function onEdit(g) {
     const nextName = window.prompt("Genre name", g.name);
     if (nextName === null) return;
-    const nextCover = window.prompt("Cover image URL or /api/media/… path", g.cover_path || "");
+    const nextCover = window.prompt(
+      "Cover path (or cancel and use Upload on create row). Leave as-is to keep.",
+      g.cover_path || ""
+    );
     if (nextCover === null) return;
     const nextDesc = window.prompt("Description", g.description || "");
     if (nextDesc === null) return;
@@ -72,6 +137,22 @@ export function GenresPage() {
       await load();
     } catch (err) {
       setError(err.message || "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onUploadCover(g, file) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const res = await uploadImage(file);
+      const path = res?.path || res?.cover_path || res?.url || "";
+      if (!path) throw new Error("No path");
+      await updateAdminGenre(g.id, { cover_path: path });
+      await load();
+    } catch (err) {
+      setError(err.message || "Cover upload failed");
     } finally {
       setBusy(false);
     }
@@ -97,30 +178,25 @@ export function GenresPage() {
           <h3>Genre management</h3>
         </div>
         <p style={{ color: "var(--text-muted)", marginBottom: 12 }}>
-          Genre hubs on Flutter / website use these names and cover images. Add a cover path
-          (upload via novels media or paste <code>/api/media/…</code> URL).
+          Genre hubs on Flutter / website use these names and cover images. Upload an image or paste
+          a <code>/api/media/…</code> path.
         </p>
         <form
           onSubmit={onCreate}
-          style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}
+          style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-start" }}
         >
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Genre name (e.g. Romance)"
-            style={{ flex: 1, minWidth: 160 }}
+            style={{ flex: 1, minWidth: 140 }}
           />
-          <input
-            value={coverPath}
-            onChange={(e) => setCoverPath(e.target.value)}
-            placeholder="Cover path / URL"
-            style={{ flex: 1, minWidth: 180 }}
-          />
+          <CoverField value={coverPath} onChange={setCoverPath} disabled={busy} />
           <input
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Short description"
-            style={{ flex: 1, minWidth: 160 }}
+            style={{ flex: 1, minWidth: 140 }}
           />
           <button type="submit" className="btn-primary" disabled={busy}>
             Add genre
@@ -149,7 +225,7 @@ export function GenresPage() {
                   <td>
                     {g.cover_path ? (
                       <img
-                        src={g.cover_path.startsWith("http") ? g.cover_path : g.cover_path}
+                        src={g.cover_path}
                         alt=""
                         style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8 }}
                         onError={(e) => {
@@ -166,6 +242,20 @@ export function GenresPage() {
                     {g.description || "—"}
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
+                    <label className="btn-ghost" style={{ cursor: "pointer", marginRight: 4 }}>
+                      Cover
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        disabled={busy}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          e.target.value = "";
+                          if (f) onUploadCover(g, f);
+                        }}
+                      />
+                    </label>
                     <button className="btn-ghost" type="button" onClick={() => onEdit(g)} disabled={busy}>
                       Edit
                     </button>
@@ -198,7 +288,6 @@ export function UserReportsPage() {
   async function load() {
     setError("");
     try {
-      const { listAdminUserReports } = await import("./api");
       const data = await listAdminUserReports();
       setItems(Array.isArray(data?.items) ? data.items : []);
     } catch (e) {
@@ -213,7 +302,6 @@ export function UserReportsPage() {
   async function resolve(id) {
     setBusy(true);
     try {
-      const { resolveAdminUserReport } = await import("./api");
       await resolveAdminUserReport(id);
       await load();
     } catch (e) {
@@ -229,8 +317,8 @@ export function UserReportsPage() {
         <h3>User reports</h3>
       </div>
       <p style={{ color: "var(--text-muted)", marginBottom: 12 }}>
-        Reports from Flutter profile → Report user. After 3 open reports the user is flagged.
-        Ban/suspend from Users page.
+        Reports from Flutter profile → Report user. After 3 open reports the user is flagged. Ban/suspend
+        from Users page.
       </p>
       {error && <p style={{ color: "#f87171" }}>{error}</p>}
       <button type="button" className="btn-ghost" onClick={load} disabled={busy}>
@@ -249,9 +337,7 @@ export function UserReportsPage() {
         <tbody>
           {items.map((r) => (
             <tr key={r.id}>
-              <td>
-                {r.reported_name || r.reported_username || r.reported_id}
-              </td>
+              <td>{r.reported_name || r.reported_username || r.reported_id}</td>
               <td>{r.reporter_name || r.reporter_id}</td>
               <td>{r.reason || "—"}</td>
               <td>{r.status}</td>

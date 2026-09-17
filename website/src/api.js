@@ -420,3 +420,27 @@ export async function uploadWriteImage(file) {
   }
   return res.json();
 }
+
+
+/** Genre hub — same routes as Flutter app */
+export function getGenreMeta(name) {
+  return request(`/api/genres/${encodeURIComponent(name)}/meta`);
+}
+
+export function getGenreBooks(name, sort) {
+  const q = sort ? `?sort=${encodeURIComponent(sort)}` : "";
+  return request(`/api/genres/${encodeURIComponent(name)}/books${q}`);
+}
+
+export function getTagBooks(tag) {
+  return request(`/api/tags/${encodeURIComponent(tag)}/books`);
+}
+
+export function listGenres() {
+  return request("/api/genres");
+}
+
+export function listTags(q) {
+  const query = q ? `?q=${encodeURIComponent(q)}` : "";
+  return request(`/api/tags${query}`);
+}

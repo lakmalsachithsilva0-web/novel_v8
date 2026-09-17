@@ -50,6 +50,7 @@ import {
   deleteHomeSection,
   assignBooksToHomeSection,
   listHomeSectionBooks,
+  listAdminUserReports,
 } from "./api";
 import { AuthorsPage, UsersPage, ReviewsPage } from "./moderation_pages";
 import { GenresPage, UserReportsPage } from "./genres_page";
@@ -220,6 +221,7 @@ export default function App() {
   const [token, setToken] = useState(() => getAdminToken());
   const [session, setSession] = useState(null);
   const [page, setPage] = useState("dashboard");
+  const [userReportsOpen, setUserReportsOpen] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [liveStats, setLiveStats] = useState(null);
@@ -281,6 +283,13 @@ export default function App() {
       setReadingLists(asArray(bootstrap.reading_lists));
       setAchievements(asArray(bootstrap.achievements));
       setSupportRequests(asArray(bootstrap.support_requests || bootstrap.support || []));
+      try {
+        const ur = await listAdminUserReports();
+        const items = Array.isArray(ur?.items) ? ur.items : [];
+        setUserReportsOpen(items.filter((x) => (x.status || "open") === "open").length);
+      } catch (_) {
+        setUserReportsOpen(0);
+      }
       setContentVersion(typeof version === "string" ? version : version?.version || "");
       setStoryImages(asArray(images.items || images));
       try {
@@ -526,6 +535,9 @@ export default function App() {
               >
                 <span className="nav-icon">{n.icon}</span>
                 {n.label}
+                {n.id === "user-reports" && userReportsOpen > 0 ? (
+                  <span className="nav-badge">{userReportsOpen > 99 ? "99+" : userReportsOpen}</span>
+                ) : null}
               </button>
             </li>
           ))}
@@ -1205,6 +1217,7 @@ function HashtagsPage() {
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -1220,6 +1233,22 @@ function HashtagsPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  async function uploadCoverFile(file, onPath) {
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const res = await uploadImage(file);
+      const path = res?.path || res?.cover_path || res?.url || "";
+      if (!path) throw new Error("Upload returned no path");
+      onPath(path);
+    } catch (err) {
+      setError(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function onCreate(e) {
     e.preventDefault();
@@ -1247,20 +1276,33 @@ function HashtagsPage() {
   async function onEdit(tag) {
     const next = window.prompt("Rename hashtag", tag.name);
     if (next === null || !next.trim()) return;
-    const nextCover = window.prompt("Cover image path / URL", tag.cover_path || "");
-    if (nextCover === null) return;
     const nextDesc = window.prompt("Description", tag.description || "");
     if (nextDesc === null) return;
     setBusy(true);
     try {
       await updateAdminTag(tag.id, {
         name: next.trim().replace(/^#/, ""),
-        cover_path: nextCover.trim(),
         description: nextDesc.trim(),
       });
       await load();
     } catch (err) {
       setError(err.message || "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onUploadRowCover(tag, file) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const res = await uploadImage(file);
+      const path = res?.path || res?.cover_path || res?.url || "";
+      if (!path) throw new Error("No path");
+      await updateAdminTag(tag.id, { cover_path: path, name: tag.name });
+      await load();
+    } catch (err) {
+      setError(err.message || "Cover upload failed");
     } finally {
       setBusy(false);
     }
@@ -1285,12 +1327,17 @@ function HashtagsPage() {
         <div className="panel-header"><h3>Hashtag management</h3></div>
         <p style={{color:"var(--text-muted)", marginBottom:12}}>
           Authors can only attach hashtags you create here (max 3 per story).
-          Cover images show on Flutter hashtag detail pages.
+          Upload a cover image for Flutter / website hashtag pages.
         </p>
-        <form onSubmit={onCreate} style={{display:"flex", gap:8, marginBottom:16, flexWrap:"wrap"}}>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New hashtag (without #)" style={{flex:1, minWidth:140}} />
-          <input value={coverPath} onChange={(e) => setCoverPath(e.target.value)} placeholder="Cover path / URL" style={{flex:1, minWidth:160}} />
-          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" style={{flex:1, minWidth:140}} />
+        <form onSubmit={onCreate} style={{display:"flex", gap:8, marginBottom:16, flexWrap:"wrap", alignItems:"center"}}>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New hashtag (without #)" style={{flex:1, minWidth:120}} />
+          <input value={coverPath} onChange={(e) => setCoverPath(e.target.value)} placeholder="Cover path or upload →" style={{flex:1, minWidth:140}} />
+          <label className="btn-ghost" style={{cursor:"pointer", margin:0}}>
+            {uploading ? "Uploading…" : "Upload"}
+            <input type="file" accept="image/*" style={{display:"none"}} disabled={busy||uploading}
+              onChange={(e)=>{ const f=e.target.files?.[0]; e.target.value=""; if(f) uploadCoverFile(f, setCoverPath); }} />
+          </label>
+          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" style={{flex:1, minWidth:120}} />
           <button type="submit" className="btn-primary" disabled={busy}>Add hashtag</button>
           <button type="button" className="btn-ghost" onClick={load} disabled={busy}>Refresh</button>
         </form>
@@ -1321,6 +1368,11 @@ function HashtagsPage() {
                   <td>{tag.followers_count ?? 0}</td>
                   <td style={{maxWidth:180,overflow:"hidden",textOverflow:"ellipsis"}}>{tag.description || "—"}</td>
                   <td style={{whiteSpace:"nowrap"}}>
+                    <label className="btn-ghost" style={{cursor:"pointer", marginRight:4}}>
+                      Cover
+                      <input type="file" accept="image/*" style={{display:"none"}} disabled={busy}
+                        onChange={(e)=>{ const f=e.target.files?.[0]; e.target.value=""; if(f) onUploadRowCover(tag, f); }} />
+                    </label>
                     <button type="button" className="btn-ghost" disabled={busy} onClick={() => onEdit(tag)}>Edit</button>
                     <button type="button" className="btn-ghost" disabled={busy} onClick={() => onDelete(tag)}>Delete</button>
                   </td>

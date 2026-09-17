@@ -2686,6 +2686,45 @@ def _audience_allows(audience: str | None, age: int | None) -> bool:
     return True
 
 
+
+def _blocked_author_ids_for_user(user_id: int) -> set[int]:
+    """Authors the user has blocked (Inkitt-style hide from feeds)."""
+    try:
+        rows = fetch_all(
+            "SELECT blocked_id FROM user_blocks WHERE blocker_id=%s",
+            (int(user_id),),
+        )
+        out: set[int] = set()
+        for r in rows or []:
+            if isinstance(r, dict):
+                bid = r.get("blocked_id")
+            else:
+                bid = r[0] if r else None
+            if bid is not None:
+                out.add(int(bid))
+        return out
+    except Exception as exc:
+        LOGGER.warning("blocked authors lookup failed: %s", exc)
+        return set()
+
+
+def _filter_books_excluding_blocked(books: list, blocked: set[int]) -> list:
+    if not blocked:
+        return books
+    filtered = []
+    for b in books or []:
+        if not isinstance(b, dict):
+            filtered.append(b)
+            continue
+        uid = b.get("user_id") or b.get("author_user_id")
+        try:
+            if uid is not None and int(uid) in blocked:
+                continue
+        except (TypeError, ValueError):
+            pass
+        filtered.append(b)
+    return filtered
+
 @app.get("/api/bootstrap")
 def bootstrap(user: dict[str, Any] | None = Depends(optional_user)):
     global _BOOTSTRAP_CACHE, _BOOTSTRAP_CACHE_AT
@@ -2731,6 +2770,13 @@ def bootstrap(user: dict[str, Any] | None = Depends(optional_user)):
         LIMIT 48
         """
     )
+    # Inkitt: hide stories from authors the reader has blocked
+    if user and user.get("user_id"):
+        try:
+            _blocked = _blocked_author_ids_for_user(int(user["user_id"]))
+            books = _filter_books_excluding_blocked(books, _blocked)
+        except Exception as _blk_exc:
+            LOGGER.warning("bootstrap block filter: %s", _blk_exc)
 
     # One query for all home like counts (avoid N+1)
     likes_map: dict[int, int] = {}
