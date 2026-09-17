@@ -1569,32 +1569,51 @@ class ApiService {
     _ensureSuccessResponse(response);
   }
 
-  
+
   /// Inkitt-style: block another user (hides their content for you).
   Future<Map<String, dynamic>> blockUser(int userId, {bool blocked = true}) async {
     final response = await _post('/api/users/$userId/block', {
       'blocked': blocked,
-    });
-    if (response is Map<String, dynamic>) return response;
-    return {'ok': true, 'blocked': blocked};
+    }, timeout: const Duration(seconds: 45));
+    _ensureSuccessResponse(response);
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {}
+    return <String, dynamic>{'ok': true, 'blocked': blocked};
   }
 
   /// Inkitt-style: report a user (admin sees after thresholds).
   Future<Map<String, dynamic>> reportUser(int userId, {String reason = ''}) async {
     final response = await _post('/api/users/$userId/report', {
       'reason': reason,
-    });
-    if (response is Map<String, dynamic>) return response;
-    return {'ok': true};
+    }, timeout: const Duration(seconds: 45));
+    _ensureSuccessResponse(response);
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {}
+    return const <String, dynamic>{'ok': true};
   }
 
   Future<List<Map<String, dynamic>>> fetchMyBlockedUsers() async {
-    final response = await _get('/api/users/me/blocked');
-    final items = response is Map ? response['items'] : null;
-    if (items is List) {
-      return items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-    }
-    return [];
+    final response = await _get(
+      '/api/users/me/blocked',
+      timeout: const Duration(seconds: 45),
+    );
+    _ensureSuccessResponse(response);
+    try {
+      final decoded = jsonDecode(response.body);
+      final items = decoded is Map ? decoded['items'] : null;
+      if (items is List) {
+        return items
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+    } catch (_) {}
+    return <Map<String, dynamic>>[];
   }
 
 /// Report a story. After 3 unique reporters, it surfaces in Admin → Reports.
