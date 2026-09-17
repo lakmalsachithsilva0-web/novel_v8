@@ -195,7 +195,7 @@ class MoreScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _sectionLabel('Profile'),
-          _menuCard(isDark, [
+          _menuCard(context, isDark, [
             _Item(Icons.bar_chart_rounded, 'Reading Stats', () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -209,7 +209,7 @@ class MoreScreen extends StatelessWidget {
           ]),
           const SizedBox(height: 12),
           _sectionLabel('Support'),
-          _menuCard(isDark, [
+          _menuCard(context, isDark, [
             _Item(
               Icons.help_outline,
               'Help Center',
@@ -235,7 +235,7 @@ class MoreScreen extends StatelessWidget {
           ]),
           const SizedBox(height: 12),
           _sectionLabel('Settings'),
-          _menuCard(isDark, [
+          _menuCard(context, isDark, [
             _Item(
               Icons.notifications_none,
               'Notifications',
@@ -276,7 +276,7 @@ class MoreScreen extends StatelessWidget {
           ]),
           const SizedBox(height: 12),
           _sectionLabel('Legal'),
-          _menuCard(isDark, [
+          _menuCard(context, isDark, [
             _Item(
               Icons.cookie_outlined,
               'Manage Cookie Preferences',
@@ -314,7 +314,7 @@ class MoreScreen extends StatelessWidget {
           ]),
           const SizedBox(height: 12),
           _sectionLabel('Change Accounts'),
-          _menuCard(isDark, [
+          _menuCard(context, isDark, [
             _Item(
               Icons.logout,
               'Sign Out',
@@ -394,7 +394,7 @@ class MoreScreen extends StatelessWidget {
           },
         ),
       );
-  Widget _menuCard(bool isDark, List<_Item> items) => Material(
+  Widget _menuCard(BuildContext context, bool isDark, List<_Item> items) => Material(
     color: Colors.transparent,
     child: Container(
     decoration: _card(context, isDark),

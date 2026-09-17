@@ -1313,7 +1313,7 @@ class _AnalyticsTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 22),
  Row(
-                    children: const [
+                    children:  [
  Text(
                         'Weekly Followers',
                         style: TextStyle(
@@ -1362,7 +1362,7 @@ class _AnalyticsTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 22),
  Row(
-                    children: const [
+                    children:  [
  Text(
                         'Top Followers',
                         style: TextStyle(
