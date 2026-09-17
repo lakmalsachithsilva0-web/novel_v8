@@ -545,13 +545,23 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         'genre': genre.isEmpty ? 'Romance' : genre,
         'content_warnings': warnings,
         'tags': List<String>.from(_selectedTags.take(3)),
-        'status_text': forceStatus ?? (asDraft ? 'Draft' : 'Ongoing'),
         'language': _language,
         'audience': ((_audience ?? '').trim().isEmpty
             ? 'All Ages'
             : _audience!.trim()),
         'cover_path': _coverPath,
       };
+      // Inkitt contract: Edit details must NEVER change story status.
+      // Forcing Draft here was moving Ongoing stories out of Submitted
+      // and made chapters look "deleted". Only set status on NEW stories
+      // or when caller explicitly passes forceStatus for create flow.
+      if (!_isEditing) {
+        payload['status_text'] =
+            forceStatus ?? (asDraft ? 'Draft' : 'Ongoing');
+      } else if (forceStatus != null && forceStatus.isNotEmpty) {
+        // Explicit status change only (rare from this screen)
+        payload['status_text'] = forceStatus;
+      }
 
       var storyId =
           _savedStoryId ??

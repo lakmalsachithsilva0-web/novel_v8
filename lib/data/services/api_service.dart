@@ -1973,7 +1973,7 @@ class ApiService {
     final response = await _post(
       '/api/write/stories/$storyId/chapters/submit-all',
       {
-        if (chapterIds != null) 'chapter_ids': chapterIds,
+        'chapter_ids': ?chapterIds,
         'min_words': minWords,
       },
       timeout: const Duration(seconds: 90),

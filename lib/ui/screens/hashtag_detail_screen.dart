@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/responsive.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/app_styles.dart';
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
 import 'story_detail_screen.dart';

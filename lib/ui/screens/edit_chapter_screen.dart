@@ -321,7 +321,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Leave page?'),
         content: const Text(
-          'Your chapter will be saved as a draft before you leave.',
+          'This chapter will be saved as Draft. Other chapters stay as they are (published chapters stay under Submitted).',
         ),
         actions: [
           TextButton(
@@ -535,11 +535,16 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
             .toLowerCase();
         return status == 'draft';
       }).length;
-      final storyStatus = nextSubmissionStatus.toLowerCase() == 'draft'
-          ? (publishedChapterCount > 0 || draftChapterCount > 1
-                ? 'Ongoing'
-                : 'Draft')
-          : 'Ongoing';
+      // Inkitt: if ANY chapter is already published (or this save publishes),
+      // story is Ongoing (Submitted tab). Only pure first-draft stays Draft.
+      // Leaving chapter 4 as draft must NOT move the whole story to Drafts.
+      final savingAsDraft =
+          nextSubmissionStatus.toLowerCase().trim() == 'draft';
+      final thisWillBePublished = !savingAsDraft;
+      final storyStatus =
+          (publishedChapterCount > 0 || thisWillBePublished)
+              ? 'Ongoing'
+              : 'Draft';
 
       if (_chapterId == null) {
         final newId = await widget.apiService.createStoryChapter(

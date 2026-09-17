@@ -4578,6 +4578,22 @@ def get_writer_stories(user: dict[str, Any] = Depends(require_user)):
     items: list[dict[str, Any]] = []
     for row in rows or []:
         status = str(_row_get(row, "status_text") or "Draft")
+        published_n = int(_row_get(row, "published_chapter_count") or 0)
+        # Heal: published chapters exist but status stuck on Draft (old edit-details bug)
+        st_low = status.strip().lower()
+        if published_n > 0 and (
+            not st_low
+            or st_low.startswith("draft")
+            or st_low in ("private", "unpublished", "hidden")
+        ):
+            status = "Ongoing"
+            try:
+                execute_write(
+                    "UPDATE books SET status_text=%s WHERE id=%s",
+                    ("Ongoing", int(_row_get(row, "id") or 0)),
+                )
+            except Exception as heal_exc:
+                LOGGER.warning("write-list status heal: %s", heal_exc)
         genre = str(_row_get(row, "genre") or "")
         items.append(
             {

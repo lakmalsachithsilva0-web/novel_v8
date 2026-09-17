@@ -13,30 +13,40 @@ import 'story_manage_screen.dart';
 import 'story_detail_screen.dart';
 
 bool storyMatchesWriteTab(Map<String, dynamic> story, int tabIndex) {
-  // Inkitt-style: tabs are STORY status only.
-  // Drafts = not public. Submitted = Ongoing / Completed / Published.
-  // Chapter draft vs published is managed inside StoryManageScreen.
+  // Inkitt-style Write tabs:
+  // - Submitted: Ongoing / Completed / Published OR any published chapter
+  // - Drafts: pure draft stories only (no published chapters)
+  // A story with ch1–3 published + ch4 draft belongs under Submitted.
   final statusText =
       story['status_text']?.toString().toLowerCase().trim() ?? '';
+  final publishedCount =
+      (story['published_chapter_count'] as num?)?.toInt() ?? 0;
 
-  final isDraftStory = statusText.isEmpty ||
+  final statusLooksDraft = statusText.isEmpty ||
       statusText.contains('draft') ||
       statusText.contains('private') ||
       statusText.contains('unpublish') ||
       statusText.contains('hidden');
 
-  final isSubmittedStory = !isDraftStory &&
-      (statusText.contains('ongoing') ||
-          statusText.contains('submitted') ||
-          statusText.contains('published') ||
-          statusText.contains('complete') ||
-          statusText.contains('live') ||
-          statusText == 'unlisted');
+  final statusLooksSubmitted = statusText.contains('ongoing') ||
+      statusText.contains('submitted') ||
+      statusText.contains('published') ||
+      statusText.contains('complete') ||
+      statusText.contains('live') ||
+      statusText == 'unlisted';
+
+  // Published chapters win over a wrongly-stored "Draft" status_text
+  // (e.g. after an old Edit-details bug forced Draft).
+  final isSubmittedStory =
+      publishedCount > 0 || (statusLooksSubmitted && !statusLooksDraft);
+
+  final isDraftStory = !isSubmittedStory &&
+      (statusLooksDraft || !statusLooksSubmitted);
 
   if (tabIndex == 0) {
     return isSubmittedStory;
   }
-  return isDraftStory || !isSubmittedStory;
+  return isDraftStory;
 }
 
 class WriteScreen extends StatefulWidget {
@@ -122,11 +132,9 @@ class _WriteScreenState extends State<WriteScreen>
   }
 
   Future<void> _openCreateStory({Map<String, dynamic>? story}) async {
-    final wasDraft = story != null &&
-        ((story['status_text'] ?? 'Draft')
-            .toString()
-            .toLowerCase()
-            .contains('draft'));
+    // Remember which tab this story belongs to BEFORE edit (status must not
+    // flip to Draft on details save — that was the chapters-"gone" illusion).
+    final belongedSubmitted = story != null && storyMatchesWriteTab(story, 0);
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) =>
@@ -137,8 +145,8 @@ class _WriteScreenState extends State<WriteScreen>
     await _reloadStories();
     if (result != true) return;
     if (_mainTabs.index != 0) _mainTabs.animateTo(0);
-    // Inkitt-style: stay on Drafts after editing a draft story
-    _storySubTabs.animateTo(wasDraft ? 1 : 0);
+    // Stay on same tab family: Submitted stays Submitted, Draft stays Draft
+    _storySubTabs.animateTo(belongedSubmitted ? 0 : 1);
   }
 
   Future<void> _readChapter(

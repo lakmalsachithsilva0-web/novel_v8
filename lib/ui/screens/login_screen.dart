@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_styles.dart';
-import '../../core/theme/app_theme.dart';
 
 
 /// Login — layout matched to product mock (purple theme aligned with home).
