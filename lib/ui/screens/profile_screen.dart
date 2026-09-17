@@ -475,15 +475,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                 },
               ),
             ] else ...[
- ListTile(
+              ListTile(
                 leading: const Icon(Icons.block),
                 title: const Text('Block user'),
-                onTap: () => Navigator.pop(ctx),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _blockUser();
+                },
               ),
- ListTile(
+              ListTile(
                 leading: const Icon(Icons.report_outlined),
                 title: const Text('Report user'),
-                onTap: () => Navigator.pop(ctx),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _reportUser();
+                },
               ),
             ],
  ListTile(
@@ -494,6 +500,93 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
       ),
     );
+  }
+
+
+  Future<void> _blockUser() async {
+    final id = widget.viewingUserId;
+    if (id == null || id <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot block this profile')),
+      );
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Block user?'),
+        content: const Text(
+          'You will no longer see their stories and activity. You can unblock later from settings.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Block')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await widget.apiService.blockUser(id, blocked: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User blocked')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _reportUser() async {
+    final id = widget.viewingUserId;
+    if (id == null || id <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot report this profile')),
+      );
+      return;
+    }
+    final reasonCtrl = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Report user'),
+        content: TextField(
+          controller: reasonCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Reason',
+            hintText: 'Spam, harassment, fake account…',
+          ),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, reasonCtrl.text.trim()),
+            child: const Text('Submit'),
+          ),
+        ],
+      ),
+    );
+    if (reason == null) return;
+    try {
+      final res = await widget.apiService.reportUser(id, reason: reason);
+      if (!mounted) return;
+      final flagged = res['flagged_for_admin'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            flagged
+                ? 'Report submitted — flagged for admin review'
+                : 'Report submitted. Thank you.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   Future<void> _editProfile() async {

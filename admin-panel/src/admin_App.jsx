@@ -52,6 +52,7 @@ import {
   listHomeSectionBooks,
 } from "./api";
 import { AuthorsPage, UsersPage, ReviewsPage } from "./moderation_pages";
+import { GenresPage, UserReportsPage } from "./genres_page";
 
 const NAV = [
   { id: "dashboard", label: "Dashboard", icon: "▦" },
@@ -62,6 +63,8 @@ const NAV = [
   { id: "reports", label: "Reports", icon: "▤" },
   { id: "reviews", label: "Reviews", icon: "★" },
   { id: "hashtags", label: "Hashtags", icon: "#" },
+  { id: "genres", label: "Genres", icon: "◈" },
+  { id: "user-reports", label: "User Reports", icon: "⚑" },
   { id: "revenue", label: "Revenue", icon: "$" },
   { id: "moderation", label: "Content Moderation", icon: "◎" },
   { id: "announcements", label: "Announcements", icon: "◎" },
@@ -608,6 +611,8 @@ export default function App() {
           )}
           {page === "reports" && <StoryReportsPage />}
           {page === "hashtags" && <HashtagsPage />}
+          {page === "genres" && <GenresPage />}
+          {page === "user-reports" && <UserReportsPage />}
           {page === "revenue" && <RevenuePage books={books} />}
           {page === "moderation" && (
             <ModerationPage
@@ -1196,6 +1201,8 @@ function HashtagsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
+  const [coverPath, setCoverPath] = useState("");
+  const [description, setDescription] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -1221,8 +1228,14 @@ function HashtagsPage() {
     setBusy(true);
     setError("");
     try {
-      await createAdminTag({ name: n });
+      await createAdminTag({
+        name: n,
+        cover_path: coverPath.trim(),
+        description: description.trim(),
+      });
       setName("");
+      setCoverPath("");
+      setDescription("");
       await load();
     } catch (err) {
       setError(err.message || "Create failed");
@@ -1231,12 +1244,20 @@ function HashtagsPage() {
     }
   }
 
-  async function onRename(tag) {
+  async function onEdit(tag) {
     const next = window.prompt("Rename hashtag", tag.name);
-    if (!next || !next.trim()) return;
+    if (next === null || !next.trim()) return;
+    const nextCover = window.prompt("Cover image path / URL", tag.cover_path || "");
+    if (nextCover === null) return;
+    const nextDesc = window.prompt("Description", tag.description || "");
+    if (nextDesc === null) return;
     setBusy(true);
     try {
-      await updateAdminTag(tag.id, { name: next.trim().replace(/^#/, "") });
+      await updateAdminTag(tag.id, {
+        name: next.trim().replace(/^#/, ""),
+        cover_path: nextCover.trim(),
+        description: nextDesc.trim(),
+      });
       await load();
     } catch (err) {
       setError(err.message || "Update failed");
@@ -1264,46 +1285,58 @@ function HashtagsPage() {
         <div className="panel-header"><h3>Hashtag management</h3></div>
         <p style={{color:"var(--text-muted)", marginBottom:12}}>
           Authors can only attach hashtags you create here (max 3 per story).
+          Cover images show on Flutter hashtag detail pages.
         </p>
         <form onSubmit={onCreate} style={{display:"flex", gap:8, marginBottom:16, flexWrap:"wrap"}}>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="New hashtag (without #)"
-            style={{flex:1, minWidth:180}}
-          />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New hashtag (without #)" style={{flex:1, minWidth:140}} />
+          <input value={coverPath} onChange={(e) => setCoverPath(e.target.value)} placeholder="Cover path / URL" style={{flex:1, minWidth:160}} />
+          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" style={{flex:1, minWidth:140}} />
           <button type="submit" className="btn-primary" disabled={busy}>Add hashtag</button>
-          <button type="button" className="btn-ghost" onClick={load}>Refresh</button>
+          <button type="button" className="btn-ghost" onClick={load} disabled={busy}>Refresh</button>
         </form>
-        {error && <div className="error-banner">{error}</div>}
+        {error && <p style={{color:"#f87171"}}>{error}</p>}
         {loading ? <p>Loading…</p> : (
-          <div className="table-wrap">
-            <table className="data">
-              <thead>
-                <tr><th>Hashtag</th><th>Stories</th><th>Actions</th></tr>
-              </thead>
-              <tbody>
-                {items.length === 0 && (
-                  <tr><td colSpan={3} style={{color:"var(--text-muted)"}}>No hashtags yet. Add the first one.</td></tr>
-                )}
-                {items.map((t) => (
-                  <tr key={t.id}>
-                    <td><strong>#{t.name}</strong></td>
-                    <td>{t.book_count ?? 0}</td>
-                    <td style={{display:"flex", gap:8}}>
-                      <button type="button" className="btn-ghost" onClick={() => onRename(t)} disabled={busy}>Rename</button>
-                      <button type="button" className="btn-danger" onClick={() => onDelete(t)} disabled={busy}>Delete</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Cover</th>
+                <th>Name</th>
+                <th>Books</th>
+                <th>Followers</th>
+                <th>Description</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((tag) => (
+                <tr key={tag.id}>
+                  <td>
+                    {tag.cover_path ? (
+                      <img src={tag.cover_path} alt="" style={{width:48,height:48,objectFit:"cover",borderRadius:8}}
+                        onError={(e)=>{e.currentTarget.style.display="none";}} />
+                    ) : <span style={{color:"var(--text-muted)"}}>—</span>}
+                  </td>
+                  <td>#{tag.name}</td>
+                  <td>{tag.book_count ?? 0}</td>
+                  <td>{tag.followers_count ?? 0}</td>
+                  <td style={{maxWidth:180,overflow:"hidden",textOverflow:"ellipsis"}}>{tag.description || "—"}</td>
+                  <td style={{whiteSpace:"nowrap"}}>
+                    <button type="button" className="btn-ghost" disabled={busy} onClick={() => onEdit(tag)}>Edit</button>
+                    <button type="button" className="btn-ghost" disabled={busy} onClick={() => onDelete(tag)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+              {items.length === 0 && (
+                <tr><td colSpan={6} style={{color:"var(--text-muted)"}}>No hashtags yet</td></tr>
+              )}
+            </tbody>
+          </table>
         )}
       </div>
     </>
   );
 }
+
 
 function RevenuePage({ books }) {
   const demo = [

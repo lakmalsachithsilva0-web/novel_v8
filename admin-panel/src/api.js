@@ -400,3 +400,29 @@ export function assignBooksToHomeSection(section_key, book_ids) {
 export function listHomeSectionBooks(section_key) {
   return request(`/api/admin/home-sections/${encodeURIComponent(section_key)}/books`);
 }
+
+// --- Genres (admin CRUD + covers) ---
+export function listAdminGenres() {
+  return request("/api/admin/genres");
+}
+
+export function createAdminGenre(payload) {
+  return request("/api/admin/genres", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function updateAdminGenre(id, payload) {
+  return request(`/api/admin/genres/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export function deleteAdminGenre(id) {
+  return request(`/api/admin/genres/${id}`, { method: "DELETE" });
+}
+
+// --- User reports (Inkitt-style) ---
+export function listAdminUserReports() {
+  return request("/api/admin/user-reports");
+}
+
+export function resolveAdminUserReport(id) {
+  return request(`/api/admin/user-reports/${id}/resolve`, { method: "POST", body: "{}" });
+}

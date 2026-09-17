@@ -21,6 +21,7 @@ part 'discover_widgets.dart';
 
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({
+    this.onSignOut,
     super.key,
     required this.data,
     required this.apiService,
@@ -28,6 +29,7 @@ class DiscoverScreen extends StatefulWidget {
 
   final AppBootstrap data;
   final ApiService apiService;
+  final Future<void> Function()? onSignOut;
 
   @override
   State<DiscoverScreen> createState() => _DiscoverScreenState();
@@ -286,19 +288,30 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                         Icons.switch_account_outlined,
                                       ),
                                       title: const Text('Change account'),
-                                      onTap: () {
+                                      onTap: () async {
                                         Navigator.pop(ctx);
-                                        // Jump user to More tab (index 4) if RootShell is parent
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Open the More tab to switch account or sign out',
+                                        final ok = await showDialog<bool>(
+                                          context: context,
+                                          builder: (dctx) => AlertDialog(
+                                            title: const Text('Change account?'),
+                                            content: const Text(
+                                              'You will be signed out so you can log in with a different account.',
                                             ),
-                                            duration: Duration(seconds: 3),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(dctx, false),
+                                                child: const Text('Cancel'),
+                                              ),
+                                              FilledButton(
+                                                onPressed: () => Navigator.pop(dctx, true),
+                                                child: const Text('Sign out'),
+                                              ),
+                                            ],
                                           ),
                                         );
+                                        if (ok == true && context.mounted) {
+                                          await widget.onSignOut?.call();
+                                        }
                                       },
                                     ),
  ListTile(

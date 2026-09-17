@@ -455,7 +455,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
               onSignIn: () => _requireAuth(afterLoginIndex: 0),
               onBrowse: () => setState(() => _selectedIndex = 1),
             ),
-      DiscoverScreen(data: _bootstrap!, apiService: _apiService),
+      DiscoverScreen(data: _bootstrap!, apiService: _apiService, onSignOut: _signOut),
       // Write — requires auth
       _isAuthenticated
           ? WriteScreen(data: _bootstrap!, apiService: _apiService)
