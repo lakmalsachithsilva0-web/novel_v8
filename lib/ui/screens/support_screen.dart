@@ -98,7 +98,7 @@ class _SupportScreenState extends State<SupportScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to submit request: $error')),
+ SnackBar(content: Text('Failed to submit request: $error')),
       );
     } finally {
       if (mounted) {
@@ -114,11 +114,11 @@ class _SupportScreenState extends State<SupportScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Container(
+ Container(
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.border),
+              border: Border.all(color: AppTheme.borderOf(context)),
             ),
             child: const TextField(
               enabled: false,
@@ -131,17 +131,17 @@ class _SupportScreenState extends State<SupportScreen> {
             ),
           ),
           const SizedBox(height: 18),
-          Text(
+ Text(
             'Submit a request',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontSize: 34),
           ),
           const SizedBox(height: 18),
-          TextField(
+ TextField(
             controller: _emailController,
             decoration: const InputDecoration(labelText: 'Your email address'),
           ),
           const SizedBox(height: 12),
-          TextField(
+ TextField(
             controller: _firstNameController,
             decoration: const InputDecoration(labelText: 'First Name'),
           ),
@@ -150,10 +150,10 @@ class _SupportScreenState extends State<SupportScreen> {
             initialValue: _issue,
             decoration: const InputDecoration(labelText: 'Customer Issue'),
             items: const [
-              DropdownMenuItem(value: 'General support', child: Text('General support')),
-              DropdownMenuItem(value: 'Billing', child: Text('Billing')),
-              DropdownMenuItem(value: 'Story moderation', child: Text('Story moderation')),
-              DropdownMenuItem(value: 'Account access', child: Text('Account access')),
+ DropdownMenuItem(value: 'General support', child: Text('General support')),
+ DropdownMenuItem(value: 'Billing', child: Text('Billing')),
+ DropdownMenuItem(value: 'Story moderation', child: Text('Story moderation')),
+ DropdownMenuItem(value: 'Account access', child: Text('Account access')),
             ],
             onChanged: (value) {
               if (value != null) {
@@ -162,21 +162,21 @@ class _SupportScreenState extends State<SupportScreen> {
             },
           ),
           const SizedBox(height: 12),
-          TextField(
+ TextField(
             controller: _subjectController,
             decoration: const InputDecoration(labelText: 'Subject'),
           ),
           const SizedBox(height: 12),
-          TextField(
+ TextField(
             controller: _descriptionController,
             maxLines: 6,
             decoration: const InputDecoration(labelText: 'Description'),
           ),
           const SizedBox(height: 8),
-          Text(
+ Text(
             'Please enter the details of your request. Please include any relevant details about your problem including the name(s) of the stories affected, chapter numbers, and any error messages you receive.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.muted,
+              color: AppTheme.mutedOf(context),
               height: 1.5,
             ),
           ),
@@ -187,11 +187,11 @@ class _SupportScreenState extends State<SupportScreen> {
               labelText: 'What type of device are you using?',
             ),
             items: const [
-              DropdownMenuItem(value: 'Android phone', child: Text('Android phone')),
-              DropdownMenuItem(value: 'Android tablet', child: Text('Android tablet')),
-              DropdownMenuItem(value: 'iPhone', child: Text('iPhone')),
-              DropdownMenuItem(value: 'iPad', child: Text('iPad')),
-              DropdownMenuItem(value: 'Web browser', child: Text('Web browser')),
+ DropdownMenuItem(value: 'Android phone', child: Text('Android phone')),
+ DropdownMenuItem(value: 'Android tablet', child: Text('Android tablet')),
+ DropdownMenuItem(value: 'iPhone', child: Text('iPhone')),
+ DropdownMenuItem(value: 'iPad', child: Text('iPad')),
+ DropdownMenuItem(value: 'Web browser', child: Text('Web browser')),
             ],
             onChanged: (value) {
               if (value != null) {
@@ -200,25 +200,25 @@ class _SupportScreenState extends State<SupportScreen> {
             },
           ),
           const SizedBox(height: 18),
-          Text(
+ Text(
             'Attachments',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          InkWell(
+ InkWell(
             onTap: _pickAttachment,
             borderRadius: BorderRadius.circular(12),
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.border),
+                border: Border.all(color: AppTheme.borderOf(context)),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.attach_file_rounded, color: AppTheme.brand),
                   const SizedBox(width: 10),
-                  Expanded(
+ Expanded(
                     child: Text(
                       _attachmentPath.isEmpty
                           ? 'Add file or drop file here'
@@ -231,7 +231,7 @@ class _SupportScreenState extends State<SupportScreen> {
             ),
           ),
           const SizedBox(height: 18),
-          FilledButton(
+ FilledButton(
             onPressed: _submitting ? null : _submit,
             style: FilledButton.styleFrom(backgroundColor: AppTheme.brand),
             child: _submitting

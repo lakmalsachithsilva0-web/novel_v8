@@ -138,7 +138,7 @@ class _WriteScreenState extends State<WriteScreen>
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) =>
-            CreateStoryScreen(apiService: widget.apiService, story: story),
+ CreateStoryScreen(apiService: widget.apiService, story: story),
       ),
     );
     if (!mounted) return;
@@ -186,11 +186,11 @@ class _WriteScreenState extends State<WriteScreen>
         title: const Text('Delete chapter?'),
         content: Text('Delete "$title" permanently?'),
         actions: [
-          TextButton(
+ TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+ FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Delete'),
@@ -276,11 +276,11 @@ class _WriteScreenState extends State<WriteScreen>
         title: const Text('Change status'),
         content: Text(confirmMsg),
         actions: [
-          TextButton(
+ TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+ FilledButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Confirm'),
           ),
@@ -322,11 +322,11 @@ class _WriteScreenState extends State<WriteScreen>
           'Delete "${story['title']}" permanently?\n\nAll chapters will also be deleted. This cannot be undone.',
         ),
         actions: [
-          TextButton(
+ TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+ FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Delete'),
@@ -352,11 +352,11 @@ class _WriteScreenState extends State<WriteScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header
-        Padding(
+ Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
           child: Row(
             children: [
-              Text(
+ Text(
                 'Write',
                 style: TextStyle(
                   fontSize: 28,
@@ -366,7 +366,7 @@ class _WriteScreenState extends State<WriteScreen>
                 ),
               ),
               const Spacer(),
-              Container(
+ Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 6,
@@ -385,13 +385,13 @@ class _WriteScreenState extends State<WriteScreen>
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
+ Icon(
                       Icons.diamond_outlined,
                       size: 14,
                       color: Color(0xFF6C3CE1),
                     ),
-                    SizedBox(width: 4),
-                    Text(
+ SizedBox(width: 4),
+ Text(
                       'Premium',
                       style: TextStyle(
                         fontSize: 12,
@@ -402,7 +402,7 @@ class _WriteScreenState extends State<WriteScreen>
                   ],
                 ),
               ),
-              IconButton(
+ IconButton(
                 onPressed: () => _openCreateStory(),
                 icon: Icon(
                   Icons.add_circle_rounded,
@@ -415,7 +415,7 @@ class _WriteScreenState extends State<WriteScreen>
           ),
         ),
         // Hero banner (UI only — same create action)
-        Padding(
+ Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
           child: GestureDetector(
             onTap: () => _openCreateStory(),
@@ -432,7 +432,7 @@ class _WriteScreenState extends State<WriteScreen>
                       : const [Color(0xFF6C3CE1), Color(0xFF9B6DFF)],
                 ),
                 boxShadow: [
-                  BoxShadow(
+ BoxShadow(
                     color: const Color(0xFF6C3CE1).withValues(alpha: 0.28),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
@@ -441,11 +441,11 @@ class _WriteScreenState extends State<WriteScreen>
               ),
               child: Row(
                 children: [
-                  Expanded(
+ Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                        Text(
+ Text(
                           'Start Writing',
                           style: TextStyle(
                             color: Colors.white,
@@ -454,8 +454,8 @@ class _WriteScreenState extends State<WriteScreen>
                             letterSpacing: -0.3,
                           ),
                         ),
-                        SizedBox(height: 6),
-                        Text(
+ SizedBox(height: 6),
+ Text(
                           'Turn your ideas into stories readers will love.',
                           style: TextStyle(
                             color: Colors.white70,
@@ -463,12 +463,12 @@ class _WriteScreenState extends State<WriteScreen>
                             height: 1.3,
                           ),
                         ),
-                        SizedBox(height: 12),
+ SizedBox(height: 12),
                         // CTA chip
                       ],
                     ),
                   ),
-                  Container(
+ Container(
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
@@ -487,11 +487,11 @@ class _WriteScreenState extends State<WriteScreen>
           ),
         ),
         // Writing tools row (visual shortcuts → same create / manage)
-        Padding(
+ Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Row(
             children: [
-              Expanded(
+ Expanded(
                 child: _WriteToolChip(
                   icon: Icons.add_box_outlined,
                   label: 'New Story',
@@ -499,7 +499,7 @@ class _WriteScreenState extends State<WriteScreen>
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
+ Expanded(
                 child: _WriteToolChip(
                   icon: Icons.library_books_outlined,
                   label: 'My Stories',
@@ -509,7 +509,7 @@ class _WriteScreenState extends State<WriteScreen>
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
+ Expanded(
                 child: _WriteToolChip(
                   icon: Icons.insights_outlined,
                   label: 'Analytics',
@@ -521,7 +521,7 @@ class _WriteScreenState extends State<WriteScreen>
             ],
           ),
         ),
-        Container(
+ Container(
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
@@ -534,7 +534,7 @@ class _WriteScreenState extends State<WriteScreen>
           child: TabBar(
             controller: _mainTabs,
             labelColor: AppTheme.brand,
-            unselectedLabelColor: isDark ? Colors.white60 : AppTheme.muted,
+            unselectedLabelColor: isDark ? Colors.white60 : AppTheme.mutedOf(context),
             indicatorColor: AppTheme.brand,
             indicatorWeight: 3,
             labelStyle: const TextStyle(
@@ -542,12 +542,12 @@ class _WriteScreenState extends State<WriteScreen>
               fontSize: 13,
             ),
             tabs: const [
-              Tab(text: 'Manage Stories'),
-              Tab(text: 'Analytics'),
+ Tab(text: 'Manage Stories'),
+ Tab(text: 'Analytics'),
             ],
           ),
         ),
-        Expanded(
+ Expanded(
           child: _mainTabs.index == 0
               ? _ManageStoriesTab(
                   storySubTabs: _storySubTabs,
@@ -596,9 +596,9 @@ class _WriteToolChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           child: Column(
             children: [
-              Icon(icon, size: 22, color: const Color(0xFF6C3CE1)),
+ Icon(icon, size: 22, color: const Color(0xFF6C3CE1)),
               const SizedBox(height: 6),
-              Text(
+ Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -654,7 +654,7 @@ class _ManageStoriesTab extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
-        Container(
+ Container(
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
@@ -667,7 +667,7 @@ class _ManageStoriesTab extends StatelessWidget {
           child: TabBar(
             controller: storySubTabs,
             labelColor: AppTheme.brand,
-            unselectedLabelColor: AppTheme.muted,
+            unselectedLabelColor: AppTheme.mutedOf(context),
             indicatorColor: AppTheme.brand,
             indicatorWeight: 3,
             labelStyle: const TextStyle(
@@ -675,12 +675,12 @@ class _ManageStoriesTab extends StatelessWidget {
               fontSize: 13,
             ),
             tabs: const [
-              Tab(text: 'Submitted'),
-              Tab(text: 'Drafts'),
+ Tab(text: 'Submitted'),
+ Tab(text: 'Drafts'),
             ],
           ),
         ),
-        Expanded(
+ Expanded(
           child: RefreshIndicator(
             onRefresh: onRefresh,
             child: FutureBuilder<List<Map<String, dynamic>>>(
@@ -690,8 +690,8 @@ class _ManageStoriesTab extends StatelessWidget {
                   return ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: const [
-                      SizedBox(height: 120),
-                      Center(child: CircularProgressIndicator()),
+ SizedBox(height: 120),
+ Center(child: CircularProgressIndicator()),
                     ],
                   );
                 }
@@ -726,7 +726,7 @@ class _ManageStoriesTab extends StatelessWidget {
                 }
 
                 final header = <Widget>[
-                  Padding(
+ Padding(
                     padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
                     child: TextField(
                       onChanged: onQueryChange,
@@ -754,11 +754,11 @@ class _ManageStoriesTab extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Padding(
+ Padding(
                     padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                     child: Row(
                       children: [
-                        InkWell(
+ InkWell(
                           onTap: () async {
                             final picked =
                                 await showModalBottomSheet<String>(
@@ -770,7 +770,7 @@ class _ManageStoriesTab extends StatelessWidget {
                               ),
                               builder: (ctx) {
                                 Widget opt(String id, String label) =>
-                                    ListTile(
+ ListTile(
                                       title: Text(label),
                                       onTap: () => Navigator.pop(ctx, id),
                                     );
@@ -792,13 +792,13 @@ class _ManageStoriesTab extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+ Icon(
                                 Icons.filter_list_rounded,
                                 size: 16,
-                                color: AppTheme.muted,
+                                color: AppTheme.mutedOf(context),
                               ),
                               const SizedBox(width: 4),
-                              Text(
+ Text(
                                 listFilter == 'ongoing'
                                     ? 'Filter: Ongoing'
                                     : listFilter == 'completed'
@@ -806,22 +806,22 @@ class _ManageStoriesTab extends StatelessWidget {
                                         : listFilter == 'recent'
                                             ? 'Filter: Recent'
                                             : 'Filter: All',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: AppTheme.muted,
+                                  color: AppTheme.mutedOf(context),
                                 ),
                               ),
                             ],
                           ),
                         ),
                         const Spacer(),
-                        Text(
+ Text(
                           listFilter == 'recent'
                               ? 'Sort: Newest'
                               : writeModel.sortLabel,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppTheme.muted,
+                            color: AppTheme.mutedOf(context),
                           ),
                         ),
                       ],
@@ -841,18 +841,18 @@ class _ManageStoriesTab extends StatelessWidget {
                     children: [
                       ...header,
                       const SizedBox(height: 40),
-                      Center(
+ Center(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: Column(
                             children: [
-                              Icon(
+ Icon(
                                 Icons.menu_book_outlined,
                                 size: 48,
                                 color: Colors.grey.shade400,
                               ),
                               const SizedBox(height: 12),
-                              Text(
+ Text(
                                 onDrafts
                                     ? 'No drafts yet'
                                     : 'No submitted stories yet',
@@ -863,19 +863,19 @@ class _ManageStoriesTab extends StatelessWidget {
                               ),
                               if (otherCount > 0) ...[
                                 const SizedBox(height: 6),
-                                Text(
+ Text(
                                   onDrafts
                                       ? '$otherCount ongoing/completed story(ies) are under Submitted'
                                       : '$otherCount draft story(ies) are under Drafts',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
-                                    color: AppTheme.muted,
+                                    color: AppTheme.mutedOf(context),
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
                               ],
                               const SizedBox(height: 6),
-                              GestureDetector(
+ GestureDetector(
                                 onTap: onCreateStory,
                                 child: Text(
                                   writeModel.emptyCta.isNotEmpty
@@ -1063,7 +1063,7 @@ class _StoryListCard extends StatelessWidget {
             boxShadow: Theme.of(context).brightness == Brightness.dark
                 ? const []
                 : [
-                    BoxShadow(
+ BoxShadow(
                       color: const Color(0xFF6C3CE1).withValues(alpha: 0.06),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
@@ -1073,7 +1073,7 @@ class _StoryListCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
+ ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   width: 52,
@@ -1101,11 +1101,11 @@ class _StoryListCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
+ Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+ Text(
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1114,38 +1114,38 @@ class _StoryListCard extends StatelessWidget {
                       ).textTheme.titleMedium?.copyWith(fontSize: 15),
                     ),
                     if (author.isNotEmpty)
-                      Padding(
+ Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           'by $author',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppTheme.muted,
+                            color: AppTheme.mutedOf(context),
                           ),
                         ),
                       ),
                     if (description.isNotEmpty)
-                      Padding(
+ Padding(
                         padding: const EdgeInsets.only(top: 5),
                         child: Text(
                           description,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppTheme.muted,
+                            color: AppTheme.mutedOf(context),
                           ),
                         ),
                       ),
                     if (genre.isNotEmpty || statusLabel.isNotEmpty)
-                      Padding(
+ Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Wrap(
                           spacing: 6,
                           runSpacing: 6,
                           children: [
                             if (genre.isNotEmpty)
-                              Container(
+ Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
                                   vertical: 2,
@@ -1162,7 +1162,7 @@ class _StoryListCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                            Container(
+ Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 2,
@@ -1212,7 +1212,7 @@ class _StoryListCard extends StatelessWidget {
                         title: Text('Edit details'),
                       ),
                     ),
-                    PopupMenuItem(
+ PopupMenuItem(
                       value: 'chapter',
                       enabled: canEditChapters,
                       child: const Text('Chapters'),
@@ -1272,38 +1272,38 @@ class _AnalyticsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppTheme.border)),
+ Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppTheme.borderOf(context))),
           ),
           child: TabBar(
             controller: analyticsSubTabs,
             labelColor: AppTheme.brand,
-            unselectedLabelColor: AppTheme.muted,
+            unselectedLabelColor: AppTheme.mutedOf(context),
             indicatorColor: AppTheme.brand,
             tabs: const [
-              Tab(text: 'Overview'),
-              Tab(text: 'Stories'),
+ Tab(text: 'Overview'),
+ Tab(text: 'Stories'),
             ],
           ),
         ),
-        Expanded(
+ Expanded(
           child: TabBarView(
             controller: analyticsSubTabs,
             children: [
-              ListView(
+ ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  Row(
+ Row(
                     children: const [
-                      Expanded(
+ Expanded(
                         child: _AnalyticsStatCard(
                           title: 'Total Followers',
                           value: '0',
                         ),
                       ),
-                      SizedBox(width: 12),
-                      Expanded(
+ SizedBox(width: 12),
+ Expanded(
                         child: _AnalyticsStatCard(
                           title: 'Total Words Published',
                           value: '0',
@@ -1312,46 +1312,46 @@ class _AnalyticsTab extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 22),
-                  Row(
+ Row(
                     children: const [
-                      Text(
+ Text(
                         'Weekly Followers',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      SizedBox(width: 6),
-                      Icon(
+ SizedBox(width: 6),
+ Icon(
                         Icons.info_outline_rounded,
                         size: 16,
-                        color: AppTheme.muted,
+                        color: AppTheme.mutedOf(context),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Container(
+ Container(
                     height: 170,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.border),
+                      border: Border.all(color: AppTheme.borderOf(context)),
                     ),
                     child: Column(
                       children: [
-                        Expanded(
+ Expanded(
                           child: _FollowerBars(values: _weeklyFollowers),
                         ),
                         const SizedBox(height: 8),
-                        Row(
+ Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: _weekDays
                               .map(
                                 (e) => Text(
                                   e,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 10,
-                                    color: AppTheme.muted,
+                                    color: AppTheme.mutedOf(context),
                                   ),
                                 ),
                               )
@@ -1361,20 +1361,20 @@ class _AnalyticsTab extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 22),
-                  Row(
+ Row(
                     children: const [
-                      Text(
+ Text(
                         'Top Followers',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      SizedBox(width: 6),
-                      Icon(
+ SizedBox(width: 6),
+ Icon(
                         Icons.info_outline_rounded,
                         size: 16,
-                        color: AppTheme.muted,
+                        color: AppTheme.mutedOf(context),
                       ),
                     ],
                   ),
@@ -1399,9 +1399,9 @@ class _AnalyticsTab extends StatelessWidget {
                               style: TextStyle(color: Color(0xFFBBBBBB)),
                             )
                           else
-                            const Text(
+ Text(
                               'Not enough data.',
-                              style: TextStyle(color: AppTheme.muted),
+                              style: TextStyle(color: AppTheme.mutedOf(context)),
                             ),
                         ],
                       ),
@@ -1409,24 +1409,24 @@ class _AnalyticsTab extends StatelessWidget {
                   ),
                 ],
               ),
-              Center(
+ Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
+ Icon(
                       Icons.bar_chart_rounded,
                       size: 62,
-                      color: AppTheme.muted,
+                      color: AppTheme.mutedOf(context),
                     ),
                     const SizedBox(height: 10),
-                    Text(
+ Text(
                       'Stories analytics',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+ Text(
                       'Write more stories to unlock story-level stats',
-                      style: TextStyle(color: AppTheme.muted),
+                      style: TextStyle(color: AppTheme.mutedOf(context)),
                     ),
                   ],
                 ),
@@ -1451,17 +1451,17 @@ class _AnalyticsStatCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: AppTheme.borderOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+ Text(
             title,
-            style: const TextStyle(fontSize: 12, color: AppTheme.muted),
+            style: TextStyle(fontSize: 12, color: AppTheme.mutedOf(context)),
           ),
           const SizedBox(height: 6),
-          Text(
+ Text(
             value,
             style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
           ),

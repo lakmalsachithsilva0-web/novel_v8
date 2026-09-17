@@ -23,7 +23,7 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+ Text(
           text,
           maxLines: _expanded || !needsToggle ? null : 4,
           overflow: _expanded || !needsToggle
@@ -35,7 +35,7 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
           ),
         ),
         if (needsToggle)
-          Padding(
+ Padding(
             padding: const EdgeInsets.only(top: 4, bottom: 8),
             child: TextButton(
               onPressed: () {
@@ -157,9 +157,9 @@ class _ExploreStoriesSectionState extends State<_ExploreStoriesSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+ Row(
           children: [
-            Expanded(
+ Expanded(
               child: Text(
                 lead.primaryGenre.isEmpty
                     ? 'Portal Fantasy'
@@ -169,7 +169,7 @@ class _ExploreStoriesSectionState extends State<_ExploreStoriesSection> {
                 ),
               ),
             ),
-            TextButton(
+ TextButton(
               onPressed: _openSeeAll,
               style: TextButton.styleFrom(
                 foregroundColor: AppTheme.brand,
@@ -185,7 +185,7 @@ class _ExploreStoriesSectionState extends State<_ExploreStoriesSection> {
           ],
         ),
         const SizedBox(height: 8),
-        SizedBox(
+ SizedBox(
           height: 248,
           child: PageView.builder(
             controller: _pageController,
@@ -295,9 +295,9 @@ class _DynamicStoryRailState extends State<_DynamicStoryRail> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+ Row(
           children: [
-            Expanded(
+ Expanded(
               child: Text(
                 widget.section.title,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -307,7 +307,7 @@ class _DynamicStoryRailState extends State<_DynamicStoryRail> {
                 ),
               ),
             ),
-            TextButton(
+ TextButton(
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -333,7 +333,7 @@ class _DynamicStoryRailState extends State<_DynamicStoryRail> {
           ],
         ),
         const SizedBox(height: 8),
-        SizedBox(
+ SizedBox(
           height: 210,
           child: PageView.builder(
             controller: _pageController,
@@ -442,7 +442,7 @@ class _ActiveStoryDetail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+ Text(
           book.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -481,21 +481,21 @@ class _ActiveStoryDetail extends StatelessWidget {
           },
         ),
         const SizedBox(height: 10),
-        Wrap(
+ Wrap(
           spacing: 10,
           runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Row(
+ Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+ Icon(
                   Icons.schedule_rounded,
                   size: 14,
-                  color: AppTheme.muted,
+                  color: AppTheme.mutedOf(context),
                 ),
                 const SizedBox(width: 4),
-                Text(
+ Text(
                   book.statusText.isEmpty
                       ? 'Updated recently'
                       : book.statusText,
@@ -503,23 +503,23 @@ class _ActiveStoryDetail extends StatelessWidget {
                 ),
               ],
             ),
-            Row(
+ Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+ Icon(
                   Icons.visibility_outlined,
                   size: 14,
-                  color: AppTheme.muted,
+                  color: AppTheme.mutedOf(context),
                 ),
                 const SizedBox(width: 4),
-                Text(
+ Text(
                   '${book.viewCount}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
             ),
             if (book.rating > 0)
-              Row(
+ Row(
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(
                   book.rating.round().clamp(0, 5),
@@ -536,7 +536,7 @@ class _ActiveStoryDetail extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        Wrap(
+ Wrap(
           spacing: 8,
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
@@ -547,7 +547,7 @@ class _ActiveStoryDetail extends StatelessWidget {
                 size: 14,
                 color: AppTheme.brand,
               ),
-              Text(
+ Text(
                 'Completed',
                 style: Theme.of(
                   context,
@@ -560,11 +560,11 @@ class _ActiveStoryDetail extends StatelessWidget {
             ),
             if (book.secondaryGenre.isNotEmpty)
               _GenreTag(label: book.secondaryGenre, apiService: apiService),
-            DecoratedBox(
+ DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
-                  BoxShadow(
+ BoxShadow(
                     color: AppTheme.brand.withValues(alpha: 0.35),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
@@ -623,7 +623,7 @@ class _GenreTag extends StatelessWidget {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) =>
-                        HashtagDetailScreen(tag: text, apiService: apiService!),
+ HashtagDetailScreen(tag: text, apiService: apiService!),
                   ),
                 );
               },
@@ -743,7 +743,7 @@ class _StoryCardState extends State<_StoryCard> {
               ? const Color(0xFF1E1E1E)
               : Colors.white,
           boxShadow: [
-            BoxShadow(
+ BoxShadow(
               color: color.withValues(alpha: 0.18),
               blurRadius: 12,
               offset: const Offset(0, 4),
@@ -754,7 +754,7 @@ class _StoryCardState extends State<_StoryCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            ClipRRect(
+ ClipRRect(
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(16),
               ),
@@ -766,12 +766,12 @@ class _StoryCardState extends State<_StoryCard> {
                 ),
               ),
             ),
-            Padding(
+ Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+ Text(
                     widget.book.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -780,13 +780,13 @@ class _StoryCardState extends State<_StoryCard> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
+ Text(
                     'by ${widget.book.author}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(
                       context,
-                    ).textTheme.bodySmall?.copyWith(color: AppTheme.muted),
+                    ).textTheme.bodySmall?.copyWith(color: AppTheme.mutedOf(context)),
                   ),
                 ],
               ),
@@ -882,9 +882,9 @@ class _AuthorsStripState extends State<_AuthorsStrip> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+ Row(
           children: [
-            Expanded(
+ Expanded(
               child: Text(
                 'New Authors',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -895,7 +895,7 @@ class _AuthorsStripState extends State<_AuthorsStrip> {
                 ),
               ),
             ),
-            TextButton(
+ TextButton(
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -920,7 +920,7 @@ class _AuthorsStripState extends State<_AuthorsStrip> {
           ],
         ),
         const SizedBox(height: 10),
-        SizedBox(
+ SizedBox(
           height: 124,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
@@ -942,7 +942,7 @@ class _AuthorsStripState extends State<_AuthorsStrip> {
                   : false;
               return Column(
                 children: [
-                  GestureDetector(
+ GestureDetector(
                     onTap: authorId != null
                         ? () {
                             Navigator.of(context).push(
@@ -979,7 +979,7 @@ class _AuthorsStripState extends State<_AuthorsStrip> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        CircleAvatar(
+ CircleAvatar(
                           radius: 28,
                           backgroundColor:
                               Theme.of(context).brightness == Brightness.dark
@@ -1003,7 +1003,7 @@ class _AuthorsStripState extends State<_AuthorsStrip> {
                               : null,
                         ),
                         if (authorId != null)
-                          Positioned(
+ Positioned(
                             right: -4,
                             bottom: -2,
                             child: Container(
@@ -1039,11 +1039,11 @@ class _AuthorsStripState extends State<_AuthorsStrip> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  SizedBox(
+ SizedBox(
                     width: 72,
                     child: Column(
                       children: [
-                        Text(
+ Text(
                           author,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1054,13 +1054,13 @@ class _AuthorsStripState extends State<_AuthorsStrip> {
                                 fontWeight: FontWeight.w600,
                               ),
                         ),
-                        Text(
+ Text(
                           book.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(fontSize: 9, color: AppTheme.muted),
+                              ?.copyWith(fontSize: 9, color: AppTheme.mutedOf(context)),
                         ),
                       ],
                     ),
@@ -1407,9 +1407,9 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+ Row(
           children: [
-            Expanded(
+ Expanded(
               child: Text(
                 'Continue Reading',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1427,7 +1427,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             else
-              IconButton(
+ IconButton(
                 tooltip: 'Refresh',
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 onPressed: _refresh,
@@ -1437,7 +1437,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
           ],
         ),
         const SizedBox(height: 12),
-        SizedBox(
+ SizedBox(
           height: 120,
           child: books.isEmpty
               ? Container(
@@ -1459,7 +1459,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                   scrollDirection: Axis.horizontal,
                   children: [
                     for (final entry in books)
-                      Padding(
+ Padding(
                         padding: const EdgeInsets.only(right: 12),
                         child: GestureDetector(
                           onTap: () => _openResume(context, entry),
@@ -1479,7 +1479,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                               boxShadow: isDark
                                   ? const []
                                   : [
-                                      BoxShadow(
+ BoxShadow(
                                         color: const Color(
                                           0xFF6C3CE1,
                                         ).withValues(alpha: 0.06),
@@ -1490,7 +1490,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                             ),
                             child: Row(
                               children: [
-                                ClipRRect(
+ ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
                                   child: SizedBox(
                                     width: 64,
@@ -1503,13 +1503,13 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                Expanded(
+ Expanded(
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Text(
+ Text(
                                         entry.book.title,
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
@@ -1523,7 +1523,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                                         ),
                                       ),
                                       const SizedBox(height: 4),
-                                      Text(
+ Text(
                                         entry.updatedText.isNotEmpty
                                             ? entry.updatedText
                                             : 'Chapter ${entry.lastChapterNumber}',
@@ -1537,7 +1537,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                                         ),
                                       ),
                                       const SizedBox(height: 10),
-                                      ClipRRect(
+ ClipRRect(
                                         borderRadius: BorderRadius.circular(4),
                                         child: LinearProgressIndicator(
                                           value: entry.progressFraction.clamp(
@@ -1552,7 +1552,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                                         ),
                                       ),
                                       const SizedBox(height: 4),
-                                      Align(
+ Align(
                                         alignment: Alignment.centerRight,
                                         child: Text(
                                           '${(entry.progressFraction.clamp(0.0, 1.0) * 100).round()}%',
@@ -1571,7 +1571,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                           ),
                         ),
                       ),
-                    Padding(
+ Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: Container(
                         width: 160,
@@ -1591,7 +1591,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
+ Text(
                               books.isEmpty
                                   ? "Stories you're reading will appear here"
                                   : 'Find more stories',
@@ -1644,14 +1644,14 @@ class _BrowseGenresSection extends StatelessWidget {
   final VoidCallback? onOpenExplore;
 
   static const _palette = <Color>[
-    Color(0xFFE14FA0),
-    Color(0xFF8B5CF6),
-    Color(0xFF6C3CE1),
-    Color(0xFFF0B357),
-    Color(0xFF5B9BD5),
-    Color(0xFFE85D4C),
-    Color(0xFF9B59B6),
-    Color(0xFF2ECC71),
+ Color(0xFFE14FA0),
+ Color(0xFF8B5CF6),
+ Color(0xFF6C3CE1),
+ Color(0xFFF0B357),
+ Color(0xFF5B9BD5),
+ Color(0xFFE85D4C),
+ Color(0xFF9B59B6),
+ Color(0xFF2ECC71),
   ];
 
   @override
@@ -1686,9 +1686,9 @@ class _BrowseGenresSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+ Row(
           children: [
-            Expanded(
+ Expanded(
               child: Text(
                 'Browse genres',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1700,7 +1700,7 @@ class _BrowseGenresSection extends StatelessWidget {
               ),
             ),
             if (onOpenExplore != null)
-              TextButton(
+ TextButton(
                 onPressed: onOpenExplore,
                 style: TextButton.styleFrom(
                   foregroundColor: AppTheme.brand,
@@ -1716,7 +1716,7 @@ class _BrowseGenresSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        SizedBox(
+ SizedBox(
           height: 120,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
@@ -1801,7 +1801,7 @@ class _BrowseGenresSection extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
-                      BoxShadow(
+ BoxShadow(
                         color: Colors.black.withValues(alpha: 0.12),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
@@ -1819,7 +1819,7 @@ class _BrowseGenresSection extends StatelessWidget {
                           errorBuilder: (_, _, _) => Container(color: color),
                         )
                       else
-                        Container(
+ Container(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
@@ -1828,7 +1828,7 @@ class _BrowseGenresSection extends StatelessWidget {
                             ),
                           ),
                         ),
-                      Container(
+ Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
@@ -1840,7 +1840,7 @@ class _BrowseGenresSection extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Padding(
+ Padding(
                         padding: const EdgeInsets.all(12),
                         child: Align(
                           alignment: Alignment.bottomLeft,
@@ -1854,7 +1854,7 @@ class _BrowseGenresSection extends StatelessWidget {
                               fontSize: 16,
                               height: 1.2,
                               shadows: [
-                                Shadow(blurRadius: 6, color: Colors.black54),
+ Shadow(blurRadius: 6, color: Colors.black54),
                               ],
                             ),
                           ),
@@ -1895,19 +1895,19 @@ class _CategoryTabs extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+ Text(
                   labels[index],
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: isSelected
                         ? AppTheme.brand
                         : (Theme.of(context).brightness == Brightness.dark
                               ? Colors.white70
-                              : AppTheme.muted),
+                              : AppTheme.mutedOf(context)),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 6),
-                AnimatedContainer(
+ AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   height: 3,
                   width: isSelected
@@ -2205,12 +2205,13 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
   @override
   Widget build(BuildContext context) {
     final genre = widget.genre;
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: scheme.surface,
       body: NestedScrollView(
         headerSliverBuilder: (context, inner) {
           return [
-            SliverAppBar(
+ SliverAppBar(
               expandedHeight: 180,
               pinned: true,
               backgroundColor: const Color(0xFF1A1A2E),
@@ -2230,7 +2231,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                   fit: StackFit.expand,
                   children: [
                     // Soft gradient hero (Inkitt-style)
-                    Container(
+ Container(
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
@@ -2241,7 +2242,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                     ),
                     // Decorative book covers from list if any
                     if (_books.isNotEmpty)
-                      Opacity(
+ Opacity(
                         opacity: 0.35,
                         child: Image.network(
                           widget.apiService.resolveAssetUrl(
@@ -2251,7 +2252,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                           errorBuilder: (_, _, _) => const SizedBox.shrink(),
                         ),
                       ),
-                    Container(
+ Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
@@ -2267,7 +2268,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                 ),
               ),
             ),
-            SliverToBoxAdapter(
+ SliverToBoxAdapter(
               child: Container(
                 color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
@@ -2309,7 +2310,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                   children: [
                     const Text('No stories in this genre yet'),
                     if (widget.onExploreMore != null)
-                      TextButton(
+ TextButton(
                         onPressed: widget.onExploreMore,
                         child: const Text('Explore more'),
                       ),
@@ -2358,7 +2359,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ClipRRect(
+ ClipRRect(
                           borderRadius: BorderRadius.circular(6),
                           child: SizedBox(
                             width: 78,
@@ -2381,14 +2382,14 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Expanded(
+ Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+ Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
+ Expanded(
                                     child: Text(
                                       title,
                                       maxLines: 2,
@@ -2409,7 +2410,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                               ),
                               if (desc.isNotEmpty) ...[
                                 const SizedBox(height: 4),
-                                Text(
+ Text(
                                   desc,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -2421,7 +2422,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                                 ),
                               ],
                               const SizedBox(height: 6),
-                              Row(
+ Row(
                                 children: [
                                   const Icon(
                                     Icons.star_rounded,
@@ -2429,7 +2430,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                                     color: Color(0xFFFFC107),
                                   ),
                                   const SizedBox(width: 2),
-                                  Text(
+ Text(
                                     rating > 0
                                         ? rating.toStringAsFixed(1)
                                         : '—',
@@ -2439,7 +2440,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Container(
+ Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
                                       vertical: 2,
@@ -2461,7 +2462,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                                 ],
                               ),
                               const SizedBox(height: 4),
-                              Row(
+ Row(
                                 children: [
                                   if (completed) ...[
                                     const Icon(
@@ -2480,7 +2481,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                                     ),
                                   ],
                                   if (chapters != null) ...[
-                                    Text(
+ Text(
                                       completed
                                           ? ' · $chapters Chapters'
                                           : '$chapters Chapters',
@@ -2494,7 +2495,7 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                               ),
                               if (author.isNotEmpty) ...[
                                 const SizedBox(height: 2),
-                                Text(
+ Text(
                                   'By $author',
                                   style: const TextStyle(
                                     fontSize: 12,
@@ -2542,7 +2543,7 @@ class _FilterChipBtn extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
+ Text(
               label,
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
@@ -2648,7 +2649,7 @@ class _HomeSectionHeader extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
-        Container(
+ Container(
           width: 4,
           height: 18,
           margin: const EdgeInsets.only(right: 10),
@@ -2657,19 +2658,19 @@ class _HomeSectionHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
           ),
         ),
-        Expanded(
+ Expanded(
           child: Text(
             title,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.3,
-              color: isDark ? Colors.white : AppTheme.ink,
+              color: isDark ? Colors.white : AppTheme.inkOf(context),
             ),
           ),
         ),
         if (onSeeAll != null)
-          TextButton(
+ TextButton(
             onPressed: onSeeAll,
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.brand,
@@ -2761,7 +2762,7 @@ class _HomeFeaturedBanner extends StatelessWidget {
           stops: isDark ? null : const [0.0, 0.55, 1.0],
         ),
         boxShadow: [
-          BoxShadow(
+ BoxShadow(
             color: const Color(0xFF6C3CE1).withValues(alpha: 0.22),
             blurRadius: 20,
             offset: const Offset(0, 10),
@@ -2772,7 +2773,7 @@ class _HomeFeaturedBanner extends StatelessWidget {
       child: Stack(
         children: [
           if (coverUrl != null)
-            Positioned(
+ Positioned(
               right: -20,
               top: -10,
               bottom: -10,
@@ -2804,12 +2805,12 @@ class _HomeFeaturedBanner extends StatelessWidget {
               ),
             ),
           ),
-          Padding(
+ Padding(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+ Text(
                   'FEATURED',
                   style: TextStyle(
                     fontSize: 11,
@@ -2819,7 +2820,7 @@ class _HomeFeaturedBanner extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
+ Text(
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -2832,7 +2833,7 @@ class _HomeFeaturedBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 if (desc.trim().isNotEmpty)
-                  Text(
+ Text(
                     desc,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -2844,12 +2845,12 @@ class _HomeFeaturedBanner extends StatelessWidget {
                   ),
                 const SizedBox(height: 12),
                 if (genre.trim().isNotEmpty) ...[
-                  Wrap(
+ Wrap(
                     spacing: 6,
                     children: [
                       for (final g in genre.split(RegExp(r'[,/|]')))
                         if (g.trim().isNotEmpty)
-                          Container(
+ Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 4,
@@ -2873,7 +2874,7 @@ class _HomeFeaturedBanner extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                 ],
-                FilledButton(
+ FilledButton(
                   onPressed: () => _open(context),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF6C3CE1),
@@ -2891,12 +2892,12 @@ class _HomeFeaturedBanner extends StatelessWidget {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
+ Text(
                         'Read Now',
                         style: TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_rounded, size: 16),
+ SizedBox(width: 4),
+ Icon(Icons.arrow_forward_rounded, size: 16),
                     ],
                   ),
                 ),
@@ -2974,7 +2975,7 @@ class _HomeRecommendedRailState extends State<_HomeRecommendedRail> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
+ SizedBox(
           height: 172,
           child: PageView.builder(
             controller: _pageController,
@@ -3006,7 +3007,7 @@ class _HomeRecommendedRailState extends State<_HomeRecommendedRail> {
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: isActive
                           ? [
-                              BoxShadow(
+ BoxShadow(
                                 color: AppTheme.brand.withValues(alpha: 0.28),
                                 blurRadius: 22,
                                 offset: const Offset(0, 10),
@@ -3190,9 +3191,9 @@ class _HomeTopGenresRow extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(icon, color: const Color(0xFF6C3CE1), size: 24),
+ Icon(icon, color: const Color(0xFF6C3CE1), size: 24),
                         const SizedBox(height: 8),
-                        Text(
+ Text(
                           name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -3357,7 +3358,7 @@ class _HomeCategoryGrid extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Container(
+ Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
@@ -3367,7 +3368,7 @@ class _HomeCategoryGrid extends StatelessWidget {
                   child: Icon(icon, size: 18, color: const Color(0xFF6C3CE1)),
                 ),
                 const SizedBox(width: 10),
-                Expanded(
+ Expanded(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
@@ -3375,7 +3376,7 @@ class _HomeCategoryGrid extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
+ Text(
                           name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -3387,7 +3388,7 @@ class _HomeCategoryGrid extends StatelessWidget {
                                 : const Color(0xFF1A1A1A),
                           ),
                         ),
-                        Text(
+ Text(
                           '${genreBooks.length} stories',
                           style: TextStyle(
                             fontSize: 11,
@@ -3427,7 +3428,7 @@ class _HomeTrendingList extends StatelessWidget {
       children: [
         for (var i = 0; i < valid.length && i < 5; i++) ...[
           if (i > 0) const SizedBox(height: 10),
-          GestureDetector(
+ GestureDetector(
             onTap: () {
               final b = valid[i];
               Navigator.of(context).push(
@@ -3464,7 +3465,7 @@ class _HomeTrendingList extends StatelessWidget {
               child: Row(
                 children: [
                   // Rank badge
-                  Container(
+ Container(
                     width: 28,
                     height: 28,
                     alignment: Alignment.center,
@@ -3482,7 +3483,7 @@ class _HomeTrendingList extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  ClipRRect(
+ ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: SizedBox(
                       width: 48,
@@ -3503,11 +3504,11 @@ class _HomeTrendingList extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(
+ Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+ Text(
                           valid[i].title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -3521,7 +3522,7 @@ class _HomeTrendingList extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         if (valid[i].primaryGenre.isNotEmpty)
-                          Text(
+ Text(
                             valid[i].primaryGenre,
                             style: TextStyle(
                               fontSize: 12,
@@ -3532,7 +3533,7 @@ class _HomeTrendingList extends StatelessWidget {
                           ),
                         const SizedBox(height: 4),
                         if (valid[i].description.trim().isNotEmpty)
-                          Text(
+ Text(
                             valid[i].description,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -3547,12 +3548,12 @@ class _HomeTrendingList extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Column(
+ Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Row(
+ Row(
                         children: [
-                          Icon(
+ Icon(
                             Icons.visibility_outlined,
                             size: 12,
                             color: isDark
@@ -3560,7 +3561,7 @@ class _HomeTrendingList extends StatelessWidget {
                                 : Colors.grey.shade500,
                           ),
                           const SizedBox(width: 3),
-                          Text(
+ Text(
                             valid[i].viewCount > 0
                                 ? (valid[i].viewCount >= 1000
                                       ? '${(valid[i].viewCount / 1000).toStringAsFixed(1)}K'
@@ -3576,15 +3577,15 @@ class _HomeTrendingList extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Row(
+ Row(
                         children: [
-                          Icon(
+ Icon(
                             Icons.star_rounded,
                             size: 13,
                             color: Colors.amber.shade600,
                           ),
                           const SizedBox(width: 2),
-                          Text(
+ Text(
                             valid[i].rating > 0
                                 ? valid[i].rating.toStringAsFixed(1)
                                 : '—',

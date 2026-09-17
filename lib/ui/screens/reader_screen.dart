@@ -71,20 +71,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+ Text(
                         widget.title,
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontFamily: 'serif', fontSize: 28),
                       ),
                       const SizedBox(height: 8),
-                      Text(
+ Text(
                         'by ${widget.author}',
                         style: Theme.of(
                           context,
-                        ).textTheme.bodyMedium?.copyWith(color: AppTheme.muted),
+                        ).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedOf(context)),
                       ),
                       const SizedBox(height: 18),
-                      Text(
+ Text(
                         widget.description.isEmpty
                             ? 'This story is ready in your reader. Full chapter content can be edited from the Write tab.'
                             : widget.description,
@@ -94,20 +94,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      Text(
+ Text(
                         'Chapters',
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
-                      Text(
+ Text(
                         _chapters.isEmpty
                             ? 'No chapters are available yet. Start writing or check back soon.'
                             : 'Tap a chapter to read the full story.',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       if (_errorMessage != null)
-                        Padding(
+ Padding(
                           padding: const EdgeInsets.only(top: 20, bottom: 4),
                           child: Text(
                             _errorMessage!,
@@ -156,22 +156,22 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+ Text(
                             'Chapter $chapterNumber',
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
-                                  color: AppTheme.muted,
+                                  color: AppTheme.mutedOf(context),
                                   fontWeight: FontWeight.w600,
                                 ),
                           ),
                           const SizedBox(height: 6),
-                          Text(
+ Text(
                             chapterTitle,
                             style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 12),
-                          Text(
+ Text(
                             snippet,
                             maxLines: 4,
                             overflow: TextOverflow.ellipsis,
@@ -180,11 +180,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             ).textTheme.bodyMedium?.copyWith(height: 1.6),
                           ),
                           const SizedBox(height: 12),
-                          Row(
+ Row(
                             children: const [
-                              Icon(Icons.chevron_right, size: 20),
-                              SizedBox(width: 6),
-                              Text('Read full chapter'),
+ Icon(Icons.chevron_right, size: 20),
+ SizedBox(width: 6),
+ Text('Read full chapter'),
                             ],
                           ),
                         ],

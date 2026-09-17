@@ -89,12 +89,12 @@ class MoreScreen extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 28),
         children: [
-          Container(
+ Container(
             padding: const EdgeInsets.all(14),
-            decoration: _card(isDark),
+            decoration: _card(context, isDark),
             child: Row(
               children: [
-                GestureDetector(
+ GestureDetector(
                   onTap: () => _openProfile(context),
                   child: CircleAvatar(
                     radius: 24,
@@ -115,13 +115,13 @@ class MoreScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
+ Expanded(
                   child: GestureDetector(
                     onTap: () => _openProfile(context),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+ Text(
                           name,
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
@@ -130,7 +130,7 @@ class MoreScreen extends StatelessWidget {
                           ),
                         ),
                         if (email.isNotEmpty)
-                          Text(
+ Text(
                             email,
                             style: TextStyle(
                               color: isDark
@@ -148,9 +148,9 @@ class MoreScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _sectionLabel('Appearance'),
-          Container(
+ Container(
             padding: const EdgeInsets.all(12),
-            decoration: _card(isDark),
+            decoration: _card(context, isDark),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -159,7 +159,7 @@ class MoreScreen extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 10),
-                AnimatedBuilder(
+ AnimatedBuilder(
                   animation: ThemeController.instance,
                   builder: (context, _) {
                     final mode = ThemeController.instance.mode;
@@ -242,7 +242,7 @@ class MoreScreen extends StatelessWidget {
               () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) =>
-                      NotificationSettingsScreen(apiService: apiService),
+ NotificationSettingsScreen(apiService: apiService),
                 ),
               ),
             ),
@@ -283,7 +283,7 @@ class MoreScreen extends StatelessWidget {
               () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) =>
-                      CookiePreferencesScreen(apiService: apiService),
+ CookiePreferencesScreen(apiService: apiService),
                 ),
               ),
             ),
@@ -327,16 +327,16 @@ class MoreScreen extends StatelessWidget {
     );
   }
 
-  BoxDecoration _card(bool isDark) => BoxDecoration(
+  BoxDecoration _card(BuildContext context, bool isDark) => BoxDecoration(
     color: isDark ? const Color(0xFF1C1C22) : Colors.white,
     borderRadius: BorderRadius.circular(20),
     border: Border.all(
-      color: isDark ? const Color(0xFF2F2F3A) : AppTheme.border,
+      color: isDark ? const Color(0xFF2F2F3A) : AppTheme.borderOf(context),
     ),
     boxShadow: isDark
         ? const []
         : [
-            BoxShadow(
+ BoxShadow(
               color: AppTheme.brand.withValues(alpha: 0.06),
               blurRadius: 20,
               offset: const Offset(0, 8),
@@ -360,7 +360,7 @@ class MoreScreen extends StatelessWidget {
     ),
   );
   Widget _themeChip(String label, bool selected, VoidCallback onTap) =>
-      Expanded(
+ Expanded(
         child: Builder(
           builder: (context) {
             final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -386,7 +386,7 @@ class MoreScreen extends StatelessWidget {
                     fontSize: 13,
                     color: selected
                         ? Colors.white
-                        : (isDark ? Colors.white : AppTheme.ink),
+                        : (isDark ? Colors.white : AppTheme.inkOf(context)),
                   ),
                 ),
               ),
@@ -397,11 +397,11 @@ class MoreScreen extends StatelessWidget {
   Widget _menuCard(bool isDark, List<_Item> items) => Material(
     color: Colors.transparent,
     child: Container(
-    decoration: _card(isDark),
+    decoration: _card(context, isDark),
     child: Column(
       children: [
         for (var i = 0; i < items.length; i++) ...[
-          Material(
+ Material(
             color: Colors.transparent,
             child: ListTile(
             dense: true,
@@ -432,7 +432,7 @@ class MoreScreen extends StatelessWidget {
           ),
           ),
           if (i < items.length - 1)
-            Divider(
+ Divider(
               height: 1,
               indent: 56,
               color: isDark ? Colors.white12 : const Color(0xFFE9E4F5),

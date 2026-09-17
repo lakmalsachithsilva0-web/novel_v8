@@ -210,11 +210,11 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
           'Delete "$title" permanently?\n\nOther chapters stay. This cannot be undone.',
         ),
         actions: [
-          TextButton(
+ TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+ FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
@@ -233,7 +233,7 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not delete: $e')),
+ SnackBar(content: Text('Could not delete: $e')),
       );
     }
   }
@@ -250,11 +250,11 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
         title: const Text('Change status'),
         content: Text(confirmMsg),
         actions: [
-          TextButton(
+ TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+ FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Confirm'),
           ),
@@ -268,13 +268,13 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Status → $status')),
+ SnackBar(content: Text('Status → $status')),
       );
       await _reload();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not update status: $e')),
+ SnackBar(content: Text('Could not update status: $e')),
       );
     }
   }
@@ -302,7 +302,7 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not reorder: $e')),
+ SnackBar(content: Text('Could not reorder: $e')),
       );
       await _reload();
     } finally {
@@ -336,11 +336,11 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
           'Story stays meta-only (chapters not deleted).',
         ),
         actions: [
-          TextButton(
+ TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+ FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Submit all'),
           ),
@@ -353,7 +353,7 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
       if (!mounted) return;
       final count = result['submitted_count'] ?? 0;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+ SnackBar(
           content: Text(
             result['message']?.toString() ??
                 'Submitted $count chapter(s) — others unchanged',
@@ -364,7 +364,7 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Submit all failed: $e')),
+ SnackBar(content: Text('Submit all failed: $e')),
       );
     }
   }
@@ -406,7 +406,7 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
             : 'Ongoing');
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.bgOf(context),
       appBar: AppBar(
         title: const Text('Manage story'),
         actions: [
@@ -481,9 +481,9 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(_error!, textAlign: TextAlign.center),
+ Text(_error!, textAlign: TextAlign.center),
                         const SizedBox(height: 12),
-                        FilledButton(
+ FilledButton(
                           onPressed: _reload,
                           child: const Text('Retry'),
                         ),
@@ -495,13 +495,13 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
                   onRefresh: _reload,
                   child: CustomScrollView(
                     slivers: [
-                      SliverToBoxAdapter(
+ SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+ Text(
                                 title,
                                 style: const TextStyle(
                                   fontSize: 22,
@@ -509,11 +509,11 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              Wrap(
+ Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
-                                  Container(
+ Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 10,
                                       vertical: 4,
@@ -535,17 +535,17 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
                                       ),
                                     ),
                                   ),
-                                  Text(
+ Text(
                                     '${_chapters.length} chapter${_chapters.length == 1 ? '' : 's'}',
-                                    style: const TextStyle(
-                                      color: AppTheme.muted,
+                                    style: TextStyle(
+                                      color: AppTheme.mutedOf(context),
                                       fontSize: 13,
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              Wrap(
+ Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
@@ -567,12 +567,12 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              const Text(
+ Text(
                                 'Long-press a chapter to reorder. '
                                 'Edit details never removes chapters.',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: AppTheme.muted,
+                                  color: AppTheme.mutedOf(context),
                                 ),
                               ),
                             ],
@@ -587,7 +587,7 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
                           ),
                         )
                       else
-                        SliverReorderableList(
+ SliverReorderableList(
                           itemCount: _chapters.length,
                           onReorder: _onReorder,
                           itemBuilder: (context, index) {
@@ -609,7 +609,7 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
                                 child: ListTile(
                                   leading: CircleAvatar(
                                     radius: 14,
-                                    backgroundColor: AppTheme.surface,
+                                    backgroundColor: AppTheme.surfaceOf(context),
                                     child: Text(
                                       '${index + 1}',
                                       style: const TextStyle(fontSize: 12),
@@ -628,7 +628,7 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
                                       crossAxisAlignment:
                                           WrapCrossAlignment.center,
                                       children: [
-                                        Container(
+ Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 8,
                                             vertical: 2,
@@ -648,15 +648,15 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
                                           ),
                                         ),
                                         if (words > 0)
-                                          Text(
+ Text(
                                             '$words words',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 11,
-                                              color: AppTheme.muted,
+                                              color: AppTheme.mutedOf(context),
                                             ),
                                           ),
                                         if (scheduled.isNotEmpty)
-                                          Text(
+ Text(
                                             '⏱ ${scheduled.length > 16 ? scheduled.substring(0, 16) : scheduled}',
                                             style: const TextStyle(
                                               fontSize: 11,
@@ -677,15 +677,15 @@ class _StoryManageScreenState extends State<StoryManageScreen> {
                                       }
                                     },
                                     itemBuilder: (_) => const [
-                                      PopupMenuItem(
+ PopupMenuItem(
                                         value: 'edit',
                                         child: Text('Edit chapter'),
                                       ),
-                                      PopupMenuItem(
+ PopupMenuItem(
                                         value: 'read',
                                         child: Text('Read'),
                                       ),
-                                      PopupMenuItem(
+ PopupMenuItem(
                                         value: 'delete',
                                         child: Text(
                                           'Delete',
@@ -769,7 +769,7 @@ class _ScheduleManagerSheetState extends State<_ScheduleManagerSheet> {
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Scheduled for ${when.toLocal()}')),
+ SnackBar(content: Text('Scheduled for ${when.toLocal()}')),
       );
       await widget.onChanged();
       if (mounted) {
@@ -787,7 +787,7 @@ class _ScheduleManagerSheetState extends State<_ScheduleManagerSheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Schedule failed: $e')),
+ SnackBar(content: Text('Schedule failed: $e')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -823,7 +823,7 @@ class _ScheduleManagerSheetState extends State<_ScheduleManagerSheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Clear failed: $e')),
+ SnackBar(content: Text('Clear failed: $e')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -833,12 +833,12 @@ class _ScheduleManagerSheetState extends State<_ScheduleManagerSheet> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.background,
+      color: AppTheme.bgOf(context),
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       child: Column(
         children: [
           const SizedBox(height: 8),
-          Container(
+ Container(
             width: 40,
             height: 4,
             decoration: BoxDecoration(
@@ -846,7 +846,7 @@ class _ScheduleManagerSheetState extends State<_ScheduleManagerSheet> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          Padding(
+ Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
               children: [
@@ -868,15 +868,15 @@ class _ScheduleManagerSheetState extends State<_ScheduleManagerSheet> {
               ],
             ),
           ),
-          const Padding(
+ Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               'Pick a publish time per chapter. Other chapters stay unchanged.',
-              style: TextStyle(fontSize: 12, color: AppTheme.muted),
+              style: TextStyle(fontSize: 12, color: AppTheme.mutedOf(context)),
             ),
           ),
           const SizedBox(height: 8),
-          Expanded(
+ Expanded(
             child: ListView.builder(
               controller: widget.scrollController,
               itemCount: _items.length,
@@ -900,13 +900,13 @@ class _ScheduleManagerSheetState extends State<_ScheduleManagerSheet> {
                   trailing: Wrap(
                     spacing: 4,
                     children: [
-                      IconButton(
+ IconButton(
                         tooltip: 'Set schedule',
                         icon: const Icon(Icons.schedule),
                         onPressed: _busy ? null : () => _pickSchedule(c),
                       ),
                       if (scheduled.isNotEmpty)
-                        IconButton(
+ IconButton(
                           tooltip: 'Clear',
                           icon: const Icon(Icons.clear),
                           onPressed: _busy ? null : () => _clearSchedule(c),
@@ -922,3 +922,4 @@ class _ScheduleManagerSheetState extends State<_ScheduleManagerSheet> {
     );
   }
 }
+  

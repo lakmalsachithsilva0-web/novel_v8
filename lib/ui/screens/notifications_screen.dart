@@ -121,11 +121,11 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
+ Row(
                   children: [
-                    Icon(Icons.support_agent, color: AppTheme.brand),
+ Icon(Icons.support_agent, color: AppTheme.brand),
                     const SizedBox(width: 10),
-                    Expanded(
+ Expanded(
                       child: Text(
                         title,
                         style: TextStyle(
@@ -135,14 +135,14 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                         ),
                       ),
                     ),
-                    IconButton(
+ IconButton(
                       onPressed: () => Navigator.pop(ctx),
                       icon: const Icon(Icons.close),
                     ),
                   ],
                 ),
                 if (when.isNotEmpty)
-                  Text(
+ Text(
                     when,
                     style: TextStyle(
                       fontSize: 12,
@@ -150,7 +150,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                     ),
                   ),
                 const SizedBox(height: 12),
-                Text(
+ Text(
                   message.isEmpty ? 'No message body.' : message,
                   style: TextStyle(
                     fontSize: 15,
@@ -159,7 +159,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                   ),
                 ),
                 const SizedBox(height: 16),
-                FilledButton(
+ FilledButton(
                   onPressed: () => Navigator.pop(ctx),
                   child: const Text('Close'),
                 ),
@@ -206,19 +206,19 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 const SizedBox(height: 80),
-                Icon(Icons.notifications_none, size: 48, color: AppTheme.muted),
+ Icon(Icons.notifications_none, size: 48, color: AppTheme.mutedOf(context)),
                 const SizedBox(height: 12),
-                Text(
+ Text(
                   emptyTitle,
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                 ),
-                Padding(
+ Padding(
                   padding: const EdgeInsets.fromLTRB(32, 8, 32, 0),
                   child: Text(
                     emptyBody,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppTheme.muted),
+                    style: TextStyle(color: AppTheme.mutedOf(context)),
                   ),
                 ),
               ],
@@ -282,7 +282,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121218) : AppTheme.background,
+      backgroundColor: isDark ? const Color(0xFF121218) : AppTheme.bgOf(context),
       appBar: AppBar(
         title: const Text('Notifications'),
         centerTitle: true,
@@ -292,8 +292,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           unselectedLabelColor: isDark ? Colors.white70 : Colors.grey,
           indicatorColor: AppTheme.brand,
           tabs: const [
-            Tab(text: 'Activity'),
-            Tab(text: 'Admin'),
+ Tab(text: 'Activity'),
+ Tab(text: 'Admin'),
           ],
         ),
       ),

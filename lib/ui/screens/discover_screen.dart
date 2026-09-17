@@ -97,13 +97,13 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          Builder(
+ Builder(
             builder: (context) {
               final isDark = Theme.of(context).brightness == Brightness.dark;
               final fg = isDark ? Colors.white : const Color(0xFF1A1A1A);
               return SliverToBoxAdapter(
                 child: Container(
-                  color: isDark ? const Color(0xFF121218) : AppTheme.background,
+                  color: isDark ? const Color(0xFF121218) : AppTheme.bgOf(context),
                   padding: EdgeInsets.fromLTRB(
                     AppBreakpoints.pagePadding(context),
                     10,
@@ -112,7 +112,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                   ),
                   child: Row(
                     children: [
-                      Expanded(
+ Expanded(
                         child: Text(
                           'Wingsaga',
                           maxLines: 1,
@@ -127,19 +127,19 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                         ),
                       ),
                       const SizedBox(width: 6),
-                      IconButton(
+ IconButton(
                         tooltip: 'Search',
                         icon: Icon(Icons.search_rounded, size: 26, color: fg),
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) =>
-                                  SearchScreen(apiService: widget.apiService),
+ SearchScreen(apiService: widget.apiService),
                             ),
                           );
                         },
                       ),
-                      IconButton(
+ IconButton(
                         tooltip: 'More',
                         icon: Icon(Icons.more_vert, size: 22, color: fg),
                         onPressed: () {
@@ -156,7 +156,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     const SizedBox(height: 8),
-                                    Container(
+ Container(
                                       width: 40,
                                       height: 4,
                                       decoration: BoxDecoration(
@@ -164,7 +164,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                         borderRadius: BorderRadius.circular(2),
                                       ),
                                     ),
-                                    ListTile(
+ ListTile(
                                       leading: const Icon(
                                         Icons.support_agent_outlined,
                                       ),
@@ -182,9 +182,9 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                           ),
                                           builder: (sctx) {
                                             final subject =
-                                                TextEditingController();
+ TextEditingController();
                                             final body =
-                                                TextEditingController();
+ TextEditingController();
                                             return Padding(
                                               padding: EdgeInsets.only(
                                                 left: 20,
@@ -210,14 +210,14 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                                     ),
                                                   ),
                                                   const SizedBox(height: 12),
-                                                  TextField(
+ TextField(
                                                     controller: subject,
                                                     decoration:
                                                         const InputDecoration(
                                                           labelText: 'Subject',
                                                         ),
                                                   ),
-                                                  TextField(
+ TextField(
                                                     controller: body,
                                                     maxLines: 4,
                                                     decoration:
@@ -227,7 +227,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                                         ),
                                                   ),
                                                   const SizedBox(height: 12),
-                                                  ElevatedButton(
+ ElevatedButton(
                                                     onPressed: () async {
                                                       try {
                                                         await widget.apiService
@@ -263,7 +263,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                                           ScaffoldMessenger.of(
                                                             sctx,
                                                           ).showSnackBar(
-                                                            SnackBar(
+ SnackBar(
                                                               content: Text(
                                                                 '$e',
                                                               ),
@@ -281,7 +281,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                         );
                                       },
                                     ),
-                                    ListTile(
+ ListTile(
                                       leading: const Icon(
                                         Icons.switch_account_outlined,
                                       ),
@@ -301,7 +301,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                         );
                                       },
                                     ),
-                                    ListTile(
+ ListTile(
                                       title: const Text(
                                         'Cancel',
                                         textAlign: TextAlign.center,
@@ -322,7 +322,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               );
             },
           ),
-          SliverPersistentHeader(
+ SliverPersistentHeader(
             pinned: true,
             delegate: _TabBarDelegate(
               child: Container(
@@ -337,7 +337,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               ),
             ),
           ),
-          SliverToBoxAdapter(child: _buildTabContent(_selectedTabIndex)),
+ SliverToBoxAdapter(child: _buildTabContent(_selectedTabIndex)),
         ],
       ),
     );
@@ -1206,7 +1206,7 @@ class _SearchScreenState extends State<SearchScreen> {
     final recent = _recentForScope;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fg = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    final muted = isDark ? Colors.white60 : AppTheme.muted;
+    final muted = isDark ? Colors.white60 : AppTheme.mutedOf(context);
 
     // Suggested trending terms when no personal history (UI only)
     const suggestedTrending = [
@@ -1229,9 +1229,9 @@ class _SearchScreenState extends State<SearchScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121218) : AppTheme.background,
+      backgroundColor: isDark ? const Color(0xFF121218) : AppTheme.bgOf(context),
       appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF121218) : AppTheme.background,
+        backgroundColor: isDark ? const Color(0xFF121218) : AppTheme.bgOf(context),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
@@ -1249,9 +1249,9 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           child: Row(
             children: [
-              Icon(Icons.search_rounded, size: 20, color: Colors.grey.shade500),
+ Icon(Icons.search_rounded, size: 20, color: Colors.grey.shade500),
               const SizedBox(width: 8),
-              Expanded(
+ Expanded(
                 child: TextField(
                   controller: _searchController,
                   focusNode: _searchFocus,
@@ -1295,7 +1295,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
               ),
               if (_searchQuery.isNotEmpty)
-                GestureDetector(
+ GestureDetector(
                   onTap: () {
                     setState(() {
                       _searchQuery = '';
@@ -1314,7 +1314,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
         actions: [
-          IconButton(
+ IconButton(
             icon: const Icon(Icons.tune_rounded, color: Color(0xFF6C3CE1)),
             onPressed: () async {
               final selected = await showModalBottomSheet<_SearchFilters>(
@@ -1337,7 +1337,7 @@ class _SearchScreenState extends State<SearchScreen> {
       body: Column(
         children: [
           // Scope chips
-          Padding(
+ Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
             child: Row(
               children: [
@@ -1346,7 +1346,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   {'id': 'tag', 'label': 'Tag'},
                   {'id': 'profile', 'label': 'Profile'},
                 ]) ...[
-                  Padding(
+ Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
                       label: Text(entry['label']!),
@@ -1397,7 +1397,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           // Empty query: recent + browse genres + trending
           if (_showRecent || _searchQuery.trim().isEmpty)
-            Expanded(
+ Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {
                   await _reloadRecentForScope();
@@ -1405,7 +1405,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                   children: [
-                    Text(
+ Text(
                       'Recent searches',
                       style: TextStyle(
                         fontSize: 16,
@@ -1415,17 +1415,17 @@ class _SearchScreenState extends State<SearchScreen> {
                     ),
                     const SizedBox(height: 10),
                     if (recent.isEmpty)
-                      Text(
+ Text(
                         'No recent searches yet',
                         style: TextStyle(fontSize: 13, color: muted),
                       )
                     else
-                      Wrap(
+ Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: [
                           for (final term in recent.take(5))
-                            ActionChip(
+ ActionChip(
                               avatar: Icon(
                                 Icons.history,
                                 size: 16,
@@ -1452,7 +1452,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         ],
                       ),
                     const SizedBox(height: 22),
-                    Text(
+ Text(
                       'Browse genres',
                       style: TextStyle(
                         fontSize: 16,
@@ -1470,7 +1470,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       childAspectRatio: 1.15,
                       children: [
                         for (final g in browseGenres)
-                          GestureDetector(
+ GestureDetector(
                             onTap: () {
                               setState(() {
                                 _genre = g.$1;
@@ -1495,13 +1495,13 @@ class _SearchScreenState extends State<SearchScreen> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
+ Icon(
                                     g.$2,
                                     color: const Color(0xFF6C3CE1),
                                     size: 26,
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(
+ Text(
                                     g.$1,
                                     style: TextStyle(
                                       fontSize: 12,
@@ -1518,7 +1518,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       ],
                     ),
                     const SizedBox(height: 22),
-                    Text(
+ Text(
                       'Trending searches',
                       style: TextStyle(
                         fontSize: 16,
@@ -1529,7 +1529,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     const SizedBox(height: 10),
                     ...[
                       for (var i = 0; i < suggestedTrending.length; i++)
-                        Padding(
+ Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Material(
                             color: isDark
@@ -1562,7 +1562,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                 ),
                                 child: Row(
                                   children: [
-                                    Container(
+ Container(
                                       width: 26,
                                       height: 26,
                                       alignment: Alignment.center,
@@ -1586,7 +1586,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                                    Expanded(
+ Expanded(
                                       child: Text(
                                         suggestedTrending[i],
                                         style: TextStyle(
@@ -1596,7 +1596,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                         ),
                                       ),
                                     ),
-                                    Icon(
+ Icon(
                                       Icons.north_east_rounded,
                                       size: 16,
                                       color: muted,
@@ -1613,7 +1613,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             )
           else
-            Expanded(
+ Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {
                   await _reloadRecentForScope();
@@ -1625,22 +1625,22 @@ class _SearchScreenState extends State<SearchScreen> {
                     ? ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         children: const [
-                          SizedBox(height: 120),
-                          Center(child: CircularProgressIndicator()),
+ SizedBox(height: 120),
+ Center(child: CircularProgressIndicator()),
                         ],
                       )
                     : _results.isEmpty
                     ? ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         children: [
-                          SizedBox(height: 80),
-                          Icon(
+ SizedBox(height: 80),
+ Icon(
                             Icons.search_off_rounded,
                             size: 48,
                             color: muted,
                           ),
                           const SizedBox(height: 12),
-                          Center(
+ Center(
                             child: Text(
                               'No results found',
                               style: TextStyle(
@@ -1651,7 +1651,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Center(
+ Center(
                             child: Text(
                               'Try a different keyword or filter',
                               style: TextStyle(fontSize: 13, color: muted),
@@ -1819,12 +1819,12 @@ class _SearchScreenState extends State<SearchScreen> {
                                   children: [
                                     leading,
                                     const SizedBox(width: 12),
-                                    Expanded(
+ Expanded(
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Text(
+ Text(
                                             item['title']?.toString() ?? '',
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
@@ -1835,7 +1835,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                             ),
                                           ),
                                           const SizedBox(height: 4),
-                                          Text(
+ Text(
                                             item['author']?.toString() ?? '',
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
@@ -1852,15 +1852,15 @@ class _SearchScreenState extends State<SearchScreen> {
                                             item['rating']
                                                 .toString()
                                                 .isNotEmpty))
-                                      Row(
+ Row(
                                         children: [
-                                          Icon(
+ Icon(
                                             Icons.star_rounded,
                                             size: 14,
                                             color: Colors.amber.shade600,
                                           ),
                                           const SizedBox(width: 2),
-                                          Text(
+ Text(
                                             item['rating'].toString(),
                                             style: TextStyle(
                                               fontSize: 12,
@@ -1871,7 +1871,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                         ],
                                       )
                                     else
-                                      Icon(
+ Icon(
                                         kind == 'profile'
                                             ? Icons.person_outline
                                             : Icons.chevron_right,
@@ -1919,11 +1919,11 @@ class _FilterSheetState extends State<_FilterSheet> {
         controller: scrollController,
         padding: const EdgeInsets.all(16),
         children: [
-          Row(
+ Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Filter', style: Theme.of(context).textTheme.headlineSmall),
-              IconButton(
+ Text('Filter', style: Theme.of(context).textTheme.headlineSmall),
+ IconButton(
                 icon: const Icon(Icons.close_rounded),
                 onPressed: () => Navigator.pop(context),
               ),
@@ -1931,14 +1931,14 @@ class _FilterSheetState extends State<_FilterSheet> {
           ),
           const Divider(),
           const SizedBox(height: 16),
-          Text(
+ Text(
             'Genre',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
-          Wrap(
+ Wrap(
             spacing: 8,
             children: ['Romance', 'Fantasy', 'Mystery', 'Horror', 'Sci-Fi']
                 .map(
@@ -1953,14 +1953,14 @@ class _FilterSheetState extends State<_FilterSheet> {
                 .toList(),
           ),
           const SizedBox(height: 24),
-          Text(
+ Text(
             'Star Rating',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
-          Slider(
+ Slider(
             value: _ratingFilter,
             min: 0,
             max: 5,
@@ -1968,14 +1968,14 @@ class _FilterSheetState extends State<_FilterSheet> {
             onChanged: (value) => setState(() => _ratingFilter = value),
           ),
           const SizedBox(height: 24),
-          Text(
+ Text(
             'Status',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
-          Wrap(
+ Wrap(
             spacing: 8,
             children: ['Complete', 'Ongoing', 'Hiatus']
                 .map(
@@ -1992,7 +1992,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                 .toList(),
           ),
           const SizedBox(height: 24),
-          SizedBox(
+ SizedBox(
             width: double.infinity,
             child: FilledButton(
               onPressed: () => Navigator.pop(

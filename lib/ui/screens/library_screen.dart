@@ -128,7 +128,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       if (mounted) {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not load library: $e')),
+ SnackBar(content: Text('Could not load library: $e')),
         );
       }
     }
@@ -160,11 +160,11 @@ class _LibraryScreenState extends State<LibraryScreen>
           decoration: const InputDecoration(hintText: 'List name'),
         ),
         actions: [
-          TextButton(
+ TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+ FilledButton(
             onPressed: () => Navigator.pop(ctx, c.text.trim()),
             child: const Text('Create'),
           ),
@@ -186,7 +186,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       if (!mounted) return;
       final newId = (created['id'] as num?)?.toInt();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+ SnackBar(
           content: Text(
             newId != null
                 ? 'Created "$name"'
@@ -202,7 +202,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+ SnackBar(
             content: Text(
               e.toString().contains('401') || e.toString().contains('403')
                   ? 'Please sign in to create a reading list'
@@ -222,7 +222,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       return;
     }
     await Navigator.of(context).push(
-      MaterialPageRoute(
+ MaterialPageRoute(
         builder: (_) => _ListDetail(
           listId: list.id,
           listName: list.name,
@@ -272,18 +272,18 @@ class _LibraryScreenState extends State<LibraryScreen>
     final ongoing = _entries.where(_isOngoing).toList();
     final history = _entries.where(_isCompleted).toList();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? const Color(0xFFA0A0A0) : AppTheme.muted;
+    final muted = isDark ? const Color(0xFFA0A0A0) : AppTheme.mutedOf(context);
     final fg = isDark ? Colors.white : const Color(0xFF1A1A1A);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header: title + Premium + bell
-        Padding(
+ Padding(
           padding: EdgeInsets.fromLTRB(AppBreakpoints.pagePadding(context), 12, 8, 4),
           child: Row(
             children: [
-              Text(
+ Text(
                 'Library',
                 style: TextStyle(
                   fontSize: 28,
@@ -294,7 +294,7 @@ class _LibraryScreenState extends State<LibraryScreen>
               ),
               const Spacer(),
               // Premium button hidden per product request
-              IconButton(
+ IconButton(
                 tooltip: 'Notifications',
                 icon: Icon(Icons.notifications_none_rounded, size: 26, color: fg),
                 onPressed: () {
@@ -312,7 +312,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           ),
         ),
         // Soft search (filters current tab client-side via existing lists — opens focus on lists)
-        Padding(
+ Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
@@ -322,9 +322,9 @@ class _LibraryScreenState extends State<LibraryScreen>
             ),
             child: Row(
               children: [
-                Icon(Icons.search_rounded, size: 20, color: Colors.grey.shade500),
+ Icon(Icons.search_rounded, size: 20, color: Colors.grey.shade500),
                 const SizedBox(width: 10),
-                Expanded(
+ Expanded(
                   child: Text(
                     'Search in your library…',
                     style: TextStyle(
@@ -339,11 +339,11 @@ class _LibraryScreenState extends State<LibraryScreen>
           ),
         ),
         // Stats strip
-        Padding(
+ Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
           child: Row(
             children: [
-              Expanded(
+ Expanded(
                 child: _LibraryStatChip(
                   icon: Icons.menu_book_outlined,
                   value: '${_entries.length}',
@@ -351,7 +351,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                   color: const Color(0xFF6C3CE1),
                 ),
               ),
-              Expanded(
+ Expanded(
                 child: _LibraryStatChip(
                   icon: Icons.timelapse_rounded,
                   value: '${ongoing.length}',
@@ -359,7 +359,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                   color: const Color(0xFFF59E0B),
                 ),
               ),
-              Expanded(
+ Expanded(
                 child: _LibraryStatChip(
                   icon: Icons.check_circle_outline,
                   value: '${history.length}',
@@ -367,7 +367,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                   color: const Color(0xFF10B981),
                 ),
               ),
-              Expanded(
+ Expanded(
                 child: _LibraryStatChip(
                   icon: Icons.bookmark_border_rounded,
                   value: '${_readingLists.length}',
@@ -378,7 +378,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             ],
           ),
         ),
-        TabBar(
+ TabBar(
           controller: _tabController,
           labelColor: AppTheme.brand,
           unselectedLabelColor: muted,
@@ -386,12 +386,12 @@ class _LibraryScreenState extends State<LibraryScreen>
           indicatorWeight: 3,
           labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
           tabs: const [
-            Tab(text: 'Ongoing'),
-            Tab(text: 'Reading Lists'),
-            Tab(text: 'Completed'),
+ Tab(text: 'Ongoing'),
+ Tab(text: 'Reading Lists'),
+ Tab(text: 'Completed'),
           ],
         ),
-        Expanded(
+ Expanded(
           child: TabBarView(
             controller: _tabController,
             children: [
@@ -463,9 +463,9 @@ class _LibraryStatChip extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, size: 18, color: color),
+ Icon(icon, size: 18, color: color),
           const SizedBox(height: 4),
-          Text(
+ Text(
             value,
             style: TextStyle(
               fontWeight: FontWeight.w800,
@@ -473,7 +473,7 @@ class _LibraryStatChip extends StatelessWidget {
               color: isDark ? Colors.white : const Color(0xFF1A1A1A),
             ),
           ),
-          Text(
+ Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -513,7 +513,7 @@ class _EntriesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? const Color(0xFFA0A0A0) : AppTheme.muted;
+    final muted = isDark ? const Color(0xFFA0A0A0) : AppTheme.mutedOf(context);
 
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -521,7 +521,7 @@ class _EntriesList extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(24, 14, 24, 30),
         children: [
-          Text(
+ Text(
             history ? 'Completed' : 'Continue Reading',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               fontSize: 18,
@@ -530,7 +530,7 @@ class _EntriesList extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+ Text(
             history
                 ? 'Books you finished (all chapters read or marked completed).'
                 : 'Books you started but have not finished yet.',
@@ -545,7 +545,7 @@ class _EntriesList extends StatelessWidget {
               ),
             )
           else if (entries.isEmpty)
-            Center(
+ Center(
               child: Text(
                 history ? 'No completed books yet.\nFinish the last chapter of a story to move it here.' : 'No ongoing books yet.\nOpen a chapter to start tracking.',
                 style: TextStyle(color: muted),
@@ -659,7 +659,7 @@ class _EntriesList extends StatelessWidget {
                           boxShadow: isDark
                               ? const []
                               : [
-                                  BoxShadow(
+ BoxShadow(
                                     color: const Color(0xFF6C3CE1).withValues(alpha: 0.05),
                                     blurRadius: 10,
                                     offset: const Offset(0, 3),
@@ -669,7 +669,7 @@ class _EntriesList extends StatelessWidget {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ClipRRect(
+ ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: SizedBox(
                                 width: 72,
@@ -679,7 +679,7 @@ class _EntriesList extends StatelessWidget {
                                         coverUrl,
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, _, _) =>
-                                            ColoredBox(
+ ColoredBox(
                                           color: isDark
                                               ? const Color(0xFF2C2C2C)
                                               : const Color(0xFFE4E4E4),
@@ -699,11 +699,11 @@ class _EntriesList extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Expanded(
+ Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
+ Text(
                                     e.book.title,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
@@ -713,7 +713,7 @@ class _EntriesList extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(
+ Text(
                                     () {
                                       final genre = e.primaryGenre.isNotEmpty
                                           ? e.primaryGenre
@@ -734,7 +734,7 @@ class _EntriesList extends StatelessWidget {
                                   ),
                                   if (desc.isNotEmpty) ...[
                                     const SizedBox(height: 4),
-                                    Text(
+ Text(
                                       desc,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
@@ -746,7 +746,7 @@ class _EntriesList extends StatelessWidget {
                                     ),
                                   ],
                                   const SizedBox(height: 6),
-                                  Row(
+ Row(
                                     children: [
                                       if (e.book.rating > 0) ...[
                                         const Icon(
@@ -755,7 +755,7 @@ class _EntriesList extends StatelessWidget {
                                           color: Color(0xFFFFC107),
                                         ),
                                         const SizedBox(width: 2),
-                                        Text(
+ Text(
                                           e.book.rating.toStringAsFixed(1),
                                           style: const TextStyle(
                                             fontSize: 12,
@@ -766,7 +766,7 @@ class _EntriesList extends StatelessWidget {
                                       ],
                                       if (e.primaryGenre.isNotEmpty ||
                                           e.book.primaryGenre.isNotEmpty)
-                                        Flexible(
+ Flexible(
                                           child: Text(
                                             e.primaryGenre.isNotEmpty
                                                 ? e.primaryGenre
@@ -783,7 +783,7 @@ class _EntriesList extends StatelessWidget {
                                   ),
                                   if (!history) ...[
                                     const SizedBox(height: 8),
-                                    ClipRRect(
+ ClipRRect(
                                       borderRadius: BorderRadius.circular(3),
                                       child: LinearProgressIndicator(
                                         value: progress < 0.05 ? 0.05 : progress,
@@ -795,9 +795,9 @@ class _EntriesList extends StatelessWidget {
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    Row(
+ Row(
                                       children: [
-                                        Expanded(
+ Expanded(
                                           child: Text(
                                             e.chapters > 0
                                                 ? 'Ch. ${e.lastChapterNumber} of ${e.chapters} · para ${e.lastParagraphIndex + 1}'
@@ -810,7 +810,7 @@ class _EntriesList extends StatelessWidget {
                                             ),
                                           ),
                                         ),
-                                        Text(
+ Text(
                                           '${(progress.clamp(0.0, 1.0) * 100).round()}%',
                                           style: const TextStyle(
                                             fontSize: 11,
@@ -830,7 +830,7 @@ class _EntriesList extends StatelessWidget {
                                 if (v == 'delete') onDelete(e);
                               },
                               itemBuilder: (_) => [
-                                PopupMenuItem(
+ PopupMenuItem(
                                   value: 'status',
                                   child: Text(
                                     history
@@ -854,7 +854,7 @@ class _EntriesList extends StatelessWidget {
             ),
           if (!history) ...[
             const SizedBox(height: 20),
-            SizedBox(
+ SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: onDiscover,
@@ -895,7 +895,7 @@ class _ListsPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? const Color(0xFFA0A0A0) : AppTheme.muted;
+    final muted = isDark ? const Color(0xFFA0A0A0) : AppTheme.mutedOf(context);
 
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -903,7 +903,7 @@ class _ListsPane extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(24, 14, 24, 30),
         children: [
-          Text(
+ Text(
             'My Collections',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               fontSize: 18,
@@ -912,7 +912,7 @@ class _ListsPane extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
+ Text(
             'Tap a list to open, add, or remove stories.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
           ),
@@ -920,7 +920,7 @@ class _ListsPane extends StatelessWidget {
           if (loading)
             const Center(child: CircularProgressIndicator())
           else if (lists.isEmpty)
-            Center(
+ Center(
               child: Text('No lists yet', style: TextStyle(color: muted)),
             )
           else
@@ -933,7 +933,7 @@ class _ListsPane extends StatelessWidget {
               childAspectRatio: 1.15,
               children: [
                 for (final l in lists)
-                  GestureDetector(
+ GestureDetector(
                     onTap: () => onOpen(l),
                     child: Container(
                       padding: const EdgeInsets.all(14),
@@ -949,7 +949,7 @@ class _ListsPane extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
+ Container(
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
@@ -962,7 +962,7 @@ class _ListsPane extends StatelessWidget {
                             ),
                           ),
                           const Spacer(),
-                          Text(
+ Text(
                             l.name,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -973,7 +973,7 @@ class _ListsPane extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
+ Text(
                             '${l.storyCount} stories',
                             style: TextStyle(
                               fontSize: 12,
@@ -987,7 +987,7 @@ class _ListsPane extends StatelessWidget {
               ],
             ),
           const SizedBox(height: 20),
-          SizedBox(
+ SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: () => onCreate(),
@@ -1111,7 +1111,7 @@ class _ListDetailState extends State<_ListDetail> {
                 ),
               ),
               const Divider(height: 1),
-              Expanded(
+ Expanded(
                 child: ListView.builder(
                   itemCount: rows.length,
                   itemBuilder: (ctx, i) {
@@ -1151,7 +1151,7 @@ class _ListDetailState extends State<_ListDetail> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save: $e')),
+ SnackBar(content: Text('Could not save: $e')),
         );
       }
     }
@@ -1163,8 +1163,8 @@ class _ListDetailState extends State<_ListDetail> {
       appBar: AppBar(
         title: Text(_name),
         actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: _add),
-          IconButton(
+ IconButton(icon: const Icon(Icons.add), onPressed: _add),
+ IconButton(
             icon: const Icon(Icons.delete_outline),
             onPressed: () async {
               try {
@@ -1231,7 +1231,7 @@ class _ListDetailState extends State<_ListDetail> {
                       padding: const EdgeInsets.all(10),
                       child: Row(
                         children: [
-                          ClipRRect(
+ ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: SizedBox(
                               width: 52,
@@ -1252,11 +1252,11 @@ class _ListDetailState extends State<_ListDetail> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Expanded(
+ Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+ Text(
                                   title.isEmpty ? 'Untitled' : title,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -1266,7 +1266,7 @@ class _ListDetailState extends State<_ListDetail> {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
+ Text(
                                   author.isEmpty ? 'Unknown author' : 'by $author',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -1278,7 +1278,7 @@ class _ListDetailState extends State<_ListDetail> {
                               ],
                             ),
                           ),
-                          IconButton(
+ IconButton(
                             icon: const Icon(Icons.remove_circle_outline),
                             onPressed: () async {
                               final itemId = (it['id'] as num?)?.toInt();

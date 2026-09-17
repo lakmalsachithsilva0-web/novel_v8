@@ -442,7 +442,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
+ ListTile(
               title: const Text(
                 'Share profile',
                 style: TextStyle(color: Color(0xFF2B6CB0)),
@@ -453,12 +453,12 @@ class _ProfileScreenState extends State<ProfileScreen>
               },
             ),
             if (_isOwnProfile) ...[
-              ListTile(
+ ListTile(
                 leading: const Icon(Icons.settings_outlined),
                 title: const Text('Profile settings'),
                 onTap: () => Navigator.pop(ctx),
               ),
-              ListTile(
+ ListTile(
                 leading: const Icon(Icons.edit_outlined),
                 title: const Text('Edit profile'),
                 onTap: () async {
@@ -466,7 +466,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   await _editProfile();
                 },
               ),
-              ListTile(
+ ListTile(
                 leading: const Icon(Icons.logout),
                 title: const Text('Log out'),
                 onTap: () async {
@@ -475,18 +475,18 @@ class _ProfileScreenState extends State<ProfileScreen>
                 },
               ),
             ] else ...[
-              ListTile(
+ ListTile(
                 leading: const Icon(Icons.block),
                 title: const Text('Block user'),
                 onTap: () => Navigator.pop(ctx),
               ),
-              ListTile(
+ ListTile(
                 leading: const Icon(Icons.report_outlined),
                 title: const Text('Report user'),
                 onTap: () => Navigator.pop(ctx),
               ),
             ],
-            ListTile(
+ ListTile(
               title: const Text('Cancel', textAlign: TextAlign.center),
               onTap: () => Navigator.pop(ctx),
             ),
@@ -540,43 +540,43 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ),
                     ),
                     const SizedBox(height: 12),
-                    TextField(
+ TextField(
                       controller: nameCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Display name',
                       ),
                     ),
-                    TextField(
+ TextField(
                       controller: usernameCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Username',
                         prefixText: '@',
                       ),
                     ),
-                    TextField(
+ TextField(
                       controller: bioCtrl,
                       maxLines: 3,
                       decoration: const InputDecoration(labelText: 'Bio'),
                     ),
-                    TextField(
+ TextField(
                       controller: genderCtrl,
                       decoration: const InputDecoration(labelText: 'Gender'),
                     ),
-                    TextField(
+ TextField(
                       controller: birthDateCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Birthday',
                         hintText: 'YYYY-MM-DD',
                       ),
                     ),
-                    TextField(
+ TextField(
                       controller: countryCtrl,
                       decoration: const InputDecoration(labelText: 'Country'),
                     ),
                     const SizedBox(height: 12),
-                    Row(
+ Row(
                       children: [
-                        Expanded(
+ Expanded(
                           child: OutlinedButton.icon(
                             onPressed: uploading
                                 ? null
@@ -613,7 +613,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     } catch (e) {
                                       if (ctx.mounted) {
                                         ScaffoldMessenger.of(ctx).showSnackBar(
-                                          SnackBar(
+ SnackBar(
                                             content: Text('Upload failed: $e'),
                                           ),
                                         );
@@ -629,7 +629,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Expanded(
+ Expanded(
                           child: OutlinedButton.icon(
                             onPressed: uploading
                                 ? null
@@ -667,7 +667,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     } catch (e) {
                                       if (ctx.mounted) {
                                         ScaffoldMessenger.of(ctx).showSnackBar(
-                                          SnackBar(
+ SnackBar(
                                             content: Text('Upload failed: $e'),
                                           ),
                                         );
@@ -684,7 +684,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                     const SizedBox(height: 12),
                     const SizedBox(height: 8),
-                    SizedBox(
+ SizedBox(
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
@@ -717,7 +717,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 } catch (e) {
                                   if (ctx.mounted) {
                                     ScaffoldMessenger.of(ctx).showSnackBar(
-                                      SnackBar(content: Text('$e')),
+ SnackBar(content: Text('$e')),
                                     );
                                   }
                                 }
@@ -809,14 +809,14 @@ class _ProfileScreenState extends State<ProfileScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+ Row(
                 children: [
                   const Text(
                     'Sort by',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                   const Spacer(),
-                  IconButton(
+ IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx),
                   ),
@@ -875,7 +875,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   return [
                     // Facebook-style: taller cover + avatar drawn ON TOP of cover (higher z-index)
                     // and still visible below the cover edge.
-                    SliverAppBar(
+ SliverAppBar(
                       expandedHeight: 200,
                       pinned: true,
                       backgroundColor: isDark
@@ -886,7 +886,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         onPressed: () => Navigator.of(context).maybePop(),
                       ),
                       actions: [
-                        IconButton(
+ IconButton(
                           icon: const Icon(
                             Icons.more_vert,
                             color: Colors.white,
@@ -909,7 +909,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             )
                           else
                             _defaultCover(),
-                          Container(
+ Container(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
@@ -922,7 +922,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             ),
                           ),
                           // Avatar sits on the bottom edge of the cover (above cover in z-order)
-                          Positioned(
+ Positioned(
                             left: 0,
                             right: 0,
                             bottom: -44,
@@ -935,7 +935,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     width: 3,
                                   ),
                                   boxShadow: [
-                                    BoxShadow(
+ BoxShadow(
                                       color: Colors.black.withValues(
                                         alpha: 0.25,
                                       ),
@@ -970,12 +970,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ),
                     ),
                     // Space so content starts below the overlapping avatar
-                    SliverToBoxAdapter(child: _buildIdentityBlock()),
+ SliverToBoxAdapter(child: _buildIdentityBlock()),
                     // Sticky tabs
-                    SliverPersistentHeader(
+ SliverPersistentHeader(
                       pinned: true,
                       delegate: _TabBarDelegate(
-                        TabBar(
+ TabBar(
                           controller: _tabController,
                           isScrollable: true,
                           tabAlignment: TabAlignment.center,
@@ -988,11 +988,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                             fontSize: 14,
                           ),
                           tabs: const [
-                            Tab(text: 'About'),
-                            Tab(text: 'Stories'),
-                            Tab(text: 'Wall'),
+ Tab(text: 'About'),
+ Tab(text: 'Stories'),
+ Tab(text: 'Wall'),
 
-                            Tab(text: 'Reviews'),
+ Tab(text: 'Reviews'),
                           ],
                         ),
                       ),
@@ -1037,11 +1037,11 @@ class _ProfileScreenState extends State<ProfileScreen>
       child: Column(
         children: [
           // Name + verified
-          Row(
+ Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Flexible(
+ Flexible(
                 child: Text(
                   _displayName,
                   maxLines: 1,
@@ -1058,7 +1058,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               // Verified-style badge for authors.
               if (_isAuthor) ...[
                 const SizedBox(width: 6),
-                Container(
+ Container(
                   width: 18,
                   height: 18,
                   decoration: const BoxDecoration(
@@ -1071,7 +1071,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             ],
           ),
           const SizedBox(height: 2),
-          Text(
+ Text(
             '@$_username',
             style: TextStyle(
               fontSize: 14,
@@ -1081,7 +1081,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
           ),
           const SizedBox(height: 10),
-          Padding(
+ Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Text(
               _bio,
@@ -1095,21 +1095,21 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
           const SizedBox(height: 14),
           // Following | Followers (tappable)
-          Row(
+ Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              InkWell(
+ InkWell(
                 onTap: () => _openPeopleList(following: true),
                 borderRadius: BorderRadius.circular(8),
                 child: _countCol('$_following', 'Following'),
               ),
-              Container(
+ Container(
                 width: 1,
                 height: 28,
                 color: border,
                 margin: const EdgeInsets.symmetric(horizontal: 20),
               ),
-              InkWell(
+ InkWell(
                 onTap: () => _openPeopleList(following: false),
                 borderRadius: BorderRadius.circular(8),
                 child: _countCol('$_followers', 'Followers'),
@@ -1119,7 +1119,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           const SizedBox(height: 14),
           // Follow / Edit button — solid green Follow (video), outlined otherwise
           if (_isOwnProfile)
-            OutlinedButton(
+ OutlinedButton(
               onPressed: _editProfile,
               style: OutlinedButton.styleFrom(
                 foregroundColor: brand,
@@ -1138,7 +1138,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             )
           else if (_isFollowing)
-            OutlinedButton(
+ OutlinedButton(
               onPressed: _toggleFollow,
               style: OutlinedButton.styleFrom(
                 foregroundColor: brand,
@@ -1157,7 +1157,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             )
           else
-            ElevatedButton(
+ ElevatedButton(
               onPressed: _toggleFollow,
               style: ElevatedButton.styleFrom(
                 backgroundColor: brand,
@@ -1200,16 +1200,16 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
       child: Row(
         children: [
-          Expanded(
+ Expanded(
             child: Row(
               children: [
-                Icon(Icons.location_on, color: brand, size: 25),
+ Icon(Icons.location_on, color: brand, size: 25),
                 const SizedBox(width: 10),
-                Flexible(
+ Flexible(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+ Text(
                         'Location',
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
@@ -1218,7 +1218,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                               : const Color(0xFF333333),
                         ),
                       ),
-                      Text(
+ Text(
                         country.isEmpty ? 'Add your location' : country,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1233,16 +1233,16 @@ class _ProfileScreenState extends State<ProfileScreen>
               ],
             ),
           ),
-          Container(
+ Container(
             width: 1,
             height: 42,
             color: isDark ? Colors.white12 : border,
             margin: const EdgeInsets.symmetric(horizontal: 14),
           ),
-          Column(
+ Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+ Text(
                 'Social media',
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
@@ -1250,7 +1250,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
               ),
               const SizedBox(height: 6),
-              Row(
+ Row(
                 children: [
                   _socialIcon(
                     Icons.facebook,
@@ -1289,11 +1289,11 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget _countCol(String value, String label) {
     return Column(
       children: [
-        Text(
+ Text(
           value,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
-        Text(
+ Text(
           label,
           style: TextStyle(
             fontSize: 12,
@@ -1338,7 +1338,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
       children: [
         if (username.isNotEmpty)
-          ListTile(
+ ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(
               Icons.alternate_email,
@@ -1350,7 +1350,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             dense: true,
           ),
         if (gender.isNotEmpty)
-          ListTile(
+ ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(
               Icons.person_outline,
@@ -1362,7 +1362,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             dense: true,
           ),
         if (birth.isNotEmpty)
-          ListTile(
+ ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(
               Icons.cake_outlined,
@@ -1374,7 +1374,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             dense: true,
           ),
         if (country.isNotEmpty)
-          ListTile(
+ ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(
               Icons.public,
@@ -1389,7 +1389,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             birth.isEmpty &&
             country.isEmpty &&
             username.isEmpty)
-          Padding(
+ Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 8),
             child: Text(
               'No profile details yet. Tap Edit profile to add them.',
@@ -1399,7 +1399,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         const SizedBox(height: 20),
         if (_facebookUrl.isNotEmpty) ...[
           const SizedBox(height: 14),
-          InkWell(
+ InkWell(
             onTap: () => Share.share(_facebookUrl, subject: 'Facebook profile'),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -1416,7 +1416,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     size: 24,
                   ),
                   const SizedBox(width: 10),
-                  Expanded(
+ Expanded(
                     child: Text(
                       _facebookUrl,
                       style: const TextStyle(
@@ -1458,7 +1458,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             style: TextStyle(color: muted),
           )
         else
-          SizedBox(
+ SizedBox(
             height: 210,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
@@ -1497,7 +1497,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             await showModalBottomSheet<void>(
                               context: context,
                               isScrollControlled: true,
-                              backgroundColor: Colors.white,
+                              backgroundColor: Theme.of(context).colorScheme.surface,
                               shape: const RoundedRectangleBorder(
                                 borderRadius: BorderRadius.vertical(
                                   top: Radius.circular(16),
@@ -1513,7 +1513,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     return Column(
                                       children: [
                                         const SizedBox(height: 8),
-                                        Container(
+ Container(
                                           width: 40,
                                           height: 4,
                                           decoration: BoxDecoration(
@@ -1523,11 +1523,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                                             ),
                                           ),
                                         ),
-                                        Padding(
+ Padding(
                                           padding: const EdgeInsets.all(16),
                                           child: Row(
                                             children: [
-                                              Expanded(
+ Expanded(
                                                 child: Text(
                                                   name.isEmpty
                                                       ? 'Reading List'
@@ -1538,7 +1538,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                   ),
                                                 ),
                                               ),
-                                              Text(
+ Text(
                                                 '$count Stories',
                                                 style: const TextStyle(
                                                   color: muted,
@@ -1549,7 +1549,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                           ),
                                         ),
                                         const Divider(height: 1),
-                                        Expanded(
+ Expanded(
                                           child: itemList.isEmpty
                                               ? const Center(
                                                   child: Text(
@@ -1692,7 +1692,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           } catch (e) {
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
+ SnackBar(
                                 content: Text('Could not open list: $e'),
                               ),
                             );
@@ -1704,7 +1704,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
+ Expanded(
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: coverList.isEmpty
@@ -1726,7 +1726,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
+ Text(
                           name.isEmpty ? 'List' : name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1735,7 +1735,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             fontSize: 13,
                           ),
                         ),
-                        Text(
+ Text(
                           '$count Stories',
                           style: const TextStyle(fontSize: 12, color: muted),
                         ),
@@ -1786,7 +1786,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     for (final g in groups) {
       for (final a in g.items) {
         items.add(
-          Container(
+ Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: cardBg,
@@ -1796,7 +1796,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+ Text(
                   a.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -1806,7 +1806,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ),
                 ),
                 const Spacer(),
-                Text(
+ Text(
                   a.subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1834,7 +1834,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     final list = _filteredStories;
     return Column(
       children: [
-        Padding(
+ Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: TextField(
             onChanged: (v) => setState(() => _storyQuery = v),
@@ -1851,7 +1851,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
           ),
         ),
-        Padding(
+ Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
           child: Row(
             children: [
@@ -1861,7 +1861,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             ],
           ),
         ),
-        Expanded(
+ Expanded(
           child: list.isEmpty
               ? const Center(
                   child: Text('No stories yet', style: TextStyle(color: muted)),
@@ -1898,7 +1898,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             else
               const SizedBox.shrink(),
             const SizedBox(width: 4),
-            Text(
+ Text(
               label,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
@@ -1952,7 +1952,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
+ ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: cover.isNotEmpty
                 ? Image.network(
@@ -1963,18 +1963,18 @@ class _ProfileScreenState extends State<ProfileScreen>
                     cacheWidth: 144,
                     cacheHeight: 200,
                     errorBuilder: (context, error, stackTrace) =>
-                        Container(width: 72, height: 100, color: cardBg),
+ Container(width: 72, height: 100, color: cardBg),
                   )
                 : Container(width: 72, height: 100, color: cardBg),
           ),
           const SizedBox(width: 12),
-          Expanded(
+ Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+ Row(
                   children: [
-                    Expanded(
+ Expanded(
                       child: Text(
                         title,
                         maxLines: 2,
@@ -1985,7 +1985,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ),
                       ),
                     ),
-                    IconButton(
+ IconButton(
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
                         minWidth: 32,
@@ -2004,7 +2004,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(
+ Text(
                   desc.isEmpty ? 'No description' : desc,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -2015,12 +2015,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
+ Wrap(
                   spacing: 6,
                   runSpacing: 4,
                   children: [
                     if (rating != null)
-                      Container(
+ Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
                           vertical: 2,
@@ -2038,7 +2038,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                               color: Color(0xFFF5A623),
                             ),
                             const SizedBox(width: 2),
-                            Text(
+ Text(
                               '$rating',
                               style: const TextStyle(
                                 fontSize: 11,
@@ -2052,15 +2052,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ],
                 ),
                 const SizedBox(height: 6),
-                Row(
+ Row(
                   children: [
-                    Icon(
+ Icon(
                       completed ? Icons.check_circle : Icons.timelapse,
                       size: 14,
                       color: completed ? brand : muted,
                     ),
                     const SizedBox(width: 4),
-                    Text(
+ Text(
                       completed
                           ? 'Completed${chapters > 0 ? ' · $chapters Chapters' : ''}'
                           : (status.toLowerCase().contains('draft') ||
@@ -2172,12 +2172,12 @@ class _ProfileScreenState extends State<ProfileScreen>
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         // Composer — posts to backend wall
-        InkWell(
+ InkWell(
           onTap: _composeWallPost,
           borderRadius: BorderRadius.circular(24),
           child: Row(
             children: [
-              CircleAvatar(
+ CircleAvatar(
                 radius: 18,
                 backgroundColor: cardBg,
                 backgroundImage: _avatarUrl.isNotEmpty
@@ -2191,7 +2191,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     : null,
               ),
               const SizedBox(width: 10),
-              Expanded(
+ Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -2235,9 +2235,9 @@ class _ProfileScreenState extends State<ProfileScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+ Row(
                     children: [
-                      Builder(
+ Builder(
                         builder: (context) {
                           final senderPhoto = _s(
                             m['photo_url'] ??
@@ -2266,11 +2266,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                         },
                       ),
                       const SizedBox(width: 8),
-                      Expanded(
+ Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+ Text(
                               name,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
@@ -2278,7 +2278,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                               ),
                             ),
                             if (when.isNotEmpty)
-                              Text(
+ Text(
                                 when,
                                 style: const TextStyle(
                                   fontSize: 11,
@@ -2297,7 +2297,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ],
                   if (img.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    ClipRRect(
+ ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: Image.network(
                         widget.apiService.resolveAssetUrl(img),
@@ -2308,9 +2308,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                   ],
                   const SizedBox(height: 8),
-                  Row(
+ Row(
                     children: [
-                      InkWell(
+ InkWell(
                         onTap: () async {
                           final postId = (m['id'] as num?)?.toInt();
                           if (postId == null) return;
@@ -2334,7 +2334,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         },
                         child: Row(
                           children: [
-                            Icon(
+ Icon(
                               m['liked'] == true
                                   ? Icons.favorite
                                   : Icons.favorite_border,
@@ -2344,7 +2344,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   : muted,
                             ),
                             const SizedBox(width: 4),
-                            Text(
+ Text(
                               '${m['likes'] ?? 0}',
                               style: TextStyle(
                                 fontSize: 12,
@@ -2357,7 +2357,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ),
                       ),
                       const SizedBox(width: 16),
-                      InkWell(
+ InkWell(
                         onTap: () async {
                           final postId = (m['id'] as num?)?.toInt();
                           if (postId == null) return;
@@ -2374,11 +2374,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 ),
                               ),
                               actions: [
-                                TextButton(
+ TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
                                   child: const Text('Cancel'),
                                 ),
-                                TextButton(
+ TextButton(
                                   onPressed: () => Navigator.pop(ctx, true),
                                   child: const Text('Post'),
                                 ),
@@ -2479,7 +2479,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       await widget.apiService.addReadingListItem(listId, bookId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Saved to ${chosen['name'] ?? 'list'}')),
+ SnackBar(content: Text('Saved to ${chosen['name'] ?? 'list'}')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -2541,9 +2541,9 @@ class _ProfileScreenState extends State<ProfileScreen>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+ Row(
               children: [
-                ClipRRect(
+ ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: cover.isNotEmpty
                       ? Image.network(
@@ -2552,16 +2552,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                           height: 56,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>
-                              Container(width: 40, height: 56, color: cardBg),
+ Container(width: 40, height: 56, color: cardBg),
                         )
                       : Container(width: 40, height: 56, color: cardBg),
                 ),
                 const SizedBox(width: 10),
-                Expanded(
+ Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+ Text(
                         bookTitle,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
@@ -2569,14 +2569,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ),
                       ),
                       if (author.isNotEmpty)
-                        Text(
+ Text(
                           author.isEmpty ? '' : 'Review by $author',
                           style: const TextStyle(fontSize: 12, color: muted),
                         ),
                     ],
                   ),
                 ),
-                OutlinedButton(
+ OutlinedButton(
                   onPressed: () {
                     final bid = _asInt(r['book_id']);
                     if (bid <= 0) return;
@@ -2613,7 +2613,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   child: const Text('Read', style: TextStyle(fontSize: 12)),
                 ),
                 const SizedBox(width: 4),
-                IconButton(
+ IconButton(
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 32,
@@ -2629,7 +2629,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ],
             ),
             const SizedBox(height: 8),
-            Row(
+ Row(
               children: List.generate(5, (j) {
                 return Icon(
                   j < stars ? Icons.star : Icons.star_border,
@@ -2639,7 +2639,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               }),
             ),
             const SizedBox(height: 8),
-            Wrap(
+ Wrap(
               spacing: 6,
               children: [
                 _scoreChip('Plot $plot'),
@@ -2649,7 +2649,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
             if (headline.isNotEmpty) ...[
               const SizedBox(height: 10),
-              Text(
+ Text(
                 headline,
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
@@ -2659,7 +2659,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             ],
             if (body.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text(
+ Text(
                 body,
                 style: const TextStyle(
                   fontSize: 13,
@@ -2764,12 +2764,12 @@ class _WallComposeSheetState extends State<_WallComposeSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+ Text(
             'Write something to ${widget.username}',
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           ),
           const SizedBox(height: 12),
-          TextField(
+ TextField(
             controller: _ctrl,
             maxLines: 4,
             autofocus: true,
@@ -2780,7 +2780,7 @@ class _WallComposeSheetState extends State<_WallComposeSheet> {
             ),
           ),
           if (_suggestions.isNotEmpty)
-            ConstrainedBox(
+ ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 180),
               child: ListView.builder(
                 shrinkWrap: true,
@@ -2798,7 +2798,7 @@ class _WallComposeSheetState extends State<_WallComposeSheet> {
               ),
             ),
           const SizedBox(height: 12),
-          ElevatedButton(
+ ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: brand,
               foregroundColor: Colors.white,
@@ -2838,7 +2838,7 @@ class _WallPostText extends StatelessWidget {
           ? '@${token.substring(2, token.length - 1)}'
           : token;
       spans.add(
-        TextSpan(
+ TextSpan(
           text: displayToken,
           style: const TextStyle(
             color: Color(0xFF6C3CE1),
@@ -2888,7 +2888,10 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return Container(color: Colors.white, child: tabBar);
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: tabBar,
+    );
   }
 
   @override
@@ -2919,22 +2922,22 @@ class _ReadingListCollage extends StatelessWidget {
     }
     return Column(
       children: [
-        Expanded(
+ Expanded(
           child: Row(
             children: [
-              Expanded(child: _cell(urls[0])),
+ Expanded(child: _cell(urls[0])),
               const SizedBox(width: 2),
-              Expanded(child: _cell(urls[1])),
+ Expanded(child: _cell(urls[1])),
             ],
           ),
         ),
         const SizedBox(height: 2),
-        Expanded(
+ Expanded(
           child: Row(
             children: [
-              Expanded(child: _cell(urls[2])),
+ Expanded(child: _cell(urls[2])),
               const SizedBox(width: 2),
-              Expanded(child: _cell(urls[3])),
+ Expanded(child: _cell(urls[3])),
             ],
           ),
         ),

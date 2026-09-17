@@ -84,25 +84,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.bgOf(context),
       appBar: AppBar(
-        backgroundColor: AppTheme.background,
+        backgroundColor: AppTheme.bgOf(context),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Explore',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: AppTheme.ink,
+            color: AppTheme.inkOf(context),
           ),
         ),
         centerTitle: true,
         actions: [
-          IconButton(
+ IconButton(
             icon: const Icon(Icons.close_rounded, size: 22),
             onPressed: () => Navigator.pop(context),
           ),
@@ -111,12 +111,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _tags.isEmpty
-          ? const Center(
+          ? Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(
                   'No hashtags yet. Admin can add tags from the panel.',
-                  style: TextStyle(color: AppTheme.muted),
+                  style: TextStyle(color: AppTheme.mutedOf(context)),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -151,29 +151,29 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       ),
                       child: Row(
                         children: [
-                          Expanded(
+ Expanded(
                             child: Text(
                               label,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
-                                color: AppTheme.ink,
+                                color: AppTheme.inkOf(context),
                               ),
                             ),
                           ),
-                          Text(
+ Text(
                             tag.bookCount > 0
                                 ? '${tag.bookCount} ${tag.bookCount == 1 ? 'book' : 'books'}'
                                 : '0 books',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              color: AppTheme.muted,
+                              color: AppTheme.mutedOf(context),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Icon(
+ Icon(
                             Icons.chevron_right_rounded,
-                            color: AppTheme.muted,
+                            color: AppTheme.mutedOf(context),
                             size: 20,
                           ),
                         ],

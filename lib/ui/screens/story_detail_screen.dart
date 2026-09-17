@@ -579,7 +579,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
-                ListTile(
+ ListTile(
                   leading: const Icon(Icons.add),
                   title: const Text('Create new list'),
                   onTap: () =>
@@ -617,11 +617,11 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               decoration: const InputDecoration(hintText: 'List name'),
             ),
             actions: [
-              TextButton(
+ TextButton(
                 onPressed: () => Navigator.pop(dCtx),
                 child: const Text('Cancel'),
               ),
-              FilledButton(
+ FilledButton(
                 onPressed: () => Navigator.pop(dCtx, nameCtrl.text.trim()),
                 child: const Text('Create'),
               ),
@@ -650,7 +650,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+ SnackBar(
             content: Text(
               newId != 0
                   ? 'Created "$name" and saved this story'
@@ -667,13 +667,13 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       await widget.apiService.addReadingListItem(listId, _book.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Saved to ${choice['name'] ?? 'reading list'}')),
+ SnackBar(content: Text('Saved to ${choice['name'] ?? 'reading list'}')),
       );
       if (mounted) setState(() => _saved = true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+ SnackBar(
           content: Text(
             e.toString().contains('401') || e.toString().contains('403')
                 ? 'Please sign in to use reading lists'
@@ -770,7 +770,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) =>
-            HashtagDetailScreen(tag: tag, apiService: widget.apiService),
+ HashtagDetailScreen(tag: tag, apiService: widget.apiService),
       ),
     );
   }
@@ -780,14 +780,14 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
+ Text(
           value,
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 2),
-        Text(
+ Text(
           label,
           style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
         ),
@@ -799,8 +799,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF121218) : AppTheme.background;
-    final fg = isDark ? Colors.white : AppTheme.ink;
+    final bg = isDark ? const Color(0xFF121218) : AppTheme.bgOf(context);
+    final fg = isDark ? Colors.white : AppTheme.inkOf(context);
     final muted = isDark ? Colors.white70 : Colors.black54;
     const inkittGreen = Color(0xFF6C3CE1); // brand purple
 
@@ -826,7 +826,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             // App bar
-            SliverAppBar(
+ SliverAppBar(
               pinned: true,
               backgroundColor: bg,
               foregroundColor: fg,
@@ -839,26 +839,26 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 },
               ),
               actions: [
-                IconButton(
+ IconButton(
                   icon: const Icon(Icons.ios_share_outlined),
                   onPressed: _openReadingListPicker,
                 ),
-                IconButton(
+ IconButton(
                   icon: const Icon(Icons.more_vert),
                   onPressed: () async {
                     final action = await showMenu<String>(
                       context: context,
                       position: const RelativeRect.fromLTRB(1000, 80, 16, 0),
                       items: const [
-                        PopupMenuItem(
+ PopupMenuItem(
                           value: 'list',
                           child: Text('Save to reading list'),
                         ),
-                        PopupMenuItem(
+ PopupMenuItem(
                           value: 'review',
                           child: Text('Write a review'),
                         ),
-                        PopupMenuItem(
+ PopupMenuItem(
                           value: 'report',
                           child: Text('Report story'),
                         ),
@@ -870,7 +870,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     } else if (action == 'review') {
                       if (_isOwner || _hasMyReview) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
+ SnackBar(
                             content: Text(
                               _isOwner
                                   ? "Author can't make reviews on their own book"
@@ -893,7 +893,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       } catch (e) {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Report failed: $e')),
+ SnackBar(content: Text('Report failed: $e')),
                         );
                       }
                     }
@@ -904,7 +904,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
             // Cover — fixed size so it never becomes a full-screen gray block
             // title
-            SliverToBoxAdapter(
+ SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
                   AppBreakpoints.pagePadding(context) + 4,
@@ -914,7 +914,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 ),
                 child: Column(
                   children: [
-                    Builder(
+ Builder(
                       builder: (context) {
                         final coverW = AppBreakpoints.isTablet(context)
                             ? 200.0
@@ -963,7 +963,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    Text(
+ Text(
                       _book.title,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.titleLarge?.copyWith(
@@ -973,7 +973,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(
+ Text(
                       'by $authorName',
                       style: theme.textTheme.bodyMedium?.copyWith(color: muted),
                     ),
@@ -984,26 +984,26 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
             // Stats — match product screenshots: Chapters / Last Updated / Reviews
             const SliverToBoxAdapter(child: SizedBox(height: 18)),
-            SliverToBoxAdapter(
+ SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: AppBreakpoints.pagePadding(context),
                 ),
                 child: Row(
                   children: [
-                    Expanded(
+ Expanded(
                       child: _statCell(
                         'Chapters',
                         _loadingChapters ? '…' : '${_chapters.length}',
                       ),
                     ),
-                    Expanded(
+ Expanded(
                       child: _statCell(
                         'Last Updated',
                         _formatLastUpdated(),
                       ),
                     ),
-                    Expanded(
+ Expanded(
                       child: GestureDetector(
                         onTap: _openReviewsPage,
                         child: _statCell(
@@ -1018,13 +1018,13 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             ),
 
             // Summary
-            SliverToBoxAdapter(
+ SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 22, 20, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+ Text(
                       'Summary',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
@@ -1032,7 +1032,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
+ Text(
                       summary,
                       maxLines: _summaryExpanded || !needsExpand ? null : 5,
                       overflow: _summaryExpanded || !needsExpand
@@ -1046,7 +1046,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       ),
                     ),
                     if (needsExpand)
-                      TextButton(
+ TextButton(
                         onPressed: () => setState(
                           () => _summaryExpanded = !_summaryExpanded,
                         ),
@@ -1065,12 +1065,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             ),
 
             // Like / Save / Reviews
-            SliverToBoxAdapter(
+ SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                 child: Row(
                   children: [
-                    Expanded(
+ Expanded(
                       child: TextButton.icon(
                         onPressed: (_likeBusy || _isOwner) ? null : _toggleLike,
                         icon: Icon(
@@ -1095,7 +1095,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         ),
                       ),
                     ),
-                    Expanded(
+ Expanded(
                       child: TextButton.icon(
                         onPressed: _isOwner ? null : _openReadingListPicker,
                         icon: Icon(
@@ -1121,7 +1121,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         ),
                       ),
                     ),
-                    Expanded(
+ Expanded(
                       child: TextButton.icon(
                         onPressed: _openReviewsPage,
                         style: TextButton.styleFrom(
@@ -1155,13 +1155,13 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
             // Genre
             if (_book.genre.trim().isNotEmpty)
-              SliverToBoxAdapter(
+ SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+ Text(
                         'Genres',
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
@@ -1170,12 +1170,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Wrap(
+ Wrap(
                         spacing: 8,
                         children: [
                           for (final g in _book.genre.split(RegExp(r'[,/|]')))
                             if (g.trim().isNotEmpty)
-                              Chip(
+ Chip(
                                 label: Text(g.trim()),
                                 backgroundColor: isDark
                                     ? const Color(0xFF2A2A2A)
@@ -1191,13 +1191,13 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
             // Tags
             if (_tags.isNotEmpty)
-              SliverToBoxAdapter(
+ SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+ Text(
                         'Tags',
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
@@ -1206,12 +1206,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Wrap(
+ Wrap(
                         spacing: 8,
                         runSpacing: 6,
                         children: [
                           for (final t in _tags)
-                            ActionChip(
+ ActionChip(
                               label: Text(
                                 t.startsWith('#') ? t.substring(1) : t,
                                 style: const TextStyle(
@@ -1231,13 +1231,13 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               ),
 
             // Author row
-            SliverToBoxAdapter(
+ SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+ Text(
                       'Author',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
@@ -1246,9 +1246,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Row(
+ Row(
                       children: [
-                        CircleAvatar(
+ CircleAvatar(
                           radius: 22,
                           backgroundColor: Colors.grey.shade300,
                           backgroundImage:
@@ -1271,7 +1271,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               : null,
                         ),
                         const SizedBox(width: 12),
-                        Expanded(
+ Expanded(
                           child: Text(
                             authorName,
                             style: TextStyle(
@@ -1282,7 +1282,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                           ),
                         ),
                         if (!_isOwner && (_book.authorUserId ?? 0) > 0)
-                          TextButton(
+ TextButton(
                             onPressed: _loadingFollow ? null : _toggleFollow,
                             style: TextButton.styleFrom(
                               backgroundColor: inkittGreen,
@@ -1305,7 +1305,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             ),
 
             // Chapters
-            SliverToBoxAdapter(
+ SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                 child: Text(
@@ -1326,7 +1326,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 ),
               )
             else if (_chapters.isEmpty)
-              SliverToBoxAdapter(
+ SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Text(
@@ -1337,7 +1337,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               )
             else
               // ignore: prefer_const_constructors - dynamic list
-              SliverList(
+ SliverList(
                 delegate: SliverChildBuilderDelegate((context, index) {
                   final chapter = _chapters[index];
                   final rawTitle = (chapter['title'] as String? ?? '').trim();
@@ -1362,7 +1362,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
             // More stories by this author
             if (_authorStories.isNotEmpty)
-              SliverToBoxAdapter(
+ SliverToBoxAdapter(
                 child: _HorizontalBookRail(
                   title: 'More stories by author',
                   books: _authorStories,
@@ -1371,7 +1371,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               ),
 
             if (_youMayAlsoLike.isNotEmpty)
-             SliverToBoxAdapter(
+ SliverToBoxAdapter(
                 child: _HorizontalBookRail(
                   title: 'You May Also Like',
                   books: _youMayAlsoLike,
@@ -1379,7 +1379,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 ),
               ),
             if (_youMayAlsoLike.length > 6)
-              SliverToBoxAdapter(
+ SliverToBoxAdapter(
                 child: _HorizontalBookRail(
                   title: 'Recommended for You',
                   books: _youMayAlsoLike.skip(6).take(6).toList(),
@@ -1404,7 +1404,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 colors: [Color(0xFF6C3CE1), Color(0xFF4B27B8)],
               ),
               boxShadow: [
-                BoxShadow(
+ BoxShadow(
                   color: const Color(0xFF6C3CE1).withValues(alpha: 0.42),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
@@ -1613,12 +1613,12 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
                 children: [
-                  Text(
+ Text(
                     '${_reviews.length} reviews for',
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                   ),
                   const SizedBox(height: 6),
-                  Text(
+ Text(
                     widget.book.title,
                     style: const TextStyle(
                       fontSize: 22,
@@ -1627,7 +1627,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
+ Text(
                     'By ${widget.book.author}',
                     style: const TextStyle(
                       color: Color(0xFF6C3CE1),
@@ -1636,7 +1636,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                   ),
                   const SizedBox(height: 16),
                   if (widget.isOwner)
-                    Padding(
+ Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Text(
                         "Authors can't write reviews on their own books. You can still read reviews below.",
@@ -1648,7 +1648,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                       ),
                     )
                   else if (!widget.isOwner)
-                    Center(
+ Center(
                       child: FilledButton(
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF6C3CE1),
@@ -1690,7 +1690,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                     ),
                   const SizedBox(height: 24),
                   if (_reviews.isEmpty)
-                    Padding(
+ Padding(
                       padding: const EdgeInsets.only(top: 40),
                       child: Center(
                         child: Text(
@@ -1758,9 +1758,9 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+ Row(
             children: [
-              CircleAvatar(
+ CircleAvatar(
                 radius: 18,
                 backgroundColor: Colors.grey.shade300,
                 child: Text(
@@ -1769,16 +1769,16 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                 ),
               ),
               const SizedBox(width: 10),
-              Expanded(
+ Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+ Text(
                       name,
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     if (chaptersRead != null)
-                      Text(
+ Text(
                         '$chaptersRead chapters read',
                         style: TextStyle(
                           fontSize: 12,
@@ -1788,7 +1788,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                   ],
                 ),
               ),
-              Text(
+ Text(
                 created.length >= 10 ? created.substring(0, 10) : created,
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
               ),
@@ -1796,14 +1796,14 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
           ),
           if (title.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text(
+ Text(
               title,
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
           ],
           if (body.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(
+ Text(
               '"$body"',
               style: TextStyle(
                 color: Colors.grey.shade800,
@@ -1813,9 +1813,9 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
             ),
           ],
           const SizedBox(height: 10),
-          Row(
+ Row(
             children: [
-              Expanded(
+ Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1827,7 +1827,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                   ],
                 ),
               ),
-              Expanded(
+ Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1839,9 +1839,9 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
             ],
           ),
           const SizedBox(height: 6),
-          Row(
+ Row(
             children: [
-              Expanded(
+ Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1850,7 +1850,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                   ],
                 ),
               ),
-              Expanded(
+ Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1866,7 +1866,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
           ),
           if (isMine) ...[
             const SizedBox(height: 8),
-            Row(
+ Row(
               children: [
                 TextButton.icon(
                   onPressed: () => _editMine(r),
@@ -1881,11 +1881,11 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
                         title: const Text('Delete review?'),
                         content: const Text('This cannot be undone.'),
                         actions: [
-                          TextButton(
+ TextButton(
                             onPressed: () => Navigator.pop(ctx, false),
                             child: const Text('Cancel'),
                           ),
-                          FilledButton(
+ FilledButton(
                             onPressed: () => Navigator.pop(ctx, true),
                             child: const Text('Delete'),
                           ),
@@ -1901,15 +1901,15 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
             ),
           ] else ...[
             const SizedBox(height: 8),
-            Text(
+ Text(
               'Was this review helpful to you?',
               style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
             ),
             const SizedBox(height: 4),
-            Row(
+ Row(
               children: [
-                TextButton(onPressed: () {}, child: const Text('Yes')),
-                TextButton(onPressed: () {}, child: const Text('No')),
+ TextButton(onPressed: () {}, child: const Text('Yes')),
+ TextButton(onPressed: () {}, child: const Text('No')),
               ],
             ),
           ],
@@ -1977,12 +1977,12 @@ class _WriteReviewScreenState extends State<_WriteReviewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+ Text(
             label,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 6),
-          Row(
+ Row(
             children: List.generate(5, (i) {
               final star = i + 1;
               return GestureDetector(
@@ -2076,7 +2076,7 @@ class _WriteReviewScreenState extends State<_WriteReviewScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           children: [
-            Text(
+ Text(
               'Remember, we write reviews in order to help others find good novels. Keep this in mind when writing your review. Describe what you found special about this novel, and why you think someone else should read it.',
               style: TextStyle(
                 fontSize: 13.5,
@@ -2106,7 +2106,7 @@ class _WriteReviewScreenState extends State<_WriteReviewScreen> {
               (v) => setState(() => _tech = v),
             ),
             const SizedBox(height: 12),
-            TextField(
+ TextField(
               controller: _bodyCtrl,
               maxLines: 6,
               style: const TextStyle(fontSize: 15, height: 1.4),
@@ -2126,7 +2126,7 @@ class _WriteReviewScreenState extends State<_WriteReviewScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            SizedBox(
+ SizedBox(
               width: double.infinity,
               height: 50,
               child: FilledButton(
@@ -2185,7 +2185,7 @@ class _HorizontalBookRail extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
+ Padding(
             padding: EdgeInsets.symmetric(horizontal: pad),
             child: Text(
               title,
@@ -2197,7 +2197,7 @@ class _HorizontalBookRail extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
+ SizedBox(
             height: coverH + 50,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
@@ -2245,7 +2245,7 @@ class _HorizontalBookRail extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ClipRRect(
+ ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: url.isNotEmpty
                               ? Image.network(
@@ -2266,7 +2266,7 @@ class _HorizontalBookRail extends StatelessWidget {
                                 ),
                         ),
                         const SizedBox(height: 6),
-                        Text(
+ Text(
                           title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,

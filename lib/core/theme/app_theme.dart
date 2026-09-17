@@ -7,6 +7,19 @@ import 'app_styles.dart';
 /// Dark purple theme matching Novara / Explore reference UI.
 /// Prefer [AppStyles.colors] in widgets for adaptive surfaces.
 class AppTheme {
+
+  // --- Adaptive colors (prefer these over static light-only constants) ---
+  static Color bgOf(BuildContext context) => AppStyles.colors(context).bg;
+  static Color surfaceOf(BuildContext context) => AppStyles.colors(context).card;
+  static Color elevatedOf(BuildContext context) => AppStyles.colors(context).elevated;
+  static Color fieldOf(BuildContext context) => AppStyles.colors(context).field;
+  static Color borderOf(BuildContext context) => AppStyles.colors(context).border;
+  static Color inkOf(BuildContext context) => AppStyles.colors(context).textPrimary;
+  static Color mutedOf(BuildContext context) => AppStyles.colors(context).textMuted;
+  static Color faintOf(BuildContext context) => AppStyles.colors(context).textFaint;
+  static bool isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
   static const Color brand = AppStyles.purple;
   static const Color brandDeep = AppStyles.purpleDeep;
   static const Color accent = AppStyles.purpleBright;
@@ -19,6 +32,8 @@ class AppTheme {
   static const Color pink = AppStyles.purpleBright;
 
   static const Color ink = AppStyles.black;
+  // LIGHT-only fallbacks — do not use for Scaffold/text in dual-theme UIs.
+  // Prefer bgOf/surfaceOf/mutedOf(context) or AppStyles.colors(context).
   static const Color muted = Color(0xFF8B8099);
   static const Color surface = Colors.white;
   static const Color border = Color(0xFFE8E0F0);
@@ -70,7 +85,7 @@ class AppTheme {
         ),
       ),
       elevatedButtonTheme:
-          ElevatedButtonThemeData(style: AppStyles.primaryButton()),
+ ElevatedButtonThemeData(style: AppStyles.primaryButton()),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: brand,

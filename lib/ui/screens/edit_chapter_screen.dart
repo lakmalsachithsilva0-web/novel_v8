@@ -271,7 +271,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
         .length;
     if (words < 60) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+ SnackBar(
           content: Text(
             'Minimum 60 words required to publish this chapter. You have $words word${words == 1 ? '' : 's'}.',
           ),
@@ -324,11 +324,11 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
           'This chapter will be saved as Draft. Other chapters stay as they are (published chapters stay under Submitted).',
         ),
         actions: [
-          TextButton(
+ TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Stay'),
           ),
-          FilledButton(
+ FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Leave'),
           ),
@@ -573,7 +573,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(successMessage ?? 'Chapter saved to database')),
+ SnackBar(content: Text(successMessage ?? 'Chapter saved to database')),
       );
 
       // Check/save action: ask whether to finish here or continue with the next chapter.
@@ -584,7 +584,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
             title: const Text('Chapter saved'),
             content: const Text('Do you want to add another chapter?'),
             actions: [
-              TextButton(
+ TextButton(
                 onPressed: () async {
                   Navigator.pop(ctx, false);
                   try {
@@ -608,7 +608,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                 },
                 child: const Text('Done'),
               ),
-              FilledButton(
+ FilledButton(
                 onPressed: () async {
                   Navigator.pop(ctx, true);
                   try {
@@ -685,12 +685,12 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+ Text(
                 'Chapter Notes',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 12),
-              TextField(
+ TextField(
                 controller: controller,
                 maxLines: 5,
                 decoration: const InputDecoration(
@@ -699,7 +699,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              SizedBox(
+ SizedBox(
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () =>
@@ -843,11 +843,11 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
           'Current chapter content will be saved as a new revision, then replaced with the selected version. Other chapters are not changed.',
         ),
         actions: [
-          TextButton(
+ TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+ FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Restore'),
           ),
@@ -887,7 +887,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not restore: $e')),
+ SnackBar(content: Text('Could not restore: $e')),
       );
     }
   }
@@ -928,11 +928,11 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
           'Are you sure you want to delete this chapter? This cannot be undone.',
         ),
         actions: [
-          TextButton(
+ TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('No'),
           ),
-          FilledButton(
+ FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Yes'),
@@ -978,7 +978,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
+ ListTile(
               leading: const Icon(Icons.save_rounded),
               title: const Text('Save Chapter'),
               onTap: () async {
@@ -986,7 +986,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                 await _saveChapter();
               },
             ),
-            ListTile(
+ ListTile(
               leading: const Icon(Icons.sticky_note_2_outlined),
               title: const Text('Add Chapter Notes'),
               onTap: () async {
@@ -994,7 +994,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                 await _editChapterNotes();
               },
             ),
-            ListTile(
+ ListTile(
               leading: const Icon(Icons.publish_outlined),
               title: const Text('Submit Chapter'),
               onTap: () async {
@@ -1002,7 +1002,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                 await _submitChapter();
               },
             ),
-            ListTile(
+ ListTile(
               leading: const Icon(Icons.history_rounded),
               title: const Text('Revisions'),
               onTap: () async {
@@ -1010,7 +1010,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                 await _showRevisions();
               },
             ),
-            ListTile(
+ ListTile(
               leading: const Icon(Icons.schedule_rounded),
               title: const Text('Schedule Submission'),
               onTap: () async {
@@ -1018,7 +1018,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                 await _scheduleChapterSubmission();
               },
             ),
-            ListTile(
+ ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,
                 color: Colors.red,
@@ -1072,7 +1072,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
           ),
           title: const Text('Edit Chapter'),
           actions: [
-            IconButton(
+ IconButton(
               icon: const Icon(Icons.add_circle_outline_rounded),
               tooltip: 'Add chapter',
               onPressed: _isSaving
@@ -1098,7 +1098,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                       await _openNextChapterEditor();
                     },
             ),
-            IconButton(
+ IconButton(
               icon: _isSaving
                   ? const SizedBox(
                       width: 18,
@@ -1114,7 +1114,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                       offerNextChapter: true,
                     ),
             ),
-            IconButton(
+ IconButton(
               icon: const Icon(Icons.menu_rounded),
               onPressed: _showOptionsMenu,
             ),
@@ -1125,14 +1125,14 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Row(
               children: [
-                Expanded(
+ Expanded(
                   child: OutlinedButton(
                     onPressed: _isSaving ? null : _saveAsDraftChapter,
                     child: const Text('Draft'),
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
+ Expanded(
                   child: FilledButton(
                     onPressed: _isSaving ? null : _publishStoryAndChapter,
                     style: FilledButton.styleFrom(
@@ -1149,20 +1149,20 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
-                  Container(
-                    decoration: const BoxDecoration(
+ Container(
+                    decoration: BoxDecoration(
                       border: Border(
-                        bottom: BorderSide(color: AppTheme.border),
+                        bottom: BorderSide(color: AppTheme.borderOf(context)),
                       ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Padding(
+ Padding(
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                           child: Row(
                             children: [
-                              Container(
+ Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
                                   vertical: 4,
@@ -1181,12 +1181,12 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Expanded(
+ Expanded(
                                 child: Text(
                                   _scheduledLabel(),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
-                                    color: AppTheme.muted,
+                                    color: AppTheme.mutedOf(context),
                                   ),
                                   textAlign: TextAlign.right,
                                 ),
@@ -1194,19 +1194,19 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                             ],
                           ),
                         ),
-                        const Padding(
+ Padding(
                           padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
                           child: Text(
                             'TITLE',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
-                              color: AppTheme.muted,
+                              color: AppTheme.mutedOf(context),
                               letterSpacing: 1.0,
                             ),
                           ),
                         ),
-                        TextField(
+ TextField(
                           controller: _titleController,
                           style: TextStyle(
                             fontSize: 16,
@@ -1221,23 +1221,23 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                       ],
                     ),
                   ),
-                  Expanded(
+ Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Padding(
+ Padding(
                           padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
                           child: Text(
                             'TEXT',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
-                              color: AppTheme.muted,
+                              color: AppTheme.mutedOf(context),
                               letterSpacing: 1.0,
                             ),
                           ),
                         ),
-                        Expanded(
+ Expanded(
                           child: TextField(
                             controller: _textController,
                             maxLines: null,
@@ -1256,7 +1256,7 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                                   : FontStyle.normal,
                               // dark-mode: was Colors.black87
                             ),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               contentPadding: EdgeInsets.fromLTRB(
                                 16,
                                 4,
@@ -1265,14 +1265,14 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                               ),
                               border: InputBorder.none,
                               hintText: 'Start writing your story here...',
-                              hintStyle: TextStyle(color: AppTheme.muted),
+                              hintStyle: TextStyle(color: AppTheme.mutedOf(context)),
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Container(
+ Container(
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -1287,13 +1287,13 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                         fontWeight: FontWeight.w600,
                         color: _wordCount >= 60
                             ? const Color(0xFF047857)
-                            : AppTheme.muted,
+                            : AppTheme.mutedOf(context),
                       ),
                     ),
                   ),
-                  Container(
-                    decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: AppTheme.border)),
+ Container(
+                    decoration: BoxDecoration(
+                      border: Border(top: BorderSide(color: AppTheme.borderOf(context))),
                       color: Color(0xFFFAFAFA),
                     ),
                     child: SafeArea(
@@ -1318,10 +1318,10 @@ class _EditChapterScreenState extends State<EditChapterScreen> {
                             onPressed: () => _applyInlineFormat(italic: true),
                             isActive: _isItalic,
                           ),
-                          Container(
+ Container(
                             width: 1,
                             height: 24,
-                            color: AppTheme.border,
+                            color: AppTheme.borderOf(context),
                             margin: const EdgeInsets.symmetric(horizontal: 4),
                           ),
                           _ToolbarButton(
@@ -1357,7 +1357,7 @@ class _ToolbarButton extends StatelessWidget {
       icon: Icon(
         icon,
         size: 22,
-        color: isActive ? AppTheme.brand : AppTheme.muted,
+        color: isActive ? AppTheme.brand : AppTheme.mutedOf(context),
       ),
       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
     );
