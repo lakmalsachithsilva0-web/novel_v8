@@ -162,15 +162,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
       });
 
       final needsVerify = result['needs_verification'] == true;
-      if (needsVerify && mounted) {
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => EmailVerifyScreen(
-              apiService: _api,
-              email: _emailCtrl.text.trim(),
+      if (needsVerify) {
+        // Do NOT auto-login until email is verified (backend returns 403).
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result['message']?.toString() ??
+                    'Check your email for a verification code, then log in.',
+              ),
             ),
-          ),
-        );
+          );
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => EmailVerifyScreen(
+                apiService: _api,
+                email: _emailCtrl.text.trim(),
+              ),
+            ),
+          );
+        }
+        return;
       }
 
       await widget.onContinue(

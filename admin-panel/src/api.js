@@ -42,6 +42,9 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearAdminToken();
+    }
     const text = await response.text();
     throw new Error(text || `Request failed with status ${response.status}`);
   }

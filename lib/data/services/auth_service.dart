@@ -199,9 +199,17 @@ class AuthService {
         await signOut();
         throw AuthBlockedException(_friendlyAuthError(e));
       }
-      // A transient 401/403 or expired token should not forcibly clear a valid
-      // session and bounce the user back to Login on every app start.
-      // The next authenticated action can revalidate cleanly without a loop.
+      // Hard session failures: revoked, expired, invalid token → clear local session
+      if (msg.contains('session revoked') ||
+          msg.contains('token expired') ||
+          msg.contains('invalid user token') ||
+          msg.contains('missing user token') ||
+          msg.contains('account not found')) {
+        await signOut();
+        return null;
+      }
+      // Transient network / cold-start: keep offline session so user is not
+      // bounced to Login on every brief outage. Next API call revalidates.
       final email = prefs.getString(_emailKey) ?? '';
       final displayName = prefs.getString(_displayNameKey) ?? email;
       if (email.isEmpty && method != 'guest') {

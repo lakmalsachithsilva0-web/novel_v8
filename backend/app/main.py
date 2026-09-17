@@ -391,6 +391,16 @@ class SupportRequestUpdateRequest(BaseModel):
 
 
 
+
+def _ensure_token_version_column() -> None:
+    try:
+        execute_write("ALTER TABLE app_users ADD COLUMN token_version INT NOT NULL DEFAULT 0", ())
+    except Exception:
+        try:
+            execute_write("ALTER TABLE app_users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0", ())
+        except Exception:
+            pass
+
 def _ensure_password_hash_column() -> None:
     """Add password_hash to app_users if missing (MySQL + SQLite)."""
     try:
@@ -530,7 +540,7 @@ class VerifyEmailRequest(BaseModel):
 
 
 class GuestAuthRequest(BaseModel):
-    pass
+    device_id: str | None = None
 
 
 class ChatMessageCreateRequest(BaseModel):
@@ -761,14 +771,41 @@ def _sign_token(payload: dict[str, Any]) -> str:
 
 
 def create_user_token(user_id: int) -> str:
+    """Signed session token. Includes token_version (tv) so ban/suspend can revoke."""
+    try:
+        _ensure_token_version_column()
+    except Exception:
+        pass
     expires_at = datetime.now(timezone.utc) + timedelta(days=180)
+    tv = 0
+    try:
+        rows = fetch_all(
+            "SELECT COALESCE(token_version, 0) AS token_version FROM app_users WHERE id=%s LIMIT 1",
+            (user_id,),
+        )
+        if rows:
+            tv = int(_row_get(rows[0], "token_version") or 0)
+    except Exception:
+        tv = 0
     return _sign_token(
         {
             "sub": f"user:{user_id}",
             "role": "user",
             "exp": expires_at.isoformat(),
+            "tv": tv,
         }
     )
+
+
+def bump_token_version(user_id: int) -> None:
+    """Invalidate all outstanding sessions for this user."""
+    try:
+        execute_write(
+            "UPDATE app_users SET token_version = COALESCE(token_version, 0) + 1 WHERE id=%s",
+            (user_id,),
+        )
+    except Exception as exc:
+        LOGGER.warning("bump_token_version failed for %s: %s", user_id, exc)
 
 
 
@@ -1068,13 +1105,37 @@ def require_user(authorization: str | None = Header(default=None)) -> dict[str, 
     except ValueError as exc:
         raise HTTPException(status_code=401, detail="Invalid user token") from exc
 
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at <= datetime.now(timezone.utc):
-        raise HTTPException(status_code=401, detail="User token expired")
+        raise HTTPException(status_code=401, detail="User token expired — please sign in again")
 
     uid = int(sub.split(":", 1)[1])
     reason = _user_access_block_reason(uid)
     if reason:
         raise HTTPException(status_code=403, detail=reason)
+
+    # Session revoke: ban/suspend/password-reset bumps token_version
+    try:
+        rows = fetch_all(
+            "SELECT COALESCE(token_version, 0) AS token_version FROM app_users WHERE id=%s LIMIT 1",
+            (uid,),
+        )
+        if not rows:
+            raise HTTPException(status_code=401, detail="Account not found")
+        current_tv = int(_row_get(rows[0], "token_version") or 0)
+        token_tv = int(payload.get("tv") or 0)
+        # Accept legacy tokens without tv only if current_tv is still 0
+        if token_tv != current_tv:
+            raise HTTPException(
+                status_code=401,
+                detail="Session revoked. Please sign in again.",
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        LOGGER.warning("token_version check failed: %s", exc)
+
     return {"user_id": uid}
 
 
@@ -2041,27 +2102,38 @@ def resend_verification(payload: VerifyEmailRequest):
 
 
 @app.post("/api/auth/guest")
-def authenticate_guest(_: GuestAuthRequest):
-    """Fallback guest login (device-scoped version is applied by auth_professional)."""
-    email = "guest@novel.app"
+def authenticate_guest(payload: GuestAuthRequest | None = None):
+    """Device-scoped guest — never share one global guest@novel.app account."""
+    device_id = ""
+    if payload is not None:
+        device_id = str(getattr(payload, "device_id", "") or "").strip()
+    if len(device_id) < 8:
+        device_id = secrets.token_hex(16)
+
+    email = f"guest_{device_id[:32]}@novel.app"
     display_name = "Guest"
     rows = fetch_all("SELECT id FROM app_users WHERE LOWER(email)=%s LIMIT 1", (email,))
-    user_id = _row_id(rows[0]) if rows else None
+    user_id = int(_row_get(rows[0], "id")) if rows else None
     if user_id is not None:
-        execute_write(
-            """
-            UPDATE app_users
-            SET provider='guest', display_name=%s, last_login_at=CURRENT_TIMESTAMP,
-                is_deleted=0, is_banned=0, is_suspended=0, suspended_until=NULL
-            WHERE id=%s
-            """,
-            (display_name, user_id),
-        )
-    else:
         try:
-            _ensure_user_moderation_columns()
+            execute_write(
+                """
+                UPDATE app_users
+                SET provider='guest', display_name=%s, last_login_at=CURRENT_TIMESTAMP,
+                    is_deleted=0, is_banned=0, is_suspended=0, suspended_until=NULL
+                WHERE id=%s
+                """,
+                (display_name, user_id),
+            )
         except Exception:
-            pass
+            try:
+                execute_write(
+                    "UPDATE app_users SET provider='guest', display_name=%s WHERE id=%s",
+                    (display_name, user_id),
+                )
+            except Exception:
+                pass
+    else:
         user_id, _ = execute_write(
             """
             INSERT INTO app_users (email, provider, display_name, photo_url)
@@ -2070,19 +2142,22 @@ def authenticate_guest(_: GuestAuthRequest):
             (email, display_name),
         )
         if not user_id:
-            user_id = _find_user_id_by_email(email)
+            rows2 = fetch_all("SELECT id FROM app_users WHERE LOWER(email)=%s LIMIT 1", (email,))
+            if rows2:
+                user_id = int(_row_get(rows2[0], "id"))
         if not user_id:
             raise HTTPException(status_code=500, detail="Could not create guest user")
-    user_id = int(user_id)
-    # Guests are never blocked by moderation leftovers
+
     return {
-        "id": user_id,
+        "id": int(user_id),
         "email": email,
         "display_name": display_name,
         "photo_url": "",
         "provider": "guest",
-        "token": create_user_token(user_id),
+        "token": create_user_token(int(user_id)),
+        "is_guest": True,
     }
+
 
 
 @app.get("/api/me")
@@ -9124,6 +9199,7 @@ def admin_list_users(_: dict[str, Any] = Depends(require_admin)):
 def admin_ban_user(user_id: int, _: dict[str, Any] = Depends(require_admin)):
     _ensure_user_moderation_columns()
     execute_write("UPDATE app_users SET is_banned=1 WHERE id=%s", (user_id,))
+    bump_token_version(user_id)
     return _user_moderation_status(user_id)
 
 
@@ -9190,6 +9266,7 @@ def admin_delete_user(user_id: int, _: dict[str, Any] = Depends(require_admin)):
         "UPDATE app_users SET is_deleted=1 WHERE id=%s",
         (user_id,),
     )
+    bump_token_version(user_id)
     return {"ok": True, "is_deleted": True}
 
 
@@ -9200,6 +9277,7 @@ def admin_restore_user(user_id: int, _: dict[str, Any] = Depends(require_admin))
         "UPDATE app_users SET is_deleted=0, is_banned=0, is_suspended=0, suspended_until=NULL WHERE id=%s",
         (user_id,),
     )
+    bump_token_version(user_id)
     return _user_moderation_status(user_id)
 
 
@@ -9296,3 +9374,22 @@ try:
 except Exception as _chapter_reactions_exc:
     LOGGER.warning("chapter_reactions routes not registered: %s", _chapter_reactions_exc)
 
+
+
+# ---------------------------------------------------------------------------
+# Professional auth hardening (token_version, secure email, device guest)
+# Safe if module missing — base require_user/create_user_token already hardened.
+# ---------------------------------------------------------------------------
+try:
+    import sys as _sys
+    from .auth_professional import apply_professional_auth as _apply_pro_auth
+    _apply_pro_auth(_sys.modules[__name__])
+    LOGGER.info("auth_professional hardening applied")
+except Exception as _auth_pro_exc:
+    try:
+        import sys as _sys
+        import auth_professional as _ap
+        _ap.apply_professional_auth(_sys.modules[__name__])
+        LOGGER.info("auth_professional hardening applied (flat import)")
+    except Exception as _auth_pro_exc2:
+        LOGGER.warning("auth_professional not applied: %s / %s", _auth_pro_exc, _auth_pro_exc2)
