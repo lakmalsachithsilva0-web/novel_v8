@@ -54,7 +54,7 @@ export default function Shelf({ title, books = [], seeAllTo, seeAllLabel = "View
               ‹
             </button>
           )}
-          <div className="shelf-track" ref={scroller}>
+          <div className="shelf-track shelf-scroller" ref={scroller}>
             {books.map((b) => (
               <div key={b.id} className="shelf-item">
                 <BookCard book={b} variant="shelf" />

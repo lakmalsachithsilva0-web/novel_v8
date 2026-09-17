@@ -7,7 +7,7 @@ export default function BookCard({ book, variant = "shelf", link = true }) {
   const rating = book.rating != null ? Number(book.rating).toFixed(1) : null;
   const tag = book.secondary_genre || book.genre || book.primary_genre || "";
   const to = `/stories/${book.id}`;
-  const className = `book-card book-card--${variant}`;
+  const className = `book-card book-card--${variant} book-card-hover`;
 
   const body = (
     <>

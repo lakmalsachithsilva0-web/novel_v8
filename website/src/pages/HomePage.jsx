@@ -3,7 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import BookCard from "../components/BookCard";
 import PhoneMockup from "../components/PhoneMockup";
 import Shelf from "../components/Shelf";
-import { getBootstrap, getPublicReadingLists, getToken, resolveAssetUrl, toggleReadingListFollow } from "../api";
+import {
+  getBootstrap,
+  getPublicReadingLists,
+  getToken,
+  resolveAssetUrl,
+  toggleReadingListFollow,
+} from "../api";
 
 const GENRE_PILLS = [
   "Romance",
@@ -29,6 +35,17 @@ const GENRE_SHELVES = [
   "Horror",
 ];
 
+/** Placeholder cover when book has no image */
+const PLACEHOLDER_COVER =
+  "data:image/svg+xml," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="240" viewBox="0 0 160 240">
+      <rect fill="#1f2937" width="160" height="240"/>
+      <rect fill="#374151" x="20" y="40" width="120" height="160" rx="4"/>
+      <text x="80" y="130" text-anchor="middle" fill="#9ca3af" font-family="sans-serif" font-size="12">Cover</text>
+    </svg>`
+  );
+
 function collectBooks(boot) {
   if (!boot) return [];
   const map = new Map();
@@ -38,6 +55,7 @@ function collectBooks(boot) {
     });
   };
   add(boot.books);
+  add(boot.discover_books);
   add(boot.trending);
   add(boot.recently_updated);
   add(boot.recently_completed);
@@ -60,17 +78,36 @@ function byGenre(books, genre) {
     const fields = [b.genre, b.primary_genre, b.secondary_genre, b.section_name]
       .filter(Boolean)
       .map((x) => String(x).toLowerCase());
-    return fields.some((f) => f.includes(g.split(" ")[0]) || g.includes(f) || f.includes(g));
+    return fields.some(
+      (f) => f.includes(g.split(" ")[0]) || g.includes(f) || f.includes(g)
+    );
   });
 }
 
-export default function HomePage() {
+function withCover(book) {
+  const path = book.cover_path || book.coverPath || "";
+  if (!path) return { ...book, cover_path: PLACEHOLDER_COVER };
+  return book;
+}
+
+/**
+ * Inkitt-style home:
+ * - Guest / logged-out: marketing hero + shelves
+ * - Logged-in reader: feed-first (Continue · For You · Trending · Genre shelves · Reading lists)
+ */
+export default function HomePage({ user }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [readingLists, setReadingLists] = useState([]);
   const [followMsg, setFollowMsg] = useState("");
   const navigate = useNavigate();
+
+  const isGuest =
+    !user ||
+    String(user.email || "").includes("guest") ||
+    String(user.provider || "") === "guest";
+  const isLoggedIn = Boolean(user && !isGuest);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,218 +133,181 @@ export default function HomePage() {
     };
   }, []);
 
-  const allBooks = useMemo(() => collectBooks(data), [data]);
-
+  const allBooks = useMemo(() => collectBooks(data).map(withCover), [data]);
   const trending = useMemo(() => {
-    const rated = [...allBooks].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
-    return rated.slice(0, 16);
-  }, [allBooks]);
+    const t = (data?.trending || data?.discover_books || []).map(withCover);
+    return t.length ? t : allBooks.slice(0, 12);
+  }, [data, allBooks]);
+  const recentlyUpdated = useMemo(() => {
+    const t = (data?.recently_updated || []).map(withCover);
+    return t.length ? t : allBooks.slice(0, 12);
+  }, [data, allBooks]);
+  const recentlyCompleted = useMemo(() => {
+    const t = (data?.recently_completed || []).map(withCover);
+    return t.length ? t : allBooks.filter((b) => b.is_completed).slice(0, 12);
+  }, [data, allBooks]);
+  const library = useMemo(() => {
+    const t = (data?.library || []).map((le) =>
+      withCover({
+        id: le.book_id || le.id,
+        title: le.title,
+        author: le.author,
+        cover_path: le.cover_path,
+        rating: le.rating,
+      })
+    );
+    return t;
+  }, [data]);
 
-  if (loading) return <div className="container page">Loading…</div>;
-  if (error) return <div className="container page error-banner">{error}</div>;
+  async function onFollowList(listId) {
+    if (!getToken()) {
+      navigate("/login");
+      return;
+    }
+    try {
+      await toggleReadingListFollow(listId);
+      setFollowMsg("Updated follow");
+      setTimeout(() => setFollowMsg(""), 2000);
+    } catch (e) {
+      setFollowMsg(String(e.message || e));
+    }
+  }
 
   return (
-    <div className="home-inkitt">
-      <section className="hero inkitt-hero">
-        <div className="hero-inner">
-          <div className="hero-copy">
-            <h1>Discover Millions of Free Books</h1>
-            <p className="hero-tagline">Our readers are trendsetters.</p>
-            <p className="lead">
-              Every day, millions of readers come to NovelHub to discover the next bestseller.
-            </p>
-            <p className="hero-stat">
-              <strong>1 in 2 novels</strong> discovered by them become community favorites.
-            </p>
-            <p className="hero-explore">Explore stories in your favorite genre:</p>
-            <div className="genre-pills">
-              {GENRE_PILLS.map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  className="genre-pill"
-                  onClick={() =>
-                    navigate(g === "More" ? "/discover" : `/genres/${encodeURIComponent(g)}`)
-                  }
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
+    <div className={`home-page ${isLoggedIn ? "home-page--feed" : "home-page--marketing"}`}>
+      {/* —— Logged-in: Inkitt feed (no big marketing hero) —— */}
+      {isLoggedIn && (
+        <section className="inkitt-feed">
+          <div className="container-wide inkitt-feed-head">
+            <h1 className="inkitt-greeting">
+              Welcome back{user?.display_name ? `, ${user.display_name.split(" ")[0]}` : ""}
+            </h1>
+            <p className="meta">Stories from the same library as the NovelHub app</p>
           </div>
-          <PhoneMockup />
-        </div>
-      </section>
 
-      <section className="contest-neon">
-        <div className="contest-neon-inner">
-          <h2 className="neon-title">
-            LOVE IN
-            <br />
-            FULL COLOR
-          </h2>
-          <div className="neon-copy">
-            <p className="neon-kicker">WRITING CONTEST 2026</p>
-            <p>Every kind of love, every kind of story.</p>
-            <Link className="btn btn-neon" to="/contests">
-              ENTER NOW
-            </Link>
-          </div>
-        </div>
-      </section>
+          {library.length > 0 && (
+            <Shelf title="Continue reading" books={library} seeAllTo="/library" />
+          )}
+          <Shelf title="For you" books={trending} seeAllTo="/discover" />
+          <Shelf title="Recently updated" books={recentlyUpdated} seeAllTo="/discover" />
+          <Shelf title="Recently completed" books={recentlyCompleted} seeAllTo="/discover" />
 
-      <section className="beyond-the-page">
-        <div className="beyond-inner">
-          <div className="beyond-copy">
-            <h2>BEYOND THE PAGE</h2>
-            <p className="beyond-sub">AUDIOBOOK CONTEST</p>
-            <p className="beyond-text">
-              Some stories are meant to be read. Others are meant to be heard — or even murmured
-              straight into a reader&apos;s ear. Some both!
-            </p>
-            <Link className="btn beyond-btn" to="/contests">
-              ENTER NOW
-            </Link>
-          </div>
-          <div className="beyond-prize">
-            <div className="prize-burst">
-              <span className="prize-label">1ST PLACE</span>
-              <span className="prize-amount">$1000</span>
-              <span className="prize-more">+MORE</span>
-            </div>
-          </div>
-        </div>
-      </section>
+          {GENRE_SHELVES.map((g) => {
+            const books = byGenre(allBooks, g).slice(0, 12);
+            if (!books.length) return null;
+            return (
+              <Shelf
+                key={g}
+                title={g}
+                books={books}
+                seeAllTo={`/genres/${encodeURIComponent(g.split(" ")[0])}`}
+              />
+            );
+          })}
 
-      <Shelf title="Trending Stories" books={trending} seeAllTo="/discover" />
-
-      {/* Reading Lists */}
-      <section className="shelf shelf--inkitt">
-        <div className="shelf-inner">
-          <div className="shelf-header">
-            <h2>Reading Lists</h2>
-            {followMsg ? <span className="meta">{followMsg}</span> : null}
-          </div>
-          <div className="shelf-track-wrap">
-            <div className="shelf-track reading-list-track">
-              {(readingLists.length
-                ? readingLists
-                : [
-                    { id: null, name: "Finished Reading", story_count: 13, owner_name: "Community", covers: [] },
-                    { id: null, name: "Heart Breaking", story_count: 8, owner_name: "Community", covers: [] },
-                  ]
-              ).map((rl, i) => (
-                <div key={rl.id || rl.name} className="reading-list-card">
-                  <div className="rl-covers-grid">
-                    {(rl.covers && rl.covers.length
-                      ? rl.covers
-                      : trending.slice(i % 4, (i % 4) + 4).map((b) => b.cover_path)
-                    )
-                      .slice(0, 4)
-                      .map((cp, j) => {
-                        const src = typeof cp === "string" ? resolveAssetUrl(cp) : "";
-                        return (
-                          <div key={j} className="rl-thumb">
-                            {src ? (
-                              <img src={src} alt="" className="book-cover" style={{ height: 68, width: "100%", objectFit: "cover", borderRadius: 3 }} />
-                            ) : (
-                              <div className="book-cover book-cover--fallback" style={{ height: 68, background: "#e5e7eb" }} />
-                            )}
-                          </div>
-                        );
-                      })}
+          {readingLists.length > 0 && (
+            <section className="shelf-section">
+              <div className="container-wide shelf-head">
+                <h2 className="shelf-title">Reading lists</h2>
+                <Link to="/discover" className="shelf-see-all">
+                  See all
+                </Link>
+              </div>
+              <div className="container-wide reading-lists-row">
+                {readingLists.slice(0, 8).map((rl) => (
+                  <div key={rl.id || rl.name} className="reading-list-card">
+                    <div
+                      className="reading-list-cover"
+                      style={{
+                        backgroundImage: `url(${resolveAssetUrl(rl.cover_path) || PLACEHOLDER_COVER})`,
+                      }}
+                    />
+                    <div className="reading-list-body">
+                      <div className="reading-list-name">{rl.name || "List"}</div>
+                      <div className="meta">{rl.story_count ?? rl.book_count ?? 0} stories</div>
+                      <button
+                        type="button"
+                        className="btn-ghost btn-sm"
+                        onClick={() => onFollowList(rl.id)}
+                      >
+                        Follow
+                      </button>
+                    </div>
                   </div>
-                  <h3>{rl.name}</h3>
-                  <p className="meta">
-                    {rl.story_count || 0} stories · by {rl.owner_name || "Community"}
-                  </p>
-                  <button
-                    type="button"
-                    className="btn-follow-outline"
-                    onClick={async () => {
-                      if (!rl.id) {
-                        setFollowMsg("List not in DB yet — restart backend seed");
-                        return;
-                      }
-                      if (!getToken()) {
-                        setFollowMsg("Sign in to follow lists");
-                        return;
-                      }
-                      try {
-                        const res = await toggleReadingListFollow(rl.id);
-                        setFollowMsg(res?.following ? `Following ${rl.name}` : `Unfollowed ${rl.name}`);
-                      } catch (e) {
-                        setFollowMsg(String(e.message || e));
-                      }
-                    }}
-                  >
-                    Follow
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+                ))}
+              </div>
+              {followMsg ? <p className="meta container-wide">{followMsg}</p> : null}
+            </section>
+          )}
+        </section>
+      )}
 
-      {GENRE_SHELVES.map((genre) => {
-        let books = byGenre(allBooks, genre);
-        if (books.length < 4) {
-          const ids = new Set(books.map((b) => b.id));
-          for (const b of trending) {
-            if (books.length >= 12) break;
-            if (!ids.has(b.id)) {
-              books = [...books, b];
-              ids.add(b.id);
-            }
-          }
-        }
-        if (!books.length) return null;
-        return (
-          <Shelf
-            key={genre}
-            title={genre}
-            books={books.slice(0, 14)}
-            seeAllTo={`/genres/${encodeURIComponent(genre.split(" ")[0])}`}
-          />
-        );
-      })}
-
-      <section className="shelf shelf--inkitt">
-        <div className="shelf-inner">
-          <div className="shelf-header">
-            <h2>Fandoms</h2>
-            <Link className="see-all" to="/discover">
-              View All →
-            </Link>
-          </div>
-          <div className="shelf-track fandoms-track">
-            {[
-              { name: "Asian Pop", n: 5191 },
-              { name: "Harry Potter", n: 2177 },
-              { name: "Marvel Universe", n: 687 },
-              { name: "Supernatural", n: 557 },
-              { name: "My Hero Academia", n: 545 },
-              { name: "Naruto", n: 498 },
-              { name: "DC Universe", n: 398 },
-            ].map((f) => (
-              <Link
-                key={f.name}
-                className="fandom-card"
-                to={`/genres/${encodeURIComponent(f.name)}`}
-              >
-                <div className="fandom-covers">
-                  {trending.slice(0, 4).map((b) => (
-                    <BookCard key={`${f.name}-${b.id}`} book={b} variant="mini" link={false} />
+      {/* —— Guest / marketing (Inkitt landing style) —— */}
+      {!isLoggedIn && (
+        <>
+          <section className="hero hero--inkitt">
+            <div className="container hero-grid">
+              <div className="hero-copy">
+                <p className="eyebrow">Our readers are trendsetters.</p>
+                <p className="lead">
+                  Every day, readers discover the next bestseller on NovelHub — same stories as
+                  the mobile app.
+                </p>
+                <p className="hero-stat">
+                  <strong>1 in 2 novels</strong> discovered here become community favorites.
+                </p>
+                <p className="hero-explore">Explore stories in your favorite genre:</p>
+                <div className="genre-pills">
+                  {GENRE_PILLS.map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      className="genre-pill"
+                      onClick={() =>
+                        navigate(
+                          g === "More" ? "/discover" : `/genres/${encodeURIComponent(g)}`
+                        )
+                      }
+                    >
+                      {g}
+                    </button>
                   ))}
                 </div>
-                <h3>{f.name}</h3>
-                <p className="meta">{f.n} stories</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+                <div className="hero-cta-row">
+                  <Link to="/login" className="btn-primary">
+                    Log in
+                  </Link>
+                  <Link to="/discover" className="btn-ghost">
+                    Browse free stories
+                  </Link>
+                </div>
+              </div>
+              <PhoneMockup />
+            </div>
+          </section>
+
+          <Shelf title="Trending stories" books={trending} seeAllTo="/discover" />
+          <Shelf title="Recently updated" books={recentlyUpdated} seeAllTo="/discover" />
+        </>
+      )}
+
+      {loading && <p className="page-loading">Loading stories…</p>}
+      {error && <p className="meta container" style={{ color: "var(--danger)" }}>{error}</p>}
+
+      {/* Shared genre shelves for guests */}
+      {!isLoggedIn &&
+        GENRE_SHELVES.map((g) => {
+          const books = byGenre(allBooks, g).slice(0, 12);
+          if (!books.length) return null;
+          return (
+            <Shelf
+              key={g}
+              title={g}
+              books={books}
+              seeAllTo={`/genres/${encodeURIComponent(g.split(" ")[0])}`}
+            />
+          );
+        })}
     </div>
   );
 }

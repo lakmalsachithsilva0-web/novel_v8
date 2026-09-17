@@ -51,7 +51,7 @@ export default function Header({ user, onLogout, onAuthSuccess }) {
     const term = q.trim();
     setSearchOpen(false);
     setMenuOpen(false);
-    navigate(term ? `/discover?q=${encodeURIComponent(term)}` : "/discover");
+    navigate(term ? `/search?q=${encodeURIComponent(term)}&tab=stories` : "/search");
   }
 
   function openAuth(mode) {

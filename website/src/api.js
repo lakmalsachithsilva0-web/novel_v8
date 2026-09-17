@@ -444,3 +444,28 @@ export function listTags(q) {
   const query = q ? `?q=${encodeURIComponent(q)}` : "";
   return request(`/api/tags${query}`);
 }
+
+
+/** Inkitt-style search tabs */
+export function searchUsers(q, limit = 30) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  params.set("limit", String(limit));
+  return request(`/api/users/search?${params.toString()}`);
+}
+
+export function getMyActivity() {
+  return request("/api/me/activity").catch(() => ({ items: [] }));
+}
+
+export function getUserProfile(userId) {
+  return request(`/api/users/${userId}`);
+}
+
+export function getUserStories(userId) {
+  return request(`/api/users/${userId}/stories`).catch(() => ({ items: [] }));
+}
+
+export function getUserReadingLists(userId) {
+  return request(`/api/users/${userId}/reading-lists`).catch(() => ({ items: [] }));
+}

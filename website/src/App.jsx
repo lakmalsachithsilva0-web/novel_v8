@@ -19,6 +19,8 @@ import ReviewPage from "./pages/ReviewPage";
 import GalateaPage from "./pages/GalateaPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import AudiobooksPage from "./pages/AudiobooksPage";
+import SearchPage from "./pages/SearchPage";
+import ProfilePage from "./pages/ProfilePage";
 import { getMe, guestLogin, setToken, getToken, clearToken } from "./api";
 
 export default function App() {
@@ -80,6 +82,9 @@ export default function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/discover" element={<DiscoverPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/profile" element={<ProfilePage user={user} />} />
+            <Route path="/profile/:userId" element={<ProfilePage user={user} />} />
             <Route path="/genres/:genre" element={<GenrePage />} />
             <Route path="/stories/:id" element={<StoryPage user={user} />} />
             <Route path="/stories/:id/review" element={<ReviewPage user={user} />} />
