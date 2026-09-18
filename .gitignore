@@ -63,7 +63,7 @@ ios/ServiceDefinitions.json
 __pycache__/
 .venv/
 venv/
-*.env
+
 *.hprof
 
 # Miscellaneous
