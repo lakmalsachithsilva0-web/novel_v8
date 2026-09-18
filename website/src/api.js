@@ -283,8 +283,8 @@ export function deleteChapter(chapterId) {
   return request(`/api/write/chapters/${chapterId}`, { method: "DELETE" });
 }
 
-export function emailAuth({ email, display_name = "", password = "", username = "" }) {
-  // Backend currently accepts email + display_name; password forwarded if server supports it
+export function emailAuth({ email, display_name = "", password = "", username = "", mode = "login" }) {
+  // mode: "login" | "register" — must match backend EmailPasswordAuthRequest
   return request("/api/auth/email", {
     method: "POST",
     body: JSON.stringify({
@@ -292,6 +292,7 @@ export function emailAuth({ email, display_name = "", password = "", username = 
       display_name: display_name || username || email.split("@")[0],
       password: password || undefined,
       username: username || undefined,
+      mode: mode === "register" || mode === "signup" ? "register" : "login",
     }),
   });
 }
@@ -464,3 +465,4 @@ export function getUserStories(userId) {
 export function getUserReadingLists(userId) {
   return request(`/api/users/${userId}/reading-lists`).catch(() => ({ items: [] }));
 }
+  

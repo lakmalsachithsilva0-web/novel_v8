@@ -235,7 +235,37 @@ def apply_professional_auth(main_mod) -> None:
 
         if mode == "register":
             if rows:
-                raise HTTPException(status_code=400, detail="An account with this email already exists. Sign in instead.")
+                # Account exists: if it has no password yet, allow first-time password set
+                # (common when user previously used Google / guest with same email).
+                user = rows[0]
+                user_id = int(_row_get(user, "id"))
+                existing_hash = _row_get(user, "password_hash")
+                if existing_hash:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="An account with this email already exists. Sign in instead.",
+                    )
+                pw_hash = _hash_password(password)
+                display_name = (payload.display_name or "").strip() or _row_get(user, "display_name") or email.split("@")[0]
+                try:
+                    execute_write(
+                        "UPDATE app_users SET password_hash=%s, display_name=COALESCE(NULLIF(%s,''), display_name), last_login_at=CURRENT_TIMESTAMP WHERE id=%s",
+                        (pw_hash, display_name, user_id),
+                    )
+                except Exception:
+                    execute_write(
+                        "UPDATE app_users SET password_hash=%s WHERE id=%s",
+                        (pw_hash, user_id),
+                    )
+                _assert_user_can_login(user_id)
+                return {
+                    "id": user_id,
+                    "email": email,
+                    "display_name": display_name,
+                    "photo_url": _row_get(user, "photo_url") or "",
+                    "provider": "email",
+                    "token": create_user_token(user_id),
+                }
             display_name = (payload.display_name or "").strip() or email.split("@")[0]
             pw_hash = _hash_password(password)
             user_id, _ = execute_write(
@@ -262,10 +292,29 @@ def apply_professional_auth(main_mod) -> None:
         user_id = int(_row_get(user, "id"))
         pw_hash = _row_get(user, "password_hash")
         if not pw_hash:
-            raise HTTPException(
-                status_code=401,
-                detail="This email account has no password set. Use Google sign-in, or register again with a password.",
-            )
+            # Allow claiming the account by setting a password on first email login
+            pw_hash = _hash_password(password)
+            try:
+                execute_write(
+                    "UPDATE app_users SET password_hash=%s, last_login_at=CURRENT_TIMESTAMP WHERE id=%s",
+                    (pw_hash, user_id),
+                )
+            except Exception as exc:
+                LOGGER.warning("set password on claim: %s", exc)
+                raise HTTPException(
+                    status_code=401,
+                    detail="This email account has no password set. Use Google sign-in, or sign up with a password.",
+                ) from exc
+            _assert_user_can_login(user_id)
+            display_name = _row_get(user, "display_name") or email.split("@")[0]
+            return {
+                "id": user_id,
+                "email": email,
+                "display_name": display_name,
+                "photo_url": _row_get(user, "photo_url") or "",
+                "provider": "email",
+                "token": create_user_token(user_id),
+            }
         if not _verify_password(password, str(pw_hash)):
             raise HTTPException(status_code=401, detail="Invalid email or password")
 
