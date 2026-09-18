@@ -457,11 +457,6 @@ export function searchUsers(q, limit = 30) {
 export function getMyActivity() {
   return request("/api/me/activity").catch(() => ({ items: [] }));
 }
-
-export function getUserProfile(userId) {
-  return request(`/api/users/${userId}`);
-}
-
 export function getUserStories(userId) {
   return request(`/api/users/${userId}/stories`).catch(() => ({ items: [] }));
 }
