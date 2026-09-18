@@ -1,4 +1,4 @@
-"""Inkitt-style user block + report, with admin review. SQLite + MySQL safe."""
+"""Inkitt-style user block + report, with admin review. SQLite + MySQL/MariaDB safe."""
 from __future__ import annotations
 
 from typing import Any
@@ -24,67 +24,79 @@ def register_user_moderation_routes(
     execute_write,
     LOGGER,
 ):
+    def _is_mysql() -> bool:
+        """Prefer MySQL/MariaDB dialect when the app is not on SQLite."""
+        try:
+            from . import database as db_mod
+
+            return not bool(getattr(db_mod, "USE_SQLITE", False))
+        except Exception:
+            # Fallback: assume MySQL when MariaDB error style appears in logs
+            return True
+
     def _ensure():
-        # MySQL-style first, then SQLite-friendly fallbacks
-        stmts = [
-            """
-            CREATE TABLE IF NOT EXISTS user_blocks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                blocker_id INTEGER NOT NULL,
-                blocked_id INTEGER NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE (blocker_id, blocked_id)
-            )
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS user_reports (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                reporter_id INTEGER NOT NULL,
-                reported_id INTEGER NOT NULL,
-                reason VARCHAR(500) DEFAULT '',
-                status VARCHAR(32) DEFAULT 'open',
-                admin_note TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                resolved_at TIMESTAMP NULL,
-                UNIQUE (reporter_id, reported_id)
-            )
-            """,
-        ]
+        # Only run the dialect that matches the live database.
+        # Running SQLite CREATE TABLE on MariaDB causes the 1064 errors you saw.
+        if _is_mysql():
+            stmts = [
+                """
+                CREATE TABLE IF NOT EXISTS user_blocks (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    blocker_id INT NOT NULL,
+                    blocked_id INT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_block (blocker_id, blocked_id)
+                )
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS user_reports (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    reporter_id INT NOT NULL,
+                    reported_id INT NOT NULL,
+                    reason VARCHAR(500) DEFAULT '',
+                    status VARCHAR(32) DEFAULT 'open',
+                    admin_note TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    resolved_at TIMESTAMP NULL,
+                    UNIQUE KEY uq_report (reporter_id, reported_id)
+                )
+                """,
+            ]
+        else:
+            stmts = [
+                """
+                CREATE TABLE IF NOT EXISTS user_blocks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    blocker_id INTEGER NOT NULL,
+                    blocked_id INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (blocker_id, blocked_id)
+                )
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS user_reports (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    reporter_id INTEGER NOT NULL,
+                    reported_id INTEGER NOT NULL,
+                    reason VARCHAR(500) DEFAULT '',
+                    status VARCHAR(32) DEFAULT 'open',
+                    admin_note TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    resolved_at TIMESTAMP NULL,
+                    UNIQUE (reporter_id, reported_id)
+                )
+                """,
+            ]
+
         for sql in stmts:
             try:
-                execute_write(sql, ())
+                execute_write(sql.strip(), ())
             except Exception as exc:
+                # Table may already exist with a slightly different definition — ignore.
+                msg = str(exc).lower()
+                if "already exists" in msg or "1050" in msg or "duplicate" in msg:
+                    continue
                 LOGGER.warning("user_moderation ensure: %s", exc)
-        # MySQL alternate if SQLite-style failed on MySQL
-        mysql_stmts = [
-            """
-            CREATE TABLE IF NOT EXISTS user_blocks (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                blocker_id INT NOT NULL,
-                blocked_id INT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY uq_block (blocker_id, blocked_id)
-            )
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS user_reports (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                reporter_id INT NOT NULL,
-                reported_id INT NOT NULL,
-                reason VARCHAR(500) DEFAULT '',
-                status VARCHAR(32) DEFAULT 'open',
-                admin_note TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                resolved_at TIMESTAMP NULL,
-                UNIQUE KEY uq_report (reporter_id, reported_id)
-            )
-            """,
-        ]
-        for sql in mysql_stmts:
-            try:
-                execute_write(sql, ())
-            except Exception:
-                pass
 
     @app.post("/api/users/{user_id}/block")
     def block_user(
