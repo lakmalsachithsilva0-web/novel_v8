@@ -1,31 +1,32 @@
 import { useCallback, useEffect, useState } from "react";
-import { Route, Routes } from "react-router-dom";
-import Header from "./components/Header";
-import Footer from "./components/Footer";
-import HomePage from "./pages/HomePage";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import Shell from "./components/Shell";
+import AuthModal from "./components/AuthModal";
 import DiscoverPage from "./pages/DiscoverPage";
+import LibraryPage from "./pages/LibraryPage";
+import WritePage from "./pages/WritePage";
+import NotificationsPage from "./pages/NotificationsPage";
+import MorePage from "./pages/MorePage";
 import StoryPage from "./pages/StoryPage";
 import ChapterPage from "./pages/ChapterPage";
-import LibraryPage from "./pages/LibraryPage";
-import LoginPage from "./pages/LoginPage";
-import WritePage from "./pages/WritePage";
-import StoryEditorPage from "./pages/StoryEditorPage";
-import ManageStoriesPage from "./pages/ManageStoriesPage";
-import GenrePage from "./pages/GenrePage";
-import ContestsPage from "./pages/ContestsPage";
-import CommunityPage from "./pages/CommunityPage";
-import AuthorPage from "./pages/AuthorPage";
-import ReviewPage from "./pages/ReviewPage";
-import GalateaPage from "./pages/GalateaPage";
-import SubscriptionPage from "./pages/SubscriptionPage";
-import AudiobooksPage from "./pages/AudiobooksPage";
 import SearchPage from "./pages/SearchPage";
 import ProfilePage from "./pages/ProfilePage";
-import { getMe, guestLogin, setToken, getToken, clearToken } from "./api";
+import {
+  clearToken,
+  getBootstrap,
+  getMe,
+  getToken,
+  guestLogin,
+  setToken,
+} from "./api";
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [bootstrap, setBootstrap] = useState(null);
   const [bootLoading, setBootLoading] = useState(true);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState("signin");
+  const navigate = useNavigate();
 
   const refreshUser = useCallback(async () => {
     if (!getToken()) {
@@ -43,6 +44,16 @@ export default function App() {
     }
   }, []);
 
+  const loadBootstrap = useCallback(async () => {
+    try {
+      const data = await getBootstrap();
+      setBootstrap(data);
+    } catch (e) {
+      console.warn("bootstrap failed", e);
+      setBootstrap(null);
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -55,58 +66,106 @@ export default function App() {
             /* optional */
           }
         }
-        await refreshUser();
+        await Promise.all([refreshUser(), loadBootstrap()]);
       } finally {
         setBootLoading(false);
       }
     })();
-  }, [refreshUser]);
+  }, [refreshUser, loadBootstrap]);
+
+  function openAuth(mode = "signin") {
+    setAuthMode(mode);
+    setAuthOpen(true);
+  }
 
   function handleLogout() {
     clearToken();
     setUser(null);
+    navigate("/");
   }
 
-  async function handleLoginSuccess(token) {
+  async function handleAuthSuccess(token) {
     if (token) setToken(token);
     await refreshUser();
+    await loadBootstrap();
   }
 
+  const isRealUser = user && !user.is_guest && user.provider !== "guest";
+
   return (
-    <div className="app-shell">
-      <Header user={user} onLogout={handleLogout} onAuthSuccess={handleLoginSuccess} />
-      <main className="main">
-        {bootLoading ? (
-          <div className="page-loading">Loading…</div>
-        ) : (
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/discover" element={<DiscoverPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/profile" element={<ProfilePage user={user} />} />
-            <Route path="/profile/:userId" element={<ProfilePage user={user} />} />
-            <Route path="/genres/:genre" element={<GenrePage />} />
-            <Route path="/stories/:id" element={<StoryPage user={user} />} />
-            <Route path="/stories/:id/review" element={<ReviewPage user={user} />} />
-            <Route path="/stories/:id/chapters/:chapterId" element={<ChapterPage user={user} />} />
-            <Route path="/authors/:authorId" element={<AuthorPage />} />
-            <Route path="/library" element={<LibraryPage user={user} />} />
-            <Route path="/write" element={<WritePage user={user} />} />
-            <Route path="/write/:storyId" element={<StoryEditorPage user={user} />} />
-            <Route path="/edit/:storyId" element={<StoryEditorPage user={user} />} />
-            <Route path="/write/new" element={<StoryEditorPage user={user} />} />
-            <Route path="/manage-stories" element={<ManageStoriesPage user={user} />} />
-            <Route path="/write/stories/:storyId" element={<StoryEditorPage user={user} />} />
-            <Route path="/login" element={<LoginPage onSuccess={handleLoginSuccess} />} />
-            <Route path="/community" element={<CommunityPage user={user} />} />
-            <Route path="/contests" element={<ContestsPage user={user} />} />
-<Route path="/audiobooks" element={<AudiobooksPage />} />
-            <Route path="/galatea" element={<GalateaPage />} />
-            <Route path="/subscription" element={<SubscriptionPage user={user} />} />
-          </Routes>
-        )}
-      </main>
-      <Footer />
-    </div>
+    <Shell
+      user={user}
+      isRealUser={!!isRealUser}
+      onOpenAuth={openAuth}
+      onLogout={handleLogout}
+      bootLoading={bootLoading}
+    >
+      {bootLoading ? (
+        <div className="page-loading">
+          <div className="skeleton" style={{ height: 120, margin: "24px auto", maxWidth: 600 }} />
+          <div className="skeleton" style={{ height: 200, margin: "16px auto", maxWidth: 900 }} />
+        </div>
+      ) : (
+        <Routes>
+          <Route path="/" element={<DiscoverPage bootstrap={bootstrap} />} />
+          <Route
+            path="/library"
+            element={
+              <LibraryPage
+                user={user}
+                isRealUser={!!isRealUser}
+                onNeedAuth={() => openAuth("signin")}
+              />
+            }
+          />
+          <Route
+            path="/write"
+            element={
+              <WritePage
+                user={user}
+                isRealUser={!!isRealUser}
+                onNeedAuth={() => openAuth("signin")}
+              />
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <NotificationsPage
+                isRealUser={!!isRealUser}
+                onNeedAuth={() => openAuth("signin")}
+              />
+            }
+          />
+          <Route
+            path="/more"
+            element={
+              <MorePage
+                user={user}
+                isRealUser={!!isRealUser}
+                onLogout={handleLogout}
+                onOpenAuth={openAuth}
+              />
+            }
+          />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/stories/:id" element={<StoryPage user={user} isRealUser={!!isRealUser} onNeedAuth={() => openAuth("signin")} />} />
+          <Route
+            path="/stories/:id/chapters/:chapterId"
+            element={<ChapterPage user={user} />}
+          />
+          <Route path="/profile" element={<ProfilePage user={user} />} />
+          <Route path="/profile/:userId" element={<ProfilePage user={user} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      )}
+
+      <AuthModal
+        open={authOpen}
+        mode={authMode}
+        onClose={() => setAuthOpen(false)}
+        onSuccess={handleAuthSuccess}
+      />
+    </Shell>
   );
 }

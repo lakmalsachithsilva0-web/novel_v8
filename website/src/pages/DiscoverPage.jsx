@@ -1,190 +1,99 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import BookCard from "../components/BookCard";
-import { getBootstrap, searchStories } from "../api";
+import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
+import Shelf from "../components/Shelf";
+import { resolveAssetUrl } from "../api";
 
-const GENRES = [
-  "Romance",
-  "Fantasy",
-  "Thriller",
-  "Young Adult",
-  "LGBTQ+",
-  "Sci-Fi",
-  "Drama",
-  "Adventure",
-  "Mystery",
-  "Horror",
-];
+export default function DiscoverPage({ bootstrap }) {
+  const data = bootstrap || {};
+  const tabs = useMemo(() => {
+    const t = data.discover_tabs || data.discoverTabs || ["For You", "Popular", "New"];
+    return Array.isArray(t) && t.length ? t.map(String) : ["For You", "Popular", "New"];
+  }, [data]);
 
-function collectBooks(data) {
-  if (!data) return [];
-  const map = new Map();
-  for (const list of [data.books, data.recently_updated, data.recently_completed, data.featured, data.trending]) {
-    if (!Array.isArray(list)) continue;
-    for (const b of list) {
-      if (b?.id != null && !map.has(b.id)) map.set(b.id, b);
-    }
-  }
-  return [...map.values()];
-}
+  const [tab, setTab] = useState(tabs[0] || "For You");
 
-export default function DiscoverPage() {
-  const [params, setParams] = useSearchParams();
-  const q = (params.get("q") || "").trim();
-  const genre = (params.get("genre") || "").trim();
-  const status = (params.get("status") || "all").toLowerCase();
-  const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [localQ, setLocalQ] = useState(q);
+  const books = data.discover_books || data.discoverBooks || [];
+  const updated = data.recently_updated || data.recentlyUpdated || [];
+  const completed = data.recently_completed || data.recentlyCompleted || [];
+  const topics = data.explore_topics || data.exploreTopics || [];
+  const featured = data.featured_book || data.featuredBook || null;
 
-  useEffect(() => {
-    setLocalQ(q);
-  }, [q]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError("");
-      try {
-        let list = [];
-        if (q || genre) {
-          try {
-            const res = await searchStories(q, genre);
-            list = res?.items || res?.books || res || [];
-            if (!Array.isArray(list)) list = [];
-          } catch {
-            const boot = await getBootstrap();
-            list = collectBooks(boot);
-          }
-        } else {
-          const boot = await getBootstrap();
-          list = collectBooks(boot);
-        }
-        if (!cancelled) setBooks(list);
-      } catch (e) {
-        if (!cancelled) setError(String(e.message || e));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [q, genre]);
-
-  const filtered = useMemo(() => {
-    return books.filter((b) => {
-      const st = (b.status_text || b.status || "").toLowerCase();
-      if (status === "complete" && !/complete|publish|finished/.test(st) && st) {
-        // allow empty status
-        if (st && !/complete|finished|publish/.test(st)) return false;
-      }
-      if (status === "ongoing" && /complete|finished/.test(st)) return false;
-      if (genre) {
-        const g = `${b.genre || ""} ${b.primary_genre || ""}`.toLowerCase();
-        if (g && !g.includes(genre.toLowerCase())) return false;
-      }
-      if (q) {
-        const hay = `${b.title || ""} ${b.author || ""} ${b.genre || ""} ${b.description || ""}`.toLowerCase();
-        if (!hay.includes(q.toLowerCase())) return false;
-      }
-      return true;
-    });
-  }, [books, status, genre, q]);
-
-  function setFilter(key, value) {
-    const next = new URLSearchParams(params);
-    if (!value || value === "all") next.delete(key);
-    else next.set(key, value);
-    setParams(next);
-  }
-
-  function onSearch(e) {
-    e.preventDefault();
-    setFilter("q", localQ.trim());
-  }
+  const featuredCover = resolveAssetUrl(
+    featured?.cover_path || featured?.cover_url || featured?.cover || ""
+  );
 
   return (
-    <div className="full-bleed discover-page">
-      <div className="full-bleed-inner">
-        <header className="page-header discover-header">
-          <h1>Free Books</h1>
-          <p className="meta">
-            Same catalog as the mobile app · MySQL backend · {filtered.length} stories
-          </p>
-        </header>
-
-        <form className="discover-search" onSubmit={onSearch}>
-          <input
-            value={localQ}
-            onChange={(e) => setLocalQ(e.target.value)}
-            placeholder="Search title, author, genre…"
-            aria-label="Search free books"
-          />
-          <button type="submit" className="btn btn-primary">
-            Search
+    <div className="container-wide" style={{ paddingTop: 16, paddingBottom: 32 }}>
+      <div className="tabs">
+        {tabs.map((t) => (
+          <button
+            key={t}
+            type="button"
+            className={`tab${tab === t ? " active" : ""}`}
+            onClick={() => setTab(t)}
+          >
+            {t}
           </button>
-        </form>
-
-        <div className="discover-filters">
-          <div className="filter-row">
-            <span className="filter-label">Status</span>
-            {[
-              ["all", "All"],
-              ["complete", "Complete"],
-              ["ongoing", "Ongoing"],
-            ].map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                className={`chip ${status === id ? "active" : ""}`}
-                onClick={() => setFilter("status", id)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="filter-row filter-genres">
-            <span className="filter-label">Genre</span>
-            <button
-              type="button"
-              className={`chip ${!genre ? "active" : ""}`}
-              onClick={() => setFilter("genre", "")}
-            >
-              All
-            </button>
-            {GENRES.map((g) => (
-              <button
-                key={g}
-                type="button"
-                className={`chip ${genre.toLowerCase() === g.toLowerCase() ? "active" : ""}`}
-                onClick={() => setFilter("genre", g)}
-              >
-                {g}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {loading && <p className="meta">Loading stories…</p>}
-        {error && <div className="error-banner">{error}</div>}
-
-        <div className="trending-grid discover-grid">
-          {filtered.map((b) => (
-            <div key={b.id} className="trending-cell">
-              <BookCard book={b} variant="grid" />
-            </div>
-          ))}
-        </div>
-        {!loading && filtered.length === 0 && (
-          <p className="meta">
-            No stories match. Try another genre or{" "}
-            <Link to="/discover">clear filters</Link>.
-          </p>
-        )}
+        ))}
       </div>
+
+      {featured && (featured.title || featured.id) && (
+        <div className="hero-featured">
+          <div className="cover">
+            {featuredCover ? (
+              <img src={featuredCover} alt="" />
+            ) : (
+              <div style={{ width: "100%", height: "100%", background: "var(--purple-dim)" }} />
+            )}
+          </div>
+          <div>
+            <p style={{ color: "var(--purple-bright)", fontWeight: 600, fontSize: "0.85rem", marginBottom: 6 }}>
+              Featured
+            </p>
+            <h1>{featured.title || "Featured story"}</h1>
+            <p>{featured.description || featured.author || "Start reading now."}</p>
+            <div className="hero-actions">
+              {featured.id ? (
+                <Link to={`/stories/${featured.id}`} className="btn btn-primary">
+                  {featured.cta || "Read now"}
+                </Link>
+              ) : null}
+              <Link to="/search" className="btn btn-ghost">
+                Explore genres
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {topics.length > 0 && (
+        <section className="section">
+          <div className="section-header">
+            <h2 className="section-title">Explore</h2>
+          </div>
+          <div className="chips">
+            {topics.slice(0, 16).map((t, i) => {
+              const name = typeof t === "string" ? t : t.name || t.title || t.topic || "Topic";
+              return (
+                <Link key={i} className="chip" to={`/search?q=${encodeURIComponent(name)}`}>
+                  {name}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <Shelf title="Trending on Home" books={books} />
+      <Shelf title="Recently updated" books={updated} />
+      <Shelf title="Recently completed" books={completed} />
+
+      {!books.length && !updated.length && !completed.length && (
+        <div className="page-empty">
+          <h3>No stories yet</h3>
+          <p>Start the backend so /api/bootstrap can load shelves from your database.</p>
+        </div>
+      )}
     </div>
   );
 }

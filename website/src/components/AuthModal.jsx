@@ -2,21 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { emailAuth, googleAuth, setToken } from "../api";
 import { GOOGLE_WEB_CLIENT_ID } from "../config";
 
-/**
- * Inkitt-style sign-in / sign-up modal.
- * Google client ID comes from website/src/config.js (always set for local),
- * optionally overridden by VITE_GOOGLE_CLIENT_ID in website/.env
- */
 export default function AuthModal({ open, mode = "signin", onClose, onSuccess }) {
-  const [view, setView] = useState(mode); // signin | signup
+  const [view, setView] = useState(mode);
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [googleReady, setGoogleReady] = useState(false);
   const googleBtnRef = useRef(null);
-  // Always a non-empty Web client ID (from config fallback)
   const clientId = GOOGLE_WEB_CLIENT_ID;
 
   useEffect(() => {
@@ -43,7 +36,7 @@ export default function AuthModal({ open, mode = "signin", onClose, onSuccess })
             try {
               const res = await googleAuth({ id_token: response.credential });
               const token = res?.token || res?.access_token;
-              if (!token) throw new Error("No token from Google login");
+              if (!token) throw new Error("No token from Google");
               setToken(token);
               await onSuccess?.(token, res);
               onClose?.();
@@ -56,17 +49,13 @@ export default function AuthModal({ open, mode = "signin", onClose, onSuccess })
         });
         googleBtnRef.current.innerHTML = "";
         window.google.accounts.id.renderButton(googleBtnRef.current, {
-          theme: "outline",
+          theme: "filled_black",
           size: "large",
           width: 320,
           text: view === "signup" ? "signup_with" : "signin_with",
         });
-        setGoogleReady(true);
       } catch (e) {
-        console.error("Google button render failed", e);
-        setError(
-          "Google button failed to load. In Google Cloud Console, open the Web OAuth client and add Authorized JavaScript origins: http://localhost:5173 and http://127.0.0.1:5173"
-        );
+        console.error(e);
       }
     }
 
@@ -76,26 +65,17 @@ export default function AuthModal({ open, mode = "signin", onClose, onSuccess })
         cancelled = true;
       };
     }
-
-    const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) {
-      if (window.google?.accounts?.id) renderBtn();
-      else existing.addEventListener("load", renderBtn);
-      return () => {
-        cancelled = true;
-        existing.removeEventListener("load", renderBtn);
-      };
+    let s = document.querySelector(`script[src="${src}"]`);
+    if (!s) {
+      s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      document.body.appendChild(s);
     }
-
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = true;
-    s.onload = renderBtn;
-    s.onerror = () =>
-      setError("Could not load Google script. Check your network / ad-blocker.");
-    document.body.appendChild(s);
+    s.addEventListener("load", renderBtn);
     return () => {
       cancelled = true;
+      s.removeEventListener("load", renderBtn);
     };
   }, [open, clientId, view, onClose, onSuccess]);
 
@@ -106,9 +86,7 @@ export default function AuthModal({ open, mode = "signin", onClose, onSuccess })
     setBusy(true);
     setError("");
     try {
-      if (password.length < 6) {
-        throw new Error("Password must be at least 6 characters");
-      }
+      if (password.length < 6) throw new Error("Password must be at least 6 characters");
       const res = await emailAuth({
         email: email.trim(),
         display_name: username.trim() || email.split("@")[0],
@@ -134,14 +112,11 @@ export default function AuthModal({ open, mode = "signin", onClose, onSuccess })
         <button type="button" className="auth-close" onClick={onClose} aria-label="Close">
           ×
         </button>
-        <h2 className="auth-title">
-          {view === "signin" ? "Sign in to NovelHub" : "Sign up with email"}
-        </h2>
-
+        <h2 className="auth-title">{view === "signin" ? "Sign in" : "Create account"}</h2>
         <form className="auth-modal-form" onSubmit={onSubmit}>
           <input
             type="email"
-            placeholder={view === "signin" ? "E-mail or Username" : "Enter your E-mail"}
+            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -150,7 +125,7 @@ export default function AuthModal({ open, mode = "signin", onClose, onSuccess })
           {view === "signup" && (
             <input
               type="text"
-              placeholder="Pick a Username"
+              placeholder="Username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -159,42 +134,27 @@ export default function AuthModal({ open, mode = "signin", onClose, onSuccess })
           )}
           <input
             type="password"
-            placeholder={view === "signin" ? "Password" : "Pick a Password"}
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete={view === "signup" ? "new-password" : "current-password"}
           />
-
-          {error && <div className="error-banner auth-error">{error}</div>}
-
+          {error && <div className="error-banner">{error}</div>}
           <button type="submit" className="auth-submit" disabled={busy}>
             {busy ? "…" : view === "signin" ? "Sign in" : "Sign up"}
           </button>
         </form>
-
         <div className="auth-divider">
           <span>Or</span>
         </div>
-
-        {/* Always render the Google button host — client ID is always set via config.js */}
-        <div
-          className="google-btn-wrap"
-          ref={googleBtnRef}
-          style={{ display: "flex", justifyContent: "center", minHeight: 44 }}
-        />
-        {!googleReady && (
-          <p className="meta" style={{ textAlign: "center", fontSize: 12, marginTop: 6 }}>
-            Loading Google…
-          </p>
-        )}
-
+        <div className="google-btn-wrap" ref={googleBtnRef} />
         <p className="auth-switch">
           {view === "signin" ? (
             <>
-              You can also{" "}
+              New here?{" "}
               <button type="button" className="linkish" onClick={() => setView("signup")}>
-                sign up
+                Sign up
               </button>
             </>
           ) : (

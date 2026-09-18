@@ -1,14 +1,5 @@
-/**
- * Public frontend config.
- * Google Web client IDs are not secrets — they are meant to be in the browser.
- * Security is enforced by Authorized JavaScript origins in Google Cloud Console.
- */
-
-// Prefer Vite env; fall back to your Web OAuth client so Google always works locally
-// even if website/.env is missing or in the wrong folder.
 const rawGoogle =
-  (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_GOOGLE_CLIENT_ID) ||
-  "";
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_GOOGLE_CLIENT_ID) || "";
 
 export const GOOGLE_WEB_CLIENT_ID = (
   String(rawGoogle).split(",")[0].trim() ||
@@ -16,8 +7,25 @@ export const GOOGLE_WEB_CLIENT_ID = (
 ).trim();
 
 export const API_BASE_URL = (
-  (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
   "http://127.0.0.1:8000"
 )
   .toString()
   .replace(/\/$/, "");
+
+/** Flutter AppStyles dark palette */
+export const theme = {
+  bg: "#0B0A12",
+  elevated: "#12101A",
+  card: "#1A1625",
+  field: "#221C30",
+  border: "#2E2640",
+  purple: "#8B5CF6",
+  purpleBright: "#A78BFA",
+  purpleDeep: "#7C3AED",
+  purpleDim: "#2A1F3D",
+  text: "#F5F3FF",
+  muted: "#A89BB8",
+  danger: "#FF6B6B",
+  amber: "#FBBF24",
+};

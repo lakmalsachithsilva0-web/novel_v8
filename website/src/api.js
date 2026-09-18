@@ -1,5 +1,4 @@
-const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+import { API_BASE_URL } from "./config";
 
 const TOKEN_KEY = "novelhub_web_token";
 
@@ -8,22 +7,23 @@ export { API_BASE_URL };
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY) || "";
 }
-
 export function setToken(token) {
   if (token) localStorage.setItem(TOKEN_KEY, token);
   else localStorage.removeItem(TOKEN_KEY);
 }
-
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
 export function resolveAssetUrl(path) {
   if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
-    return path;
-  }
+  if (/^(https?:|data:)/i.test(path)) return path;
   const p = path.startsWith("/") ? path : `/${path}`;
+  if (p.startsWith("/uploads") || p.startsWith("/api/")) return `${API_BASE_URL}${p}`;
+  if (path.includes(".") && !path.includes("/api/")) {
+    const name = path.split("/").pop();
+    return `${API_BASE_URL}/uploads/${name}`;
+  }
   return `${API_BASE_URL}${p}`;
 }
 
@@ -35,11 +35,7 @@ async function request(path, options = {}) {
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
-
+  const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
   if (!res.ok) {
     let msg = `Request failed (${res.status})`;
     try {
@@ -70,66 +66,68 @@ async function request(path, options = {}) {
 export function getBootstrap() {
   return request("/api/bootstrap");
 }
-
+export function getContentVersion() {
+  return request("/api/content/version");
+}
 export function getMe() {
   return request("/api/me");
 }
-
 export function guestLogin() {
   return request("/api/auth/guest", {
     method: "POST",
     body: JSON.stringify({ device_id: `web-${crypto.randomUUID?.() || Date.now()}` }),
   });
 }
-
-export function emailLogin(email, password, display_name = "") {
+export function emailAuth({ email, display_name = "", password = "", username = "", mode = "login" }) {
   return request("/api/auth/email", {
     method: "POST",
     body: JSON.stringify({
       email,
-      display_name: display_name || email.split("@")[0],
-      password: password || undefined,
+      display_name: display_name || username || email.split("@")[0],
+      password,
+      username: username || undefined,
+      mode: mode === "register" || mode === "signup" ? "register" : "login",
     }),
+  });
+}
+export function googleAuth({ id_token, access_token }) {
+  return request("/api/auth/google", {
+    method: "POST",
+    body: JSON.stringify({ id_token, access_token }),
   });
 }
 
 export function getBook(id) {
   return request(`/api/books/${id}`);
 }
-
-/** Chapters include full content from this list endpoint */
 export function getBookChapters(storyId) {
   return request(`/api/write/stories/${storyId}/chapters`);
 }
-
-export async function getChapter(storyId, chapterId) {
-  const res = await getBookChapters(storyId);
-  const items = res?.items || [];
-  const found = items.find((c) => String(c.id) === String(chapterId));
-  if (!found) throw new Error("Chapter not found");
-  return found;
-}
-
 export function getBookReviews(bookId) {
   return request(`/api/books/${bookId}/reviews`).catch(() => ({ items: [] }));
 }
-
 export function postBookReview(bookId, { rating, comment }) {
   return request(`/api/books/${bookId}/reviews`, {
     method: "POST",
     body: JSON.stringify({ rating, comment }),
   });
 }
+export function likeBook(bookId) {
+  return request(`/api/books/${bookId}/like`, { method: "POST", body: "{}" });
+}
+export function unlikeBook(bookId) {
+  return request(`/api/books/${bookId}/like`, { method: "DELETE" });
+}
+export function getBookLike(bookId) {
+  return request(`/api/books/${bookId}/like`).catch(() => ({ liked: false }));
+}
 
 export function getLibrary() {
-  return request("/api/library");
+  return request("/api/library").catch(() => ({ items: [] }));
 }
-
 export function getReadingLists() {
-  return request("/api/reading-lists");
+  return request("/api/reading-lists").catch(() => ({ items: [] }));
 }
-
-/** Ensure a default list exists, then add the book */
 export async function addToReadingList(bookId) {
   const lists = await getReadingLists();
   const items = lists?.items || lists || [];
@@ -148,130 +146,43 @@ export async function addToReadingList(bookId) {
   });
 }
 
-export function likeBook(bookId) {
-  return request(`/api/books/${bookId}/like`, { method: "POST", body: "{}" });
-}
-
-export function unlikeBook(bookId) {
-  return request(`/api/books/${bookId}/like`, { method: "DELETE" });
-}
-
-export function getBookLike(bookId) {
-  return request(`/api/books/${bookId}/like`);
-}
-
-/** Toggle like: POST if not liked, DELETE if liked. Pass currentlyLiked when known. */
-export async function toggleBookLike(bookId, currentlyLiked = null) {
-  if (currentlyLiked === true) {
-    return unlikeBook(bookId);
-  }
-  if (currentlyLiked === false) {
-    return likeBook(bookId);
-  }
-  // Unknown state: try POST; if fails (already liked), DELETE
-  try {
-    return await likeBook(bookId);
-  } catch (e) {
-    const msg = String(e.message || e);
-    if (/already|409|400|exist/i.test(msg)) {
-      return unlikeBook(bookId);
-    }
-    // fallback: attempt unlike then like
-    try {
-      await unlikeBook(bookId);
-      return { liked: false };
-    } catch {
-      throw e;
-    }
-  }
-}
-
 export function getMyStories() {
   return request("/api/write/stories").catch(() => ({ items: [] }));
 }
-
-export function searchStories(q, genre) {
-  const params = new URLSearchParams();
-  if (q) params.set("q", q);
-  if (genre) params.set("genre", genre);
-  return request(`/api/search?${params.toString()}`);
-}
-
-export function getAuthorBooks(authorId) {
-  return request(`/api/authors/${authorId}/books`).catch(() => ({ items: [] }));
-}
-
-export function getUserProfile(userId) {
-  return request(`/api/users/${userId}`).catch(() => null);
-}
-
-export function getTags() {
-  return request("/api/tags").catch(() => ({ items: [] }));
-}
-
-export async function getWriteStory(storyId) {
-  const story = await request(`/api/write/stories/${storyId}`);
-  let chapters = [];
-  try {
-    const chRes = await request(`/api/write/stories/${storyId}/chapters`);
-    chapters = chRes?.items || chRes?.chapters || (Array.isArray(chRes) ? chRes : []);
-  } catch (_) {
-    chapters = [];
-  }
-  return {
-    ...(story && typeof story === "object" ? story : {}),
-    story: story,
-    chapters: Array.isArray(chapters) ? chapters : [],
-  };
-}
-
-export function getStoryChapters(storyId) {
-  return request(`/api/write/stories/${storyId}/chapters`);
-}
-
 export function createStory(payload = {}) {
-  // Backend StoryCreateRequest requires: title, author, description, genre
-  const body = {
-    title: (payload.title || "Untitled Story").trim() || "Untitled Story",
-    author: (payload.author || payload.display_name || "Author").trim() || "Author",
-    description: payload.description != null ? String(payload.description) : "",
-    genre: (payload.genre || "Romance").trim() || "Romance",
-    cover_path: payload.cover_path || "",
-    tags: Array.isArray(payload.tags) ? payload.tags : [],
-    content_warnings: payload.content_warnings || "",
-    status_text: payload.status_text || "Draft",
-  };
   return request("/api/write/stories", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      title: (payload.title || "Untitled Story").trim() || "Untitled Story",
+      author: (payload.author || "Author").trim() || "Author",
+      description: payload.description != null ? String(payload.description) : "",
+      genre: (payload.genre || "Romance").trim() || "Romance",
+      cover_path: payload.cover_path || "",
+      tags: Array.isArray(payload.tags) ? payload.tags : [],
+      status_text: payload.status_text || "Draft",
+    }),
   });
 }
-
 export function updateStory(storyId, payload) {
   return request(`/api/write/stories/${storyId}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
 }
-
 export function deleteStory(storyId) {
   return request(`/api/write/stories/${storyId}`, { method: "DELETE" });
 }
-
 export function createChapter(storyId, payload = {}) {
-  const body = {
-    title: (payload.title || "Chapter 1").trim() || "Chapter 1",
-    content: payload.content != null ? String(payload.content) : "",
-    chapter_number: payload.chapter_number != null ? payload.chapter_number : null,
-    notes: payload.notes || "",
-    submission_status: payload.submission_status || payload.status_text || "draft",
-  };
   return request(`/api/write/stories/${storyId}/chapters`, {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      title: (payload.title || "Chapter 1").trim() || "Chapter 1",
+      content: payload.content != null ? String(payload.content) : "",
+      chapter_number: payload.chapter_number ?? null,
+      submission_status: payload.submission_status || "draft",
+    }),
   });
 }
-
 export function updateChapter(chapterId, payload) {
   return request(`/api/write/chapters/${chapterId}`, {
     method: "PUT",
@@ -279,190 +190,40 @@ export function updateChapter(chapterId, payload) {
   });
 }
 
-export function deleteChapter(chapterId) {
-  return request(`/api/write/chapters/${chapterId}`, { method: "DELETE" });
+export function getNotifications(tab) {
+  const q = tab ? `?tab=${encodeURIComponent(tab)}` : "";
+  return request(`/api/notifications${q}`).catch(() => ({ items: [] }));
 }
-
-export function emailAuth({ email, display_name = "", password = "", username = "", mode = "login" }) {
-  // mode: "login" | "register" — must match backend EmailPasswordAuthRequest
-  return request("/api/auth/email", {
-    method: "POST",
-    body: JSON.stringify({
-      email,
-      display_name: display_name || username || email.split("@")[0],
-      password: password || undefined,
-      username: username || undefined,
-      mode: mode === "register" || mode === "signup" ? "register" : "login",
-    }),
-  });
+export function getMyActivity() {
+  return request("/api/me/activity").catch(() => ({ items: [] }));
 }
-
-export function googleAuth({ id_token, access_token }) {
-  return request("/api/auth/google", {
-    method: "POST",
-    body: JSON.stringify({ id_token, access_token }),
-  });
+export function searchStories(q, genre) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (genre) params.set("genre", genre);
+  return request(`/api/search?${params.toString()}`);
 }
-
+export function listGenres() {
+  return request("/api/genres").catch(() => ({ items: [] }));
+}
+export function getGenreBooks(name, sort) {
+  const q = sort ? `?sort=${encodeURIComponent(sort)}` : "";
+  return request(`/api/genres/${encodeURIComponent(name)}/books${q}`);
+}
+export function getUserProfile(userId) {
+  return request(`/api/users/${userId}`).catch(() => null);
+}
 export function followAuthor(authorId) {
   return request(`/api/authors/${authorId}/follow`, { method: "POST", body: "{}" });
 }
-
-export function unfollowAuthor(authorId) {
-  return request(`/api/authors/${authorId}/follow`, { method: "DELETE" });
-}
-
-export function getAuthorFollow(authorId) {
-  return request(`/api/authors/${authorId}/follow`);
-}
-
-export function getUserWall(userId) {
-  return request(`/api/users/${userId}/wall`);
-}
-
-export function postUserWall(userId, body) {
-  return request(`/api/users/${userId}/wall`, {
-    method: "POST",
-    body: JSON.stringify({ body }),
-  });
-}
-
-export function getActivityFeed(userId) {
-  return request(`/api/users/${userId}/activity`).catch(() =>
-    request(`/api/users/${userId}/activity`).catch(() => ({ items: [] }))
-  );
-}
-
-
 export function getChapterComments(bookId, chapterNumber) {
   return request(`/api/books/${bookId}/chapters/${chapterNumber}/comments`).catch(() => ({
     items: [],
-    paragraph_counts: {},
   }));
 }
-
 export function postChapterComment(bookId, chapterNumber, { body, paragraph_index }) {
   return request(`/api/books/${bookId}/chapters/${chapterNumber}/comments`, {
     method: "POST",
     body: JSON.stringify({ body, paragraph_index }),
   });
 }
-
-export function getChapterReactions(bookId, chapterNumber) {
-  return request(`/api/books/${bookId}/chapters/${chapterNumber}/reactions`).catch(() => ({
-    counts: {},
-    mine: [],
-  }));
-}
-
-export function toggleChapterReaction(bookId, chapterNumber, label) {
-  return request(`/api/books/${bookId}/chapters/${chapterNumber}/reactions`, {
-    method: "POST",
-    body: JSON.stringify({ label }),
-  });
-}
-
-
-export function getContests() {
-  return request("/api/contests").catch(() => ({ items: [] }));
-}
-
-export function adminListContests() {
-  return request("/api/admin/contests");
-}
-
-export function adminCreateContest(payload) {
-  return request("/api/admin/contests", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export function adminDeleteContest(id) {
-  return request(`/api/admin/contests/${id}`, { method: "DELETE" });
-}
-
-export function getPublicReadingLists() {
-  return request("/api/public/reading-lists").catch(() => ({ items: [] }));
-}
-
-export function toggleReadingListFollow(listId) {
-  return request(`/api/reading-lists/${listId}/follow`, {
-    method: "POST",
-    body: "{}",
-  });
-}
-
-export function getAudiobooks() {
-  return request("/api/audiobooks").catch(() => ({ items: [] }));
-}
-
-
-export async function uploadWriteImage(file) {
-  const token = getToken();
-  const form = new FormData();
-  form.append("file", file);
-  const headers = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE_URL}/api/write/upload-image`, {
-    method: "POST",
-    headers,
-    body: form,
-  });
-  if (!res.ok) {
-    let msg = `Upload failed (${res.status})`;
-    try {
-      const j = await res.json();
-      if (typeof j.detail === "string") msg = j.detail;
-      else if (j.message) msg = j.message;
-      else if (j.detail) msg = JSON.stringify(j.detail);
-    } catch (_) {}
-    throw new Error(msg);
-  }
-  return res.json();
-}
-
-
-/** Genre hub — same routes as Flutter app */
-export function getGenreMeta(name) {
-  return request(`/api/genres/${encodeURIComponent(name)}/meta`);
-}
-
-export function getGenreBooks(name, sort) {
-  const q = sort ? `?sort=${encodeURIComponent(sort)}` : "";
-  return request(`/api/genres/${encodeURIComponent(name)}/books${q}`);
-}
-
-export function getTagBooks(tag) {
-  return request(`/api/tags/${encodeURIComponent(tag)}/books`);
-}
-
-export function listGenres() {
-  return request("/api/genres");
-}
-
-export function listTags(q) {
-  const query = q ? `?q=${encodeURIComponent(q)}` : "";
-  return request(`/api/tags${query}`);
-}
-
-
-/** Inkitt-style search tabs */
-export function searchUsers(q, limit = 30) {
-  const params = new URLSearchParams();
-  if (q) params.set("q", q);
-  params.set("limit", String(limit));
-  return request(`/api/users/search?${params.toString()}`);
-}
-
-export function getMyActivity() {
-  return request("/api/me/activity").catch(() => ({ items: [] }));
-}
-export function getUserStories(userId) {
-  return request(`/api/users/${userId}/stories`).catch(() => ({ items: [] }));
-}
-
-export function getUserReadingLists(userId) {
-  return request(`/api/users/${userId}/reading-lists`).catch(() => ({ items: [] }));
-}
-  
