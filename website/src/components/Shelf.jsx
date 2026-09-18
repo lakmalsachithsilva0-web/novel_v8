@@ -1,6 +1,7 @@
 import BookCard from "./BookCard";
 
-export default function Shelf({ title, books, linkTo }) {
+/** Website-style responsive book grid */
+export default function Shelf({ title, books, linkTo, layout = "grid" }) {
   const list = Array.isArray(books) ? books.filter(Boolean) : [];
   if (!list.length) return null;
 
@@ -14,9 +15,9 @@ export default function Shelf({ title, books, linkTo }) {
           </a>
         )}
       </div>
-      <div className="shelf stagger">
+      <div className={layout === "shelf" ? "shelf" : "book-grid"}>
         {list.map((b, i) => (
-          <BookCard key={b.id || b.book_id || i} book={b} style={{ animationDelay: `${i * 0.04}s` }} />
+          <BookCard key={b.id || b.book_id || i} book={b} style={{ animationDelay: `${i * 0.03}s` }} />
         ))}
       </div>
     </section>

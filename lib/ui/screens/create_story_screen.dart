@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/services/api_service.dart';
 import '../../core/theme/app_styles.dart';
-import '../../core/theme/app_theme.dart';
 import 'edit_chapter_screen.dart';
 import 'root_shell.dart';
 

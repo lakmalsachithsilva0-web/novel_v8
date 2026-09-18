@@ -2,47 +2,68 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { resolveAssetUrl } from "../api";
 
-const tabs = [
-  { to: "/library", label: "Library", icon: IconLibrary },
-  { to: "/", label: "Home", icon: IconHome, end: true },
-  { to: "/write", label: "Write", icon: IconWrite },
-  { to: "/notifications", label: "Alerts", icon: IconBell },
-  { to: "/more", label: "More", icon: IconMore },
+const links = [
+  { to: "/", label: "Discover", end: true },
+  { to: "/library", label: "Library" },
+  { to: "/write", label: "Write" },
+  { to: "/search", label: "Explore" },
+  { to: "/notifications", label: "Notifications" },
 ];
 
-export default function Shell({ user, isRealUser, onOpenAuth, onLogout, children }) {
+export default function Shell({ user, isRealUser, onOpenAuth, children }) {
   const [q, setQ] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   function onSearch(e) {
     e.preventDefault();
-    if (q.trim()) navigate(`/search?q=${encodeURIComponent(q.trim())}`);
+    if (q.trim()) {
+      navigate(`/search?q=${encodeURIComponent(q.trim())}`);
+      setMenuOpen(false);
+    }
   }
 
-  const initial =
-    (user?.display_name || user?.username || user?.email || "G").charAt(0).toUpperCase();
+  const initial = (user?.display_name || user?.username || user?.email || "G").charAt(0).toUpperCase();
 
   return (
     <div className="app-shell">
-      <header className="top-header">
-        <div className="top-header-inner">
-          <Link to="/" className="logo">
+      <header className="site-header">
+        <div className="site-header-inner">
+          <Link to="/" className="logo" onClick={() => setMenuOpen(false)}>
             NovelHub
           </Link>
+
+          <nav className={`site-nav${menuOpen ? " open" : ""}`}>
+            {links.map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                end={l.end}
+                onClick={() => setMenuOpen(false)}
+              >
+                {l.label}
+              </NavLink>
+            ))}
+            <NavLink to="/more" onClick={() => setMenuOpen(false)}>
+              Account
+            </NavLink>
+          </nav>
+
           <form className="header-search" onSubmit={onSearch}>
             <span className="search-icon" aria-hidden>
               ⌕
             </span>
             <input
               type="search"
-              placeholder="Search stories, authors…"
+              placeholder="Search stories…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
           </form>
+
           <div className="header-actions">
             {isRealUser ? (
-              <Link to="/more" className="avatar-btn" title={user?.display_name || "Profile"}>
+              <Link to="/more" className="avatar-btn" title={user?.display_name || "Account"}>
                 {user?.photo_url ? (
                   <img src={resolveAssetUrl(user.photo_url)} alt="" />
                 ) : (
@@ -59,69 +80,34 @@ export default function Shell({ user, isRealUser, onOpenAuth, onLogout, children
                 </button>
               </>
             )}
+            <button
+              type="button"
+              className="nav-toggle"
+              aria-label="Menu"
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              <span />
+            </button>
           </div>
         </div>
       </header>
 
       <main className="main">{children}</main>
 
-      <nav className="bottom-nav" aria-label="Main">
-        <div className="bottom-nav-inner">
-          {tabs.map((t) => (
-            <NavLink
-              key={t.to}
-              to={t.to}
-              end={t.end}
-              className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
-            >
-              <t.icon />
-              <span>{t.label}</span>
-            </NavLink>
-          ))}
+      <footer className="site-footer">
+        <div className="site-footer-inner">
+          <div>
+            <strong style={{ color: "var(--text)" }}>NovelHub</strong>
+            <span style={{ marginLeft: 8 }}>Stories from the same library as the app.</span>
+          </div>
+          <div style={{ display: "flex", gap: 20 }}>
+            <Link to="/">Discover</Link>
+            <Link to="/write">Write</Link>
+            <Link to="/search">Explore</Link>
+            <Link to="/more">Account</Link>
+          </div>
         </div>
-      </nav>
+      </footer>
     </div>
-  );
-}
-
-function IconLibrary() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-    </svg>
-  );
-}
-function IconHome() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <polyline points="9 22 9 12 15 12 15 22" />
-    </svg>
-  );
-}
-function IconWrite() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  );
-}
-function IconBell() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-    </svg>
-  );
-}
-function IconMore() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="1" fill="currentColor" />
-      <circle cx="19" cy="12" r="1" fill="currentColor" />
-      <circle cx="5" cy="12" r="1" fill="currentColor" />
-    </svg>
   );
 }
