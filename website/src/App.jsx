@@ -18,7 +18,11 @@ import AccountPage, {
   AccountHelp,
   AccountContact,
   AccountStats,
-  AccountSimple,
+  AccountNotifications,
+  AccountGenres,
+  AccountWarnings,
+  AccountLegal,
+  AccountLanguage,
 } from "./pages/AccountPage";
 import { getMe, guestLogin, setToken, getToken, clearToken } from "./api";
 
@@ -112,64 +116,13 @@ export default function App() {
             <Route path="/account/help" element={<AccountHelp />} />
             <Route path="/account/contact" element={<AccountContact />} />
             <Route path="/account/stats" element={<AccountStats user={user} />} />
-            <Route
-              path="/account/notifications"
-              element={
-                <AccountSimple
-                  title="Notifications"
-                  body="Notification preferences sync with the mobile app when you are signed in."
-                />
-              }
-            />
-            <Route
-              path="/account/language"
-              element={<AccountSimple title="Language" body="English is the default web language." />}
-            />
-            <Route
-              path="/account/genres"
-              element={
-                <AccountSimple
-                  title="Favourite genres"
-                  body="Pick genres from the Categories menu on the home page. Preferences follow your account on the app."
-                />
-              }
-            />
-            <Route
-              path="/account/warnings"
-              element={
-                <AccountSimple
-                  title="Content warnings"
-                  body="Content warning filters are available in the mobile app settings."
-                />
-              }
-            />
-            <Route
-              path="/account/terms"
-              element={
-                <AccountSimple
-                  title="Terms of Service"
-                  body="By using NovelHub you agree to use the service responsibly and respect authors’ rights."
-                />
-              }
-            />
-            <Route
-              path="/account/privacy"
-              element={
-                <AccountSimple
-                  title="Privacy Policy"
-                  body="We store account and reading data in the same database as the mobile app. Do not commit real secrets to Git."
-                />
-              }
-            />
-            <Route
-              path="/account/cookies"
-              element={
-                <AccountSimple
-                  title="Cookie preferences"
-                  body="We use local storage for your login token only."
-                />
-              }
-            />
+            <Route path="/account/notifications" element={<AccountNotifications />} />
+            <Route path="/account/language" element={<AccountLanguage />} />
+            <Route path="/account/genres" element={<AccountGenres />} />
+            <Route path="/account/warnings" element={<AccountWarnings />} />
+            <Route path="/account/terms" element={<AccountLegal kind="terms" />} />
+            <Route path="/account/privacy" element={<AccountLegal kind="privacy" />} />
+            <Route path="/account/cookies" element={<AccountLegal kind="cookies" />} />
 
             <Route path="/audiobooks" element={<Navigate to="/" replace />} />
             <Route path="/galatea" element={<Navigate to="/" replace />} />
