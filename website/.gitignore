@@ -1,3 +1,87 @@
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# --- Secrets (never commit) ---
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.local
+**/.env.production
+**/secrets/
+**/credentials.json
+**/google-services.json
+**/GoogleService-Info.plist
+*.pem
+*.p12
+*.keystore
+*.jks
+
+# --- Flutter / Dart ---
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+ios/Pods/
+ios/Runner.xcworkspace/
+**/DerivedData/
+*.xcuserstate
+android/.gradle/
+android/app/build/
+android/local.properties
+*.apk
+*.aab
+app.*.symbols
+app.*.map.json
+
+# --- Python / backend ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/*.db
+backend/novel_app.db
+backend/server_log.txt
+
+# --- Website / Node ---
+website/node_modules/
+website/dist/
+admin-panel/node_modules/
+admin-panel/dist/
 node_modules/
 dist/
+.npm
+*.tsbuildinfo
 
+# --- Misc project ---
+uploads/
+*.class
+*.hprof
+postman_mcp.py
+FETCH_HEAD
+None
+Get
+Run
+git
+java.io.IOException
+"postman_mcp.py"

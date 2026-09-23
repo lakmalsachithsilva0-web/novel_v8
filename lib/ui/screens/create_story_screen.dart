@@ -14,7 +14,7 @@ import 'root_shell.dart';
 /// genre + New, Ongoing/Completed status, language, audience,
 /// content-warning chips, max-3 hashtags, sticky Save Draft / Publish.
 class CreateStoryScreen extends StatefulWidget {
-  CreateStoryScreen({
+  const CreateStoryScreen({
     super.key,
     required this.apiService,
     this.story,
@@ -60,7 +60,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     _green = c.brand;
   }
 
-  static List<String> _defaultGenres = [
+  static final List<String> _defaultGenres = [
     'Romance',
     'Fantasy',
     'Drama',
@@ -78,13 +78,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     'Action',
     'Other',
   ];
-  static List<String> _languages = ['Sinhala', 'English', 'Tamil'];
-  static List<String> _audiences = [
+  static final List<String> _languages = ['Sinhala', 'English', 'Tamil'];
+  static final List<String> _audiences = [
     'All Ages',
     'Teen (13+)',
     'Mature (18+)',
   ];
-  static List<String> _warningOptions = [
+  static final List<String> _warningOptions = [
     'Violence',
     'Strong Language',
     'Sexual Content',

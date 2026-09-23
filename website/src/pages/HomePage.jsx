@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import BookCard from "../components/BookCard";
 import PhoneMockup from "../components/PhoneMockup";
 import Shelf from "../components/Shelf";
@@ -97,9 +97,19 @@ export default function HomePage() {
   }, []);
 
   const allBooks = useMemo(() => collectBooks(data), [data]);
+  const [searchParams] = useSearchParams();
+  const qParam = (searchParams.get("q") || "").trim().toLowerCase();
+  const filteredBooks = useMemo(() => {
+    if (!qParam) return allBooks;
+    return allBooks.filter((b) => {
+      const blob = `${b.title || ""} ${b.author || ""} ${b.genre || ""}`.toLowerCase();
+      return blob.includes(qParam);
+    });
+  }, [allBooks, qParam]);
+
 
   const trending = useMemo(() => {
-    const rated = [...allBooks].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
+    const rated = [...(qParam ? filteredBooks : allBooks)].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
     return rated.slice(0, 16);
   }, [allBooks]);
 

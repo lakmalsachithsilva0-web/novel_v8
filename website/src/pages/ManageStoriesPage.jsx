@@ -5,10 +5,6 @@ import { isGuestUser } from "../utils/guest";
 
 const SIDE_NAV = [
   { id: "manage", label: "Manage Stories", to: "/manage-stories" },
-  { id: "analytics", label: "Analytics", soon: true },
-  { id: "subscribers", label: "Subscribers", soon: true },
-  { id: "subscription", label: "Manage Subscription", to: "/subscription" },
-  { id: "experiments", label: "Experiments", soon: true },
 ];
 
 export default function ManageStoriesPage({ user }) {
