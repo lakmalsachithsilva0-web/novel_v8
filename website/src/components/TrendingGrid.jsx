@@ -4,7 +4,7 @@ import BookCard from "./BookCard";
 /**
  * Inkitt-style "Trending Stories" section — responsive multi-column grid.
  */
-export default function TrendingGrid({ title = "Trending Stories", books = [], seeAllTo = "/discover" }) {
+export default function TrendingGrid({ title = "Trending Stories", books = [], seeAllTo = "/" }) {
   if (!books.length) return null;
 
   return (

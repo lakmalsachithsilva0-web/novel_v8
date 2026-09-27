@@ -62,7 +62,7 @@ const NAV = [
   { id: "reports", label: "Reports", icon: "▤" },
   { id: "reviews", label: "Reviews", icon: "★" },
   { id: "hashtags", label: "Hashtags", icon: "#" },
-  { id: "revenue", label: "Revenue", icon: "$" },
+  { id: "revenue", label: "Catalog insights", icon: "$" },
   { id: "moderation", label: "Content Moderation", icon: "◎" },
   { id: "announcements", label: "Announcements", icon: "◎" },
   { id: "chat", label: "Live Chat", icon: "▰" },
@@ -1306,28 +1306,32 @@ function HashtagsPage() {
 }
 
 function RevenuePage({ books }) {
-  const demo = [
-    { label: "Jan", value: 40 },
-    { label: "Feb", value: 55 },
-    { label: "Mar", value: 48 },
-    { label: "Apr", value: 70 },
-    { label: "May", value: 62 },
-    { label: "Jun", value: 85 },
-  ];
+  const published = books.filter((book) => !/draft|unpublished|private|pending/i.test(book.status_text || ""));
+  const rated = books.map((book) => Number(book.rating)).filter((rating) => Number.isFinite(rating) && rating > 0);
+  const genres = new Map();
+  books.forEach((book) => {
+    const genre = book.primary_genre || book.genre || "Unclassified";
+    genres.set(genre, (genres.get(genre) || 0) + 1);
+  });
+  const genreCounts = [...genres.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+  const hasViews = books.some((book) => book.view_count != null);
+  const totalViews = hasViews ? books.reduce((sum, book) => sum + (Number(book.view_count) || 0), 0) : null;
+  const averageRating = rated.length ? (rated.reduce((sum, rating) => sum + rating, 0) / rated.length).toFixed(1) : "—";
+
   return (
     <>
       <div className="stats-row">
-        <div className="stat-card"><div className="label">Catalog size</div><p className="value">{books.length}</p>
-          <div className="trend">Live from DB</div></div>
-        <div className="stat-card"><div className="label">Published</div>
-          <p className="value">{books.filter((b) => /publish/i.test(b.status_text || "")).length}</p></div>
-        <div className="stat-card"><div className="label">Illustrative revenue</div><p className="value">—</p>
-          <div className="trend">Wire payments when ready</div></div>
-        <div className="stat-card"><div className="label">In-app</div><p className="value">—</p></div>
+        <div className="stat-card"><div className="label">Stories in catalog</div><p className="value">{books.length.toLocaleString()}</p><div className="trend">Live catalog data</div></div>
+        <div className="stat-card"><div className="label">Available to readers</div><p className="value">{published.length.toLocaleString()}</p><div className="trend">Excludes draft and pending work</div></div>
+        <div className="stat-card"><div className="label">Average rating</div><p className="value">{averageRating}</p><div className="trend">Across {rated.length.toLocaleString()} rated stories</div></div>
+        <div className="stat-card"><div className="label">Story views</div><p className="value">{totalViews == null ? "—" : totalViews.toLocaleString()}</p><div className="trend">{hasViews ? "Reported by the catalog API" : "View totals are not available from the API"}</div></div>
       </div>
       <div className="panel">
-        <div className="panel-header"><h3>Monthly overview (placeholder chart)</h3></div>
-        <BarChart data={demo} />
+        <div className="panel-header"><div><h3>Stories by genre</h3><p className="meta">Genre totals from the current catalog.</p></div></div>
+        {genreCounts.length ? <BarChart data={genreCounts} /> : <p className="empty">Genre insights will appear when stories are added to the catalog.</p>}
       </div>
     </>
   );

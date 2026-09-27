@@ -9,7 +9,7 @@ export default function PlaceholderPage({ title, blurb }) {
           {blurb ||
             "This section mirrors Inkitt’s navigation. Content can be wired to your backend when ready."}
         </p>
-        <Link className="btn btn-primary" to="/discover" style={{ marginTop: 16 }}>
+        <Link className="btn btn-primary" to="/" style={{ marginTop: 16 }}>
           Browse Free Books
         </Link>
       </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import BookCard from "../components/BookCard";
-import { getBootstrap } from "../api";
+import { getBootstrap, getTagBooks } from "../api";
 
 function collectBooks(data) {
   if (!data) return [];
@@ -20,13 +20,23 @@ export default function GenrePage() {
   const label = decodeURIComponent(genre || "Stories");
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isTagResult, setIsTagResult] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setLoading(true);
+      setError("");
       try {
-        const boot = await getBootstrap();
-        if (!cancelled) setBooks(collectBooks(boot));
+        const [boot, tagged] = await Promise.all([getBootstrap(), getTagBooks(label)]);
+        if (!cancelled) {
+          const taggedBooks = tagged?.items || [];
+          setIsTagResult(taggedBooks.length > 0);
+          setBooks(taggedBooks.length ? taggedBooks : collectBooks(boot));
+        }
+      } catch (e) {
+        if (!cancelled) setError(String(e.message || e));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -34,15 +44,16 @@ export default function GenrePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [label]);
 
   const filtered = useMemo(() => {
     const g = label.toLowerCase();
+    if (isTagResult) return books;
     return books.filter((b) => {
-      const hay = `${b.genre || ""} ${b.primary_genre || ""} ${b.title || ""}`.toLowerCase();
+      const hay = `${b.genre || ""} ${b.primary_genre || ""} ${b.secondary_genre || ""} ${b.section_name || ""} ${b.title || ""}`.toLowerCase();
       return hay.includes(g) || g === "more" || g === "stories";
     });
-  }, [books, label]);
+  }, [books, isTagResult, label]);
 
   return (
     <div className="full-bleed">
@@ -52,8 +63,9 @@ export default function GenrePage() {
             <Link to="/">Home</Link> · {label}
           </p>
           <h1>{label} Stories</h1>
-          <p className="meta">{filtered.length} stories · same database as the app</p>
+          <p className="meta">{filtered.length} stories to explore</p>
         </div>
+        {error ? <div className="error-banner">{error}</div> : null}
         {loading ? <p className="meta">Loading…</p> : null}
         <div className="trending-grid" style={{ marginBottom: 48 }}>
           {filtered.map((b) => (

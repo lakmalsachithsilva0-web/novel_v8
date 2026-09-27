@@ -148,6 +148,7 @@ class StoryUpdateRequest(BaseModel):
     status_text: str | None = None
     language: str | None = None
     audience: str | None = None
+    writer_settings: dict[str, Any] | None = None
 
 
 class ReviewCreateRequest(BaseModel):
@@ -2184,7 +2185,7 @@ def get_me(user: dict[str, Any] = Depends(require_user)):
     u = rows[0]
 
     # One round-trip for counts (instead of 4–6 sequential queries)
-    story_count = library_count = reading_list_count = completed_count = 0
+    story_count = library_count = reading_list_count = chapters_read = 0
     followers = following = 0
     try:
         count_rows = fetch_all(
@@ -2193,10 +2194,7 @@ def get_me(user: dict[str, Any] = Depends(require_user)):
               (SELECT COUNT(*) FROM books WHERE user_id=%s) AS story_count,
               (SELECT COUNT(*) FROM library_entries WHERE user_id=%s) AS library_count,
               (SELECT COUNT(*) FROM reading_lists WHERE user_id=%s) AS reading_list_count,
-              (SELECT COUNT(*) FROM library_entries
-                 WHERE user_id=%s
-                   AND LOWER(COALESCE(reading_status,'')) IN ('completed','complete','finished','done')
-              ) AS completed_count
+              (SELECT COALESCE(SUM(chapters_read), 0) FROM library_entries WHERE user_id=%s) AS chapters_read
             """,
             (uid, uid, uid, uid),
         )
@@ -2205,7 +2203,7 @@ def get_me(user: dict[str, Any] = Depends(require_user)):
             story_count = int(_row_get(cr, "story_count") or 0)
             library_count = int(_row_get(cr, "library_count") or 0)
             reading_list_count = int(_row_get(cr, "reading_list_count") or 0)
-            completed_count = int(_row_get(cr, "completed_count") or 0)
+            chapters_read = int(_row_get(cr, "chapters_read") or 0)
     except Exception as exc:
         LOGGER.warning("get_me counts soft-fail: %s", exc)
 
@@ -2230,7 +2228,7 @@ def get_me(user: dict[str, Any] = Depends(require_user)):
         "following": following,
         "followers": followers,
         "blocked": 0,
-        "chapters_read": completed_count,
+        "chapters_read": chapters_read,
         "social_karma": story_count * 10,
         "day_streak": 0,
         "story_count": story_count,
@@ -4635,7 +4633,8 @@ def get_writer_stories(user: dict[str, Any] = Depends(require_user)):
     rows = fetch_all(
         """
         SELECT id, user_id, title, author, description, genre, status_text,
-                     cover_path, accent_hex, content_warnings, audience, language,
+                     cover_path, accent_hex, content_warnings, audience, language, rating,
+                             (SELECT MAX(c.updated_at) FROM chapters c WHERE c.story_id=books.id) AS last_updated_at,
                              (SELECT COUNT(*) FROM chapters c
                                 WHERE c.story_id=books.id
                                     AND LOWER(COALESCE(c.submission_status, 'draft')) IN
@@ -4688,8 +4687,10 @@ def get_writer_stories(user: dict[str, Any] = Depends(require_user)):
                 ).strip(),
                 "audience": _row_get(row, "audience") or "",
                 "language": _row_get(row, "language") or "",
+                "last_updated_at": str(_row_get(row, "last_updated_at") or ""),
+                "is_completed": int(st_low in ("completed", "complete", "finished")),
                 "cta_label": "Read now",
-                "rating": 0.0,
+                "rating": float(_row_get(row, "rating") or 0),
                 "tags": [],
                 "likes_count": 0,
                 "reviews_count": 0,
@@ -5357,10 +5358,11 @@ def _row_get(row: Any, key: str, default: Any = None) -> Any:
 
 
 def _ensure_book_meta_columns() -> None:
-    """Best-effort audience/language columns on books."""
+    """Best-effort writer metadata columns on books."""
     for sql in (
         "ALTER TABLE books ADD COLUMN audience VARCHAR(64) NULL",
         "ALTER TABLE books ADD COLUMN language VARCHAR(64) NULL",
+        "ALTER TABLE books ADD COLUMN writer_settings TEXT NULL",
     ):
         try:
             execute_write(sql, ())
@@ -5618,6 +5620,9 @@ def update_writer_story(
     if payload.language is not None:
         sets.append("language=%s")
         params.append(payload.language or "")
+    if payload.writer_settings is not None:
+        sets.append("writer_settings=%s")
+        params.append(json.dumps(payload.writer_settings, ensure_ascii=False, separators=(",", ":")))
 
     sets.append("user_id=%s")
     params.append(user["user_id"])
@@ -5630,12 +5635,13 @@ def update_writer_story(
             execute_write(sql, tuple(params))
         except Exception as exc:
             LOGGER.warning("partial story update retry without meta cols: %s", exc)
-            safe_sets = [s for s in sets if not s.startswith("audience") and not s.startswith("language")]
+            optional_meta = ("audience", "language", "writer_settings")
+            safe_sets = [s for s in sets if not s.startswith(optional_meta)]
             if safe_sets:
                 safe_params: list[Any] = []
                 i = 0
                 for s in sets:
-                    if s.startswith("audience") or s.startswith("language"):
+                    if s.startswith(optional_meta):
                         i += 1
                         continue
                     safe_params.append(params[i])
@@ -5694,7 +5700,7 @@ def get_writer_story(story_id: int, user: dict[str, Any] = Depends(require_user)
         rows = fetch_all(
             """
             SELECT id, user_id, title, author, description, genre, cover_path, accent_hex,
-                   status_text, rating, content_warnings, audience, language
+                   status_text, rating, content_warnings, audience, language, writer_settings
             FROM books WHERE id=%s LIMIT 1
             """,
             (story_id,),
@@ -5730,6 +5736,12 @@ def get_writer_story(story_id: int, user: dict[str, Any] = Depends(require_user)
         "language": str(_row_get(rows[0], "language") or story.get("language") or ""),
         "tags": _story_tags_for_book(int(story_id)),
     }
+    raw_settings = _row_get(rows[0], "writer_settings") or story.get("writer_settings") or "{}"
+    try:
+        parsed_settings = json.loads(raw_settings) if isinstance(raw_settings, str) else raw_settings
+        out["writer_settings"] = parsed_settings if isinstance(parsed_settings, dict) else {}
+    except (TypeError, ValueError):
+        out["writer_settings"] = {}
     return out
 
 
@@ -7545,7 +7557,7 @@ def fetch_authors_follow(
 @app.delete("/api/write/stories/{story_id}")
 def delete_writer_story(story_id: int, user: dict[str, Any] = Depends(require_user)):
     _, affected = execute_write(
-        "DELETE FROM books WHERE id=%s AND (user_id=%s OR user_id IS NULL)",
+        "DELETE FROM books WHERE id=%s AND user_id=%s",
         (story_id, user["user_id"]),
     )
     if affected == 0:

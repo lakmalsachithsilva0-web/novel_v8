@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import YouMayAlsoLike from "./components/YouMayAlsoLike";
 import HomePage from "./pages/HomePage";
+import AudiobooksPage from "./pages/AudiobooksPage";
+import GalateaPage from "./pages/GalateaPage";
+import ContestsPage from "./pages/ContestsPage";
+import CommunityPage from "./pages/CommunityPage";
+import SubscriptionPage from "./pages/SubscriptionPage";
 import StoryPage from "./pages/StoryPage";
 import ChapterPage from "./pages/ChapterPage";
 import LibraryPage from "./pages/LibraryPage";
@@ -14,6 +20,7 @@ import GenrePage from "./pages/GenrePage";
 import AuthorPage from "./pages/AuthorPage";
 import ReviewPage from "./pages/ReviewPage";
 import ProfilePage from "./pages/ProfilePage";
+import NotificationsPage from "./pages/NotificationsPage";
 import AccountPage, {
   AccountHelp,
   AccountContact,
@@ -24,11 +31,21 @@ import AccountPage, {
   AccountLegal,
   AccountLanguage,
 } from "./pages/AccountPage";
-import { getMe, guestLogin, setToken, getToken, clearToken } from "./api";
+import { getMe, guestLogin, setToken, getToken, clearToken, revokeCurrentSession } from "./api";
+
+function LegacyDiscoverRedirect() {
+  const [params] = useSearchParams();
+  const query = params.toString();
+  return <Navigate to={`/${query ? `?${query}` : ""}`} replace />;
+}
 
 export default function App() {
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [bootLoading, setBootLoading] = useState(true);
+  const path = location.pathname;
+  const recommendationsExcluded = path === "/" || path === "/login" || path.startsWith("/write") || path.startsWith("/manage-stories") || path.startsWith("/account") || path === "/subscription" || /^\/stories\/\d+$/.test(path);
+  const currentStoryId = path.match(/^\/stories\/(\d+)/)?.[1];
 
   const refreshUser = useCallback(async () => {
     if (!getToken()) {
@@ -77,9 +94,15 @@ export default function App() {
     })();
   }, [refreshUser]);
 
-  function handleLogout() {
-    clearToken();
-    setUser(null);
+  async function handleLogout() {
+    try {
+      if (getToken()) await revokeCurrentSession();
+    } catch {
+      // Local logout must still complete when the API is temporarily unavailable.
+    } finally {
+      clearToken();
+      setUser(null);
+    }
   }
 
   async function handleLoginSuccess(token) {
@@ -96,13 +119,12 @@ export default function App() {
         ) : (
           <Routes>
             <Route path="/" element={<HomePage />} />
-            {/* Discover removed — same content as Home */}
-            <Route path="/discover" element={<Navigate to="/" replace />} />
+            <Route path="/discover" element={<LegacyDiscoverRedirect />} />
             <Route path="/genres/:genre" element={<GenrePage />} />
             <Route path="/stories/:id" element={<StoryPage user={user} />} />
             <Route path="/stories/:id/review" element={<ReviewPage user={user} />} />
             <Route path="/stories/:id/chapters/:chapterId" element={<ChapterPage user={user} />} />
-            <Route path="/authors/:authorId" element={<AuthorPage />} />
+            <Route path="/authors/:authorId" element={<AuthorPage user={user} />} />
             <Route path="/library" element={<LibraryPage user={user} />} />
             <Route path="/write" element={<WritePage user={user} />} />
             <Route path="/write/:storyId" element={<StoryEditorPage user={user} />} />
@@ -112,6 +134,7 @@ export default function App() {
             <Route path="/manage-stories" element={<ManageStoriesPage user={user} />} />
             <Route path="/login" element={<LoginPage onSuccess={handleLoginSuccess} />} />
             <Route path="/profile" element={<ProfilePage user={user} onLogout={handleLogout} />} />
+            <Route path="/notifications" element={<NotificationsPage user={user} />} />
             <Route path="/account" element={<AccountPage user={user} onLogout={handleLogout} />} />
             <Route path="/account/help" element={<AccountHelp />} />
             <Route path="/account/contact" element={<AccountContact />} />
@@ -124,15 +147,16 @@ export default function App() {
             <Route path="/account/privacy" element={<AccountLegal kind="privacy" />} />
             <Route path="/account/cookies" element={<AccountLegal kind="cookies" />} />
 
-            <Route path="/audiobooks" element={<Navigate to="/" replace />} />
-            <Route path="/galatea" element={<Navigate to="/" replace />} />
-            <Route path="/contests" element={<Navigate to="/" replace />} />
-            <Route path="/subscription" element={<Navigate to="/manage-stories" replace />} />
-            <Route path="/community" element={<Navigate to="/" replace />} />
+            <Route path="/audiobooks" element={<AudiobooksPage />} />
+            <Route path="/galatea" element={<GalateaPage />} />
+            <Route path="/contests" element={<ContestsPage user={user} />} />
+            <Route path="/subscription" element={<SubscriptionPage user={user} />} />
+            <Route path="/community" element={<CommunityPage user={user} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         )}
       </main>
+      {!bootLoading && !recommendationsExcluded ? <YouMayAlsoLike excludeId={currentStoryId} title="Recommended for your next read" /> : null}
       <Footer />
     </div>
   );

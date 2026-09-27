@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createChapter, createStory, getMyStories, resolveAssetUrl } from "../api";
+import { createChapter, createStory, deleteStory, getMyStories, resolveAssetUrl } from "../api";
 import { isGuestUser } from "../utils/guest";
 
 const SIDE_NAV = [
@@ -18,6 +18,7 @@ export default function ManageStoriesPage({ user }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -35,7 +36,7 @@ export default function ManageStoriesPage({ user }) {
   useEffect(() => {
     if (guest) return;
     load();
-  }, [guest]);
+  }, [guest, user?.id, user?.user_id]);
 
   async function onCreate() {
     if (creating) return;
@@ -73,14 +74,29 @@ export default function ManageStoriesPage({ user }) {
     }
   }
 
+  async function onDeleteStory(story) {
+    if (!window.confirm(`Permanently delete “${story.title || "Untitled story"}” and its chapters?`)) return;
+    setDeletingId(story.id);
+    setError("");
+    try {
+      await deleteStory(story.id);
+      setStories((current) => current.filter((item) => item.id !== story.id));
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const filtered = useMemo(() => {
     let list = [...stories];
     list = list.filter((s) => {
       const status = String(s.status_text || s.status || "Published").toLowerCase();
       const isDraft = status.includes("draft") || status === "draft";
+      const isCompleted = s.is_completed === true || Number(s.is_completed) === 1 || /complete|finished/.test(status);
       if (tab === "drafts" && !isDraft) return false;
       if (tab === "submitted" && isDraft) return false;
-      if (filter === "completed" && !s.is_completed) return false;
+      if (filter === "completed" && !isCompleted) return false;
       if (q && !String(s.title || "").toLowerCase().includes(q.toLowerCase())) return false;
       return true;
     });
@@ -89,7 +105,7 @@ export default function ManageStoriesPage({ user }) {
     } else if (sort === "rating") {
       list.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
     } else {
-      list.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+      list.sort((a, b) => String(b.last_updated_at || "").localeCompare(String(a.last_updated_at || "")) || Number(b.id || 0) - Number(a.id || 0));
     }
     return list;
   }, [stories, tab, q, sort, filter]);
@@ -189,7 +205,7 @@ export default function ManageStoriesPage({ user }) {
             </label>
           </div>
 
-          {error && <div className="error-banner">{error}</div>}
+          {error && <div className="error-banner" role="alert">{error} <button type="button" className="btn btn-ghost btn-sm" onClick={load}>Retry</button></div>}
           {loading && <p className="meta">Loading…</p>}
 
           {!loading && filtered.length === 0 && (
@@ -216,7 +232,7 @@ export default function ManageStoriesPage({ user }) {
                     {cover ? (
                       <img src={cover} alt="" />
                     ) : (
-                      <div className="manage-cover-ph" style={{ background: s.accent_hex || "#e5e7eb" }}>
+                      <div className="manage-cover-ph" style={{ background: s.accent_hex || "var(--bg-elevated)" }}>
                         {(s.title || "?")[0]}
                       </div>
                     )}
@@ -235,6 +251,9 @@ export default function ManageStoriesPage({ user }) {
                       <Link className="btn" to={`/stories/${s.id}`}>
                         View
                       </Link>
+                      <button type="button" className="btn btn-danger manage-delete-story" onClick={() => onDeleteStory(s)} disabled={deletingId === s.id}>
+                        {deletingId === s.id ? "Deleting…" : "Delete"}
+                      </button>
                     </div>
                   </div>
                 </article>

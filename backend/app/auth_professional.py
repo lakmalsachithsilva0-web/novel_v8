@@ -41,10 +41,13 @@ def _hash_password(password: str) -> str:
         ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
         return ctx.hash(password)
     except Exception:
-        # Fallback if passlib/bcrypt unavailable (should be in requirements)
+        # Keep password hashing strong when the optional bcrypt wheel is absent.
+        import base64
         import hashlib
-
-        return "sha256:" + hashlib.sha256(password.encode("utf-8")).hexdigest()
+        salt = secrets.token_bytes(16)
+        digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 310_000)
+        encode = lambda value: base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
+        return f"pbkdf2_sha256$310000${encode(salt)}${encode(digest)}"
 
 
 def _verify_password(password: str, password_hash: str | None) -> bool:
@@ -58,10 +61,23 @@ def _verify_password(password: str, password_hash: str | None) -> bool:
             return ctx.verify(password, password_hash)
     except Exception:
         pass
+    if password_hash.startswith("pbkdf2_sha256$"):
+        import base64
+        import hashlib
+        import hmac
+
+        try:
+            _, rounds, salt_text, digest_text = password_hash.split("$", 3)
+            decode = lambda value: base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+            digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), decode(salt_text), int(rounds))
+            return hmac.compare_digest(digest, decode(digest_text))
+        except (ValueError, TypeError):
+            return False
     if password_hash.startswith("sha256:"):
         import hashlib
+        import hmac
 
-        return password_hash == "sha256:" + hashlib.sha256(password.encode("utf-8")).hexdigest()
+        return hmac.compare_digest(password_hash, "sha256:" + hashlib.sha256(password.encode("utf-8")).hexdigest())
     return False
 
 
@@ -74,6 +90,18 @@ def apply_professional_auth(main_mod) -> None:
     _assert_user_can_login = main_mod._assert_user_can_login
     _user_access_block_reason = main_mod._user_access_block_reason
     _sign_token = main_mod._sign_token
+    original_require_user = main_mod.require_user
+    sessions_table_ready = False
+
+    def _ensure_sessions_table() -> None:
+        nonlocal sessions_table_ready
+        if sessions_table_ready:
+            return
+        execute_write(
+            "CREATE TABLE IF NOT EXISTS auth_sessions (session_id VARCHAR(64) PRIMARY KEY, user_id INT NOT NULL, expires_at VARCHAR(40) NOT NULL, revoked_at VARCHAR(40) NULL)",
+            (),
+        )
+        sessions_table_ready = True
 
     def _ensure_auth_columns() -> None:
         for sql in (
@@ -85,6 +113,7 @@ def apply_professional_auth(main_mod) -> None:
                 execute_write(sql, ())
             except Exception:
                 pass
+        _ensure_sessions_table()
 
     _ensure_auth_columns()
 
@@ -101,12 +130,20 @@ def apply_professional_auth(main_mod) -> None:
         except Exception:
             tv = 0
         expires_at = datetime.now(timezone.utc) + timedelta(days=14)
+        session_id = secrets.token_urlsafe(32)
+        expires_iso = expires_at.isoformat()
+        _ensure_sessions_table()
+        execute_write(
+            "INSERT INTO auth_sessions (session_id, user_id, expires_at, revoked_at) VALUES (%s, %s, %s, NULL)",
+            (session_id, int(user_id), expires_iso),
+        )
         return _sign_token(
             {
                 "sub": f"user:{user_id}",
                 "role": "user",
                 "tv": tv,
-                "exp": expires_at.isoformat(),
+                "sid": session_id,
+                "exp": expires_iso,
             }
         )
 
@@ -177,9 +214,31 @@ def apply_professional_auth(main_mod) -> None:
                 status_code=401,
                 detail="Session revoked. Please sign in again.",
             )
-        return {"user_id": uid}
+        session_id = payload.get("sid")
+        if session_id:
+            _ensure_sessions_table()
+            sessions = fetch_all(
+                "SELECT user_id, revoked_at FROM auth_sessions WHERE session_id=%s LIMIT 1",
+                (session_id,),
+            )
+            if not sessions:
+                raise HTTPException(status_code=401, detail="Session expired. Please sign in again.")
+            session = sessions[0]
+            if int(_row_get(session, "user_id") or 0) != uid or _row_get(session, "revoked_at"):
+                raise HTTPException(status_code=401, detail="Session revoked. Please sign in again.")
+        return {"user_id": uid, "session_id": session_id}
 
     main_mod.require_user = require_user
+
+    @app.post("/api/auth/logout")
+    def revoke_current_session(user: dict[str, Any] = Depends(require_user)):
+        session_id = user.get("session_id")
+        if session_id:
+            execute_write(
+                "UPDATE auth_sessions SET revoked_at=%s WHERE session_id=%s AND user_id=%s AND revoked_at IS NULL",
+                (datetime.now(timezone.utc).isoformat(), session_id, int(user["user_id"])),
+            )
+        return {"ok": True}
 
     def bump_token_version(user_id: int) -> None:
         try:
@@ -446,6 +505,24 @@ def apply_professional_auth(main_mod) -> None:
             "is_suspended": False,
             "suspended_until": None,
         }
+
+    # Routes registered before startup captured the old dependency callable.
+    # Rewire those nodes so every protected API validates its session id.
+    def _rewire_dependency(dependency) -> None:
+        if getattr(dependency, "call", None) is original_require_user:
+            dependency.call = require_user
+            try:
+                dependency.cache_key = (require_user, *dependency.cache_key[1:])
+            except Exception:
+                pass
+        for child in getattr(dependency, "dependencies", ()):
+            _rewire_dependency(child)
+
+    for route in app.router.routes:
+        dependant = getattr(route, "dependant", None)
+        if dependant is not None:
+            for dependency in getattr(dependant, "dependencies", ()):
+                _rewire_dependency(dependency)
 
     # Also ensure DELETE soft-delete bumps version — leave original delete route
     LOGGER.info("Professional auth hardening applied (email+password, guest device, token_version)")

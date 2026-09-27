@@ -3,7 +3,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import AuthModal from "./AuthModal";
 import { getTags } from "../api";
 
-/** Working nav only — Home merges Discover (no duplicate Discover tab) */
+/** Keep core reading destinations aligned with the Flutter app. */
 const MAIN_NAV = [
   { to: "/", label: "Home", end: true },
   { to: "/library", label: "Library" },
@@ -31,19 +31,16 @@ export default function Header({ user, onLogout, onAuthSuccess }) {
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState("signin");
   const [catOpen, setCatOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
   const catRef = useRef(null);
+  const moreRef = useRef(null);
   const navigate = useNavigate();
 
   const isGuest =
     !user ||
     String(user.email || "").includes("guest") ||
     String(user.provider || "") === "guest";
-
-  const initial = String(user?.display_name || user?.email || "U")
-    .trim()
-    .charAt(0)
-    .toUpperCase();
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +68,7 @@ export default function Header({ user, onLogout, onAuthSuccess }) {
   useEffect(() => {
     function onDoc(e) {
       if (catRef.current && !catRef.current.contains(e.target)) setCatOpen(false);
+      if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false);
     }
     document.addEventListener("click", onDoc);
     return () => document.removeEventListener("click", onDoc);
@@ -92,6 +90,7 @@ export default function Header({ user, onLogout, onAuthSuccess }) {
   function closeMenu() {
     setMenuOpen(false);
     setCatOpen(false);
+    setMoreOpen(false);
   }
 
   return (
@@ -107,7 +106,7 @@ export default function Header({ user, onLogout, onAuthSuccess }) {
             {menuOpen ? "✕" : "☰"}
           </button>
 
-          <Link to="/" className="logo" onClick={closeMenu}>
+          <Link to="/" className="logo" onClick={closeMenu} aria-label="NovelHub home">
             <span className="logo-word">NovelHub</span>
           </Link>
 
@@ -138,22 +137,22 @@ export default function Header({ user, onLogout, onAuthSuccess }) {
               </button>
               {catOpen && (
                 <div className="nav-dropdown-panel categories-panel">
-                  {categories.map((name) => (
-                    <Link
-                      key={name}
-                      to={`/genres/${encodeURIComponent(name)}`}
-                      onClick={closeMenu}
-                    >
-                      {name}
-                    </Link>
-                  ))}
+                  <div className="categories-panel-heading"><span className="eyebrow">FIND YOUR NEXT READ</span><strong>Browse by genre</strong></div>
+                  <div className="categories-panel-grid">
+                    {categories.map((name) => (
+                      <Link
+                        key={name}
+                        to={`/genres/${encodeURIComponent(name)}`}
+                        onClick={closeMenu}
+                      >
+                        <span>{name}</span><span aria-hidden="true">›</span>
+                      </Link>
+                    ))}
+                  </div>
+                  <Link className="categories-all-link" to="/" onClick={closeMenu}>Explore all stories <span aria-hidden="true">→</span></Link>
                 </div>
               )}
             </div>
-
-            <Link to="/account" className="nav-link-account" onClick={closeMenu}>
-              Account
-            </Link>
 
             <form className="nav-search mobile-only" onSubmit={submitSearch}>
               <input
@@ -162,8 +161,11 @@ export default function Header({ user, onLogout, onAuthSuccess }) {
                 placeholder="Search stories…"
                 aria-label="Search"
               />
-              <button type="submit" className="btn btn-primary btn-sm">
-                Search
+              <button type="submit" className="search-icon-btn" aria-label="Search stories" title="Search stories">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <circle cx="10.8" cy="10.8" r="6.8" />
+                  <path d="m16 16 4.2 4.2" />
+                </svg>
               </button>
             </form>
 
@@ -179,9 +181,6 @@ export default function Header({ user, onLogout, onAuthSuccess }) {
                 </>
               ) : (
                 <>
-                  <Link to="/profile" className="btn btn-ghost" onClick={closeMenu}>
-                    Profile
-                  </Link>
                   <button
                     type="button"
                     className="btn btn-ghost"
@@ -206,8 +205,11 @@ export default function Header({ user, onLogout, onAuthSuccess }) {
                 placeholder="Search stories…"
                 aria-label="Search"
               />
-              <button type="submit" className="btn btn-primary btn-sm">
-                Search
+              <button type="submit" className="search-icon-btn" aria-label="Search stories" title="Search stories">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <circle cx="10.8" cy="10.8" r="6.8" />
+                  <path d="m16 16 4.2 4.2" />
+                </svg>
               </button>
             </form>
 
@@ -220,24 +222,37 @@ export default function Header({ user, onLogout, onAuthSuccess }) {
                   Sign up
                 </button>
               </div>
-            ) : (
-              <div className="header-user-desktop desktop-only">
-                <Link to="/profile" className="btn btn-ghost">
-                  Profile
-                </Link>
-                <Link to="/account" className="btn btn-ghost">
-                  More
-                </Link>
-                <button
-                  type="button"
-                  className="avatar-btn"
-                  title={user?.display_name || user?.email}
-                  onClick={() => navigate("/profile")}
-                >
-                  <span className="avatar-circle">{initial}</span>
-                </button>
-              </div>
-            )}
+            ) : null}
+            <div className={`header-more ${moreOpen ? "open" : ""}`} ref={moreRef}>
+              <button
+                type="button"
+                className="header-more-toggle"
+                aria-label="More options"
+                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen((open) => !open)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="5" r="1.8" />
+                  <circle cx="12" cy="12" r="1.8" />
+                  <circle cx="12" cy="19" r="1.8" />
+                </svg>
+              </button>
+              {moreOpen && (
+                <div className="header-more-menu" role="menu">
+                  {user && !isGuest ? <Link role="menuitem" to="/profile" onClick={closeMenu}>My profile</Link> : null}
+                  <Link role="menuitem" to="/notifications" onClick={closeMenu}>Notifications</Link>
+                  <Link role="menuitem" to="/account" onClick={closeMenu}>Account & settings</Link>
+                  <Link role="menuitem" to="/community" onClick={closeMenu}>Community</Link>
+                  <Link role="menuitem" to="/contests" onClick={closeMenu}>Writing contests</Link>
+                  <Link role="menuitem" to="/audiobooks" onClick={closeMenu}>Audio stories</Link>
+                  {user && !isGuest ? (
+                    <button type="button" role="menuitem" onClick={() => { closeMenu(); onLogout?.(); navigate("/"); }}>Sign out</button>
+                  ) : (
+                    <button type="button" role="menuitem" onClick={() => { closeMenu(); openAuth("signin"); }}>Sign in</button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>

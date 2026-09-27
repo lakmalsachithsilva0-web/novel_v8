@@ -601,22 +601,17 @@ def _cleanup_duplicate_seed_rows() -> dict[str, Any]:
 
 
 def _apply_safe_sql_scripts() -> dict[str, Any]:
-    """Auto-run non-destructive .sql files under backend/sql on startup.
-
-    Skips any file that contains DROP DATABASE / DROP TABLE without IF EXISTS
-    combined with destructive full rebuild patterns.
-    """
+    """Run reviewed migrations and numbered, additive DDL migrations."""
     report: dict[str, Any] = {"files": [], "statements_ok": 0, "errors": []}
     try:
         sql_dir = Path(__file__).resolve().parent.parent / "sql"
         if not sql_dir.is_dir():
             report["skipped"] = "no_sql_dir"
             return report
-        # Prefer setup.sql style schema; never run setup_v2 (DROP DATABASE)
-        skip_names = {
-            "setup_v2.sql",
-            "unlock_users.sql",  # admin one-off, not schema
-            "fix_stale_cover_paths.sql",  # destructive data fix — opt-in only
+        reviewed_names = {
+            "00_widen_section_name.sql",
+            "01_tag_follows_notify.sql",
+            "02_writer_settings.sql",
         }
         files = sorted(sql_dir.glob("*.sql"))
         conn = get_connection()
@@ -624,26 +619,45 @@ def _apply_safe_sql_scripts() -> dict[str, Any]:
             cursor = conn.cursor()
             for path in files:
                 name = path.name
-                if name in skip_names:
-                    report["files"].append({"file": name, "status": "skipped_destructive"})
+                is_numbered_migration = (
+                    len(name) > 3
+                    and name[:2].isdigit()
+                    and name[2] == "_"
+                )
+                if name not in reviewed_names and not is_numbered_migration:
+                    report["files"].append({"file": name, "status": "skipped_unreviewed_or_one_off"})
+                    continue
+                if USE_SQLITE:
+                    report["files"].append({"file": name, "status": "handled_by_runtime_schema_ensures"})
                     continue
                 raw = path.read_text(encoding="utf-8", errors="ignore")
                 upper = raw.upper()
                 if "DROP DATABASE" in upper:
                     report["files"].append({"file": name, "status": "skipped_drop_database"})
                     continue
-                # Split on semicolons; keep CREATE/ALTER/INSERT safe statements
+                # Numbered migrations may contain schema DDL only. Reset scripts,
+                # data rewrites, and account mutations must stay explicit.
+                statements = []
+                for stmt in raw.split(";"):
+                    lines = [ln for ln in stmt.splitlines() if not ln.strip().startswith("--")]
+                    s = "\n".join(lines).strip()
+                    if s:
+                        statements.append(s)
+                if name not in reviewed_names and any(
+                    not (
+                        stmt.upper().startswith("ALTER TABLE ")
+                        or stmt.upper().startswith("CREATE TABLE IF NOT EXISTS ")
+                        or stmt.upper().startswith("CREATE INDEX IF NOT EXISTS ")
+                    )
+                    for stmt in statements
+                ):
+                    report["files"].append({"file": name, "status": "skipped_non_ddl_migration"})
+                    continue
+                # Apply idempotent schema statements; duplicate columns are expected
+                # when a migration was already applied on an earlier startup.
                 ok = 0
                 err = 0
-                for stmt in raw.split(";"):
-                    s = stmt.strip()
-                    if not s or s.startswith("--"):
-                        continue
-                    # strip leading comment lines
-                    lines = [ln for ln in s.splitlines() if not ln.strip().startswith("--")]
-                    s = "\n".join(lines).strip()
-                    if not s:
-                        continue
+                for s in statements:
                     su = s.upper()
                     if su.startswith("USE ") or su.startswith("DROP DATABASE"):
                         continue
@@ -852,27 +866,16 @@ def run_startup_tasks() -> dict[str, Any]:
         LOGGER.warning("quick books count failed: %s", count_exc)
         book_count = 0
 
-    # Auto-run safe SQL scripts. On Vercel this is the primary cause of 60s
-    # timeouts (remote Aiven + many statements). Skip when books already exist
-    # unless FORCE_SQL_SCRIPTS=1. Schema ensures still run on the fast path.
+    # Run only the reviewed allowlisted idempotent SQL compatibility migrations.
     auto_migrate = _os.getenv("AUTO_RUN_DB_MIGRATIONS", "true").strip().lower() in ("1", "true", "yes")
     on_vercel = bool(_os.getenv("VERCEL") or _os.getenv("VERCEL_ENV"))
-    force_sql = _os.getenv("FORCE_SQL_SCRIPTS", "").strip().lower() in ("1", "true", "yes")
     if auto_migrate:
-        if on_vercel and book_count > 0 and not force_sql:
-            result["sql_scripts"] = {
-                "skipped": True,
-                "reason": "vercel_cold_start_books_present",
-                "books": book_count,
-            }
-            LOGGER.info("Auto SQL scripts skipped on Vercel (books=%s)", book_count)
-        else:
-            try:
-                result["sql_scripts"] = _apply_safe_sql_scripts()
-                LOGGER.info("Auto SQL scripts: %s", result["sql_scripts"])
-            except Exception as sql_exc:
-                LOGGER.warning("Auto SQL scripts failed: %s", sql_exc)
-                result["sql_scripts_error"] = str(sql_exc)
+        try:
+            result["sql_scripts"] = _apply_safe_sql_scripts()
+            LOGGER.info("Auto SQL scripts: %s", result["sql_scripts"])
+        except Exception as sql_exc:
+            LOGGER.warning("Auto SQL scripts failed: %s", sql_exc)
+            result["sql_scripts_error"] = str(sql_exc)
 
     try:
         result["duplicate_cleanup"] = _cleanup_duplicate_seed_rows()
@@ -918,7 +921,7 @@ def run_startup_tasks() -> dict[str, Any]:
         try:
             enable_inkitt = _os.getenv("ENABLE_INKITT_SEED", "").strip().lower() in ("1", "true", "yes")
             auto_inkitt = _os.getenv("AUTO_RUN_INKITT_SEED", "true").strip().lower() in ("1", "true", "yes")
-            if (not on_vercel and auto_inkitt) or enable_inkitt:
+            if auto_inkitt or enable_inkitt:
                 from .inkitt_seed import ensure_inkitt_catalog
 
                 seed_conn = get_connection()
@@ -972,18 +975,20 @@ def run_startup_tasks() -> dict[str, Any]:
             result["inkitt_seed_error"] = str(inkitt_exc)
         # NEVER run enrichment on Vercel cold starts — it blocks the first request
         # for minutes and causes 504 (Task timed out after 300 seconds).
-        # Enable only with RUN_CONTENT_ENRICHMENT=1 (local/admin jobs).
+        # Local development defaults on; serverless requires explicit opt-in.
         import os as _os
         on_vercel = bool(_os.getenv("VERCEL") or _os.getenv("VERCEL_ENV"))
-        run_enrich = (_os.getenv("RUN_CONTENT_ENRICHMENT", "").strip().lower() in ("1", "true", "yes"))
-        if on_vercel and not run_enrich:
+        enrich_setting = _os.getenv("RUN_CONTENT_ENRICHMENT")
+        run_enrich = (
+            enrich_setting.strip().lower() in ("1", "true", "yes")
+            if enrich_setting is not None
+            else not on_vercel
+        )
+        if not run_enrich:
             result["content_enrichment"] = {
                 "skipped": True,
-                "reason": "disabled_on_vercel_cold_start",
+                "reason": "serverless_startup_timeout_protection",
             }
-        elif not run_enrich and on_vercel is False and book_count >= 5 and _os.getenv("SKIP_CONTENT_ENRICHMENT", "0").strip().lower() in ("1", "true", "yes"):
-            # Skip enrichment when catalog already healthy unless forced
-            result["content_enrichment"] = {"skipped": True, "reason": "SKIP_CONTENT_ENRICHMENT"}
         else:
             try:
                 from .content_enrichment_seed import run_content_enrichment
@@ -1109,11 +1114,12 @@ def run_startup_tasks() -> dict[str, Any]:
 
     LOGGER.info("Startup tasks finished: %s", result)
 
-    # Inkitt: always on empty-DB path; optional on Vercel via ENABLE_INKITT_SEED
-    _run_inkitt = True
-    if on_vercel and _os.getenv("ENABLE_INKITT_SEED", "").strip().lower() not in ("1", "true", "yes"):
-        _run_inkitt = False
-        result["inkitt_seed"] = {"skipped": True, "reason": "vercel_empty_db_set_ENABLE_INKITT_SEED"}
+    # The idempotent story catalog seed runs on empty databases by default.
+    _run_inkitt = _os.getenv("AUTO_RUN_INKITT_SEED", "true").strip().lower() in ("1", "true", "yes")
+    if not _run_inkitt and _os.getenv("ENABLE_INKITT_SEED", "").strip().lower() in ("1", "true", "yes"):
+        _run_inkitt = True
+    if not _run_inkitt:
+        result["inkitt_seed"] = {"skipped": True, "reason": "AUTO_RUN_INKITT_SEED_disabled"}
     if _run_inkitt:
         try:
             from .inkitt_seed import ensure_inkitt_catalog
@@ -1178,5 +1184,28 @@ def run_startup_tasks() -> dict[str, Any]:
     else:
         result["inkitt_seed"] = {"skipped": True, "reason": "disabled_on_startup"}
         LOGGER.info("inkitt_seed skipped (disabled on startup)")
+
+    # Apply the same idempotent demo/catalog enrichment after empty-DB setup.
+    # It defaults on for long-lived local backends and remains opt-in on Vercel.
+    enrich_setting = _os.getenv("RUN_CONTENT_ENRICHMENT")
+    on_vercel = bool(_os.getenv("VERCEL") or _os.getenv("VERCEL_ENV"))
+    run_enrich = (
+        enrich_setting.strip().lower() in ("1", "true", "yes")
+        if enrich_setting is not None
+        else not on_vercel
+    )
+    if run_enrich:
+        try:
+            from .content_enrichment_seed import run_content_enrichment
+
+            result["content_enrichment"] = run_content_enrichment(force=False)
+        except Exception as enrich_exc:
+            LOGGER.warning("content enrichment skipped: %s", enrich_exc)
+            result["content_enrichment_error"] = str(enrich_exc)
+    else:
+        result["content_enrichment"] = {
+            "skipped": True,
+            "reason": "serverless_startup_timeout_protection",
+        }
 
     return result

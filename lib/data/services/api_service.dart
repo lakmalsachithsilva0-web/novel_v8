@@ -658,6 +658,14 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  /// Revoke this bearer session on the server before local sign-out. This is
+  /// best-effort so a temporary network issue never traps the user in a session.
+  Future<void> revokeCurrentSession() async {
+    try {
+      await _post('/api/auth/logout', const {}, timeout: const Duration(seconds: 5));
+    } catch (_) {}
+  }
+
   Future<Map<String, dynamic>> verifyEmail({
     required String token,
     String? email,
@@ -2027,4 +2035,3 @@ class ApiService {
     'achievements': [],
   };
 }
-  

@@ -346,6 +346,7 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    await _apiService.revokeCurrentSession();
     try {
       await _googleSignIn.signOut();
     } catch (_) {}

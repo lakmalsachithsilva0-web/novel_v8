@@ -82,7 +82,7 @@ export default function ReviewPage({ user }) {
         className="story-hero story-hero--sm"
         style={{
           backgroundImage: cover
-            ? `linear-gradient(180deg, rgba(0,0,0,0.4), #fff 80%), url(${cover})`
+            ? `linear-gradient(180deg, rgba(11,10,18,0.25), rgba(11,10,18,0.96) 82%), url(${cover})`
             : undefined,
         }}
       >

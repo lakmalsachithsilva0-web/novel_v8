@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   createChapter,
+  deleteStory,
   createStory,
   deleteChapter,
   getWriteStory,
@@ -21,6 +22,40 @@ export default function StoryEditorPage({ user }) {
   const navigate = useNavigate();
   const guest = isGuestUser(user);
   const coverInputRef = useRef(null);
+  const manuscriptInputRef = useRef(null);
+  const editorTextareaRef = useRef(null);
+  const notesTextareaRef = useRef(null);
+
+  // Match the Flutter editor: apply visible Unicode styling to selected text
+  // instead of leaving markdown markers in chapter text shown by the reader.
+  const applyInlineFormat = (kind, target = "chapter") => {
+    const input = target === "notes" ? notesTextareaRef.current : editorTextareaRef.current;
+    if (!input) return;
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    if (start === end) return;
+    const currentText = target === "notes" ? notes : content;
+    const selected = currentText.slice(start, end);
+    const styled = Array.from(selected, (char) => {
+      const cp = char.codePointAt(0);
+      if (cp >= 0x1d400 && cp <= 0x1d7ff) return char;
+      if (kind === "bold") {
+        if (cp >= 65 && cp <= 90) return String.fromCodePoint(0x1d400 + cp - 65);
+        if (cp >= 97 && cp <= 122) return String.fromCodePoint(0x1d41a + cp - 97);
+      } else {
+        if (cp >= 65 && cp <= 90) return String.fromCodePoint(0x1d434 + cp - 65);
+        if (cp >= 97 && cp <= 122) return cp === 104 ? "ℎ" : String.fromCodePoint(0x1d44e + cp - 97);
+      }
+      return char;
+    }).join("");
+    const next = currentText.slice(0, start) + styled + currentText.slice(end);
+    if (target === "notes") setNotes(next);
+    else setContent(next);
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(start, start + styled.length);
+    });
+  };
 
   const [story, setStory] = useState(null);
   const [chapters, setChapters] = useState([]);
@@ -32,6 +67,7 @@ export default function StoryEditorPage({ user }) {
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deletingStory, setDeletingStory] = useState(false);
   const [lastSaved, setLastSaved] = useState("");
   const [submitOpen, setSubmitOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -57,7 +93,7 @@ export default function StoryEditorPage({ user }) {
     genre: "Romance",
     genre2: "",
     tags: "",
-    age_rating: "13+",
+    age_rating: "All Ages",
     content_warnings: "",
     ai_assisted: "original",
     availability: "web_app",
@@ -74,27 +110,24 @@ export default function StoryEditorPage({ user }) {
     start: new Date().toISOString().slice(0, 10),
     chapters: "1",
   });
-  const [schedules, setSchedules] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(`nh_schedules_${storyId}`) || "[]");
-    } catch {
-      return [];
-    }
-  });
+  const [schedules, setSchedules] = useState([]);
 
   const active = useMemo(
     () => chapters.find((c) => String(c.id) === String(activeId)) || chapters[0],
     [chapters, activeId]
   );
 
-  function persistSchedules(list) {
+  async function persistSchedules(list) {
+    const writerSettings = { ...(story?.writer_settings || {}), ...settings, schedules: list };
+    await updateStory(storyId, { writer_settings: writerSettings });
     setSchedules(list);
-    localStorage.setItem(`nh_schedules_${storyId}`, JSON.stringify(list));
+    setStory((current) => current ? { ...current, writer_settings: writerSettings } : current);
   }
 
   async function load(id) {
     const res = await getWriteStory(id);
     const s = res?.story || res?.item || res;
+    const savedSettings = s?.writer_settings && typeof s.writer_settings === "object" ? s.writer_settings : {};
     let ch = res?.chapters || res?.items || [];
     if (!Array.isArray(ch)) ch = [];
     // Normalize chapter fields from backend
@@ -109,16 +142,18 @@ export default function StoryEditorPage({ user }) {
     }));
     setStory(s);
     setStoryTitle(s?.title || "Untitled Story");
+    setSchedules(Array.isArray(savedSettings.schedules) ? savedSettings.schedules : []);
     setSettings((prev) => ({
       ...prev,
+      ...savedSettings,
       summary: s?.description || "",
       genre: s?.genre || s?.primary_genre || prev.genre || "Romance",
       content_warnings: s?.content_warnings || "",
       work_status: s?.status_text || prev.work_status || "",
-      story_notes: localStorage.getItem(`nh_story_notes_${id}`) || prev.story_notes || "",
-      age_rating: localStorage.getItem(`nh_age_${id}`) || prev.age_rating,
-      work_type: localStorage.getItem(`nh_work_type_${id}`) || prev.work_type,
-      tags: localStorage.getItem(`nh_tags_${id}`) || prev.tags,
+      story_notes: savedSettings.story_notes || "",
+      age_rating: s?.audience || savedSettings.age_rating || prev.age_rating,
+      language: s?.language || savedSettings.language || prev.language,
+      tags: Array.isArray(s?.tags) ? s.tags.join(", ") : (savedSettings.tags || ""),
     }));
 
     if (!ch.length) {
@@ -160,7 +195,7 @@ export default function StoryEditorPage({ user }) {
       setActiveId(pick.id);
       setTitle(pick.title || "Chapter 1");
       setContent(pick.content || "");
-      setNotes(pick.notes || localStorage.getItem(`nh_notes_${pick.id}`) || "");
+      setNotes(pick.notes || "");
     } else {
       setActiveId(null);
       setTitle("");
@@ -186,11 +221,6 @@ export default function StoryEditorPage({ user }) {
           return;
         }
         await load(storyId);
-        try {
-          setSchedules(JSON.parse(localStorage.getItem(`nh_schedules_${storyId}`) || "[]"));
-        } catch {
-          /* ignore */
-        }
       } catch (e) {
         if (!cancelled) setError(String(e.message || e));
       }
@@ -205,7 +235,7 @@ export default function StoryEditorPage({ user }) {
     setActiveId(c.id);
     setTitle(c.title || "");
     setContent(c.content || "");
-    setNotes(c.notes || localStorage.getItem(`nh_notes_${c.id}`) || "");
+    setNotes(c.notes || "");
     setRenameId(null);
     setMsg("");
   }
@@ -219,7 +249,6 @@ export default function StoryEditorPage({ user }) {
     setMsg("");
     try {
       await updateChapter(active.id, { title, content, notes });
-      localStorage.setItem(`nh_notes_${active.id}`, notes || "");
       setLastSaved(new Date().toLocaleString());
       setMsg("Saved");
       await load(storyId);
@@ -227,6 +256,44 @@ export default function StoryEditorPage({ user }) {
       setMsg(String(e.message || e));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function removeStory() {
+    const confirmed = window.confirm(`Delete “${storyTitle || "Untitled Story"}” and all of its chapters permanently?`);
+    if (!confirmed || deletingStory) return;
+    setDeletingStory(true);
+    setError("");
+    try {
+      await deleteStory(storyId);
+      navigate("/manage-stories", { replace: true });
+    } catch (err) {
+      setError(String(err.message || err));
+    } finally {
+      setDeletingStory(false);
+    }
+  }
+
+  async function importManuscript(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Text files must be smaller than 2 MB.");
+      return;
+    }
+    try {
+      const text = await file.text();
+      if (!text.trim()) {
+        setError("That file is empty. Choose a text or Markdown file with chapter content.");
+        return;
+      }
+      if (content.trim() && !window.confirm("Replace the current chapter text with this file? Save any changes you want to keep first.")) return;
+      setContent(text);
+      setError("");
+      setMsg(`Imported ${file.name}. Save the chapter to keep these changes.`);
+    } catch {
+      setError("This file could not be read. Try a .txt or .md file.");
     }
   }
 
@@ -423,7 +490,7 @@ export default function StoryEditorPage({ user }) {
     setNewScheduleOpen(true);
   }
 
-  function saveSchedule() {
+  async function saveSchedule() {
     if (!(scheduleForm.name || "").trim()) {
       setMsg("Schedule name required");
       return;
@@ -436,7 +503,12 @@ export default function StoryEditorPage({ user }) {
     const next = editScheduleId
       ? schedules.map((s) => (s.id === editScheduleId ? item : s))
       : [...schedules, item];
-    persistSchedules(next);
+    try {
+      await persistSchedules(next);
+    } catch (e) {
+      setMsg(e.message || "Could not save the schedule.");
+      return;
+    }
     setNewScheduleOpen(false);
     setScheduleOpen(true);
     setMsg("Schedule saved");
@@ -464,6 +536,9 @@ export default function StoryEditorPage({ user }) {
         genre: settings.genre || "Romance",
         content_warnings: settings.content_warnings || "",
         status_text: settings.work_status || undefined,
+        audience: settings.age_rating || "All Ages",
+        language: settings.language || "English",
+        writer_settings: { ...(story?.writer_settings || {}), ...settings, schedules },
         tags: settings.tags
           ? String(settings.tags)
               .split(",")
@@ -471,21 +546,6 @@ export default function StoryEditorPage({ user }) {
               .filter(Boolean)
           : [],
       });
-      localStorage.setItem(`nh_story_notes_${storyId}`, settings.story_notes || "");
-      localStorage.setItem(`nh_age_${storyId}`, settings.age_rating || "13+");
-      localStorage.setItem(`nh_work_type_${storyId}`, settings.work_type || "original");
-      localStorage.setItem(`nh_tags_${storyId}`, settings.tags || "");
-      localStorage.setItem(
-        `nh_settings_${storyId}`,
-        JSON.stringify({
-          series: settings.series,
-          ai_assisted: settings.ai_assisted,
-          availability: settings.availability,
-          language: settings.language,
-          inline_comments: settings.inline_comments,
-          expand_languages: settings.expand_languages,
-        })
-      );
       setMsg("Story settings saved");
       setSettingsOpen(false);
       await load(storyId);
@@ -583,6 +643,9 @@ export default function StoryEditorPage({ user }) {
             💾 Save
           </button>
           {lastSaved ? <p className="meta last-saved">Last saved: {lastSaved}</p> : null}
+          <button type="button" className="btn editor-delete-story" onClick={removeStory} disabled={deletingStory || !storyId || storyId === "new"}>
+            {deletingStory ? "Deleting story…" : "Delete story"}
+          </button>
           <button type="button" className="btn editor-audio" onClick={() => setAudioView(true)}>
             Create Audiobook
           </button>
@@ -639,17 +702,24 @@ export default function StoryEditorPage({ user }) {
             </button>
           </div>
           <div className="editor-toolbar">
-            <button type="button" onClick={() => setContent((c) => `${c}**`)}>
+            <button type="button" title="Select text, then apply bold" onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold")}>
               B
             </button>
-            <button type="button" onClick={() => setContent((c) => `${c}*`)}>
+            <button type="button" title="Select text, then apply italic" onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic")}>
               <em>I</em>
             </button>
-            <button type="button" onClick={() => setContent((c) => `${c}\n- `)}>
+            <button type="button" title="Insert a list item" onClick={() => {
+              const input = editorTextareaRef.current;
+              const pos = input?.selectionStart ?? content.length;
+              const next = `${content.slice(0, pos)}\n- ${content.slice(pos)}`;
+              setContent(next);
+              requestAnimationFrame(() => { input?.focus(); input?.setSelectionRange(pos + 3, pos + 3); });
+            }}>
               ≡
             </button>
           </div>
           <textarea
+            ref={editorTextareaRef}
             className="editor-textarea"
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -721,12 +791,11 @@ export default function StoryEditorPage({ user }) {
               + Create Chapter
             </button>
           </div>
-          <button type="button" className="btn btn-primary upload-ms" disabled>
-            ↑ Upload Manuscript
+                    <input ref={manuscriptInputRef} type="file" accept=".txt,.md,text/plain,text/markdown" className="visually-hidden" onChange={importManuscript} />
+          <button type="button" className="btn btn-primary upload-ms" onClick={() => manuscriptInputRef.current?.click()}>
+            Import text manuscript
           </button>
-          <p className="meta upload-hint">
-            Microsoft Word files (.doc / .docx) — paste text in the editor for now.
-          </p>
+                    <p className="meta upload-hint">Import .txt or .md files up to 2 MB. For Word documents, paste the chapter text into the editor.</p>
         </aside>
       </div>
 
@@ -769,12 +838,13 @@ export default function StoryEditorPage({ user }) {
               </button>
             </div>
             <div className="editor-toolbar" style={{ borderRadius: 6, marginBottom: 0 }}>
-              <button type="button">B</button>
-              <button type="button">
+              <button type="button" title="Select text, then apply bold" onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "notes")}>B</button>
+              <button type="button" title="Select text, then apply italic" onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "notes")}>
                 <em>I</em>
               </button>
             </div>
             <textarea
+              ref={notesTextareaRef}
               className="notes-area"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -789,10 +859,12 @@ export default function StoryEditorPage({ user }) {
                 className="btn btn-primary"
                 onClick={async () => {
                   if (active?.id) {
-                    localStorage.setItem(`nh_notes_${active.id}`, notes);
                     try {
                       await updateChapter(active.id, { notes });
-                    } catch (_) {}
+                    } catch (e) {
+                      setMsg(e.message || "Could not save chapter notes.");
+                      return;
+                    }
                   }
                   setNotesOpen(false);
                   setMsg("Notes saved");
@@ -1000,9 +1072,9 @@ export default function StoryEditorPage({ user }) {
                     </label>
                     <div className="form-label">Age Rating</div>
                     {[
-                      ["13+", "Kids (13+)", "May contain some violence, minor coarse language, and minor suggestive adult themes."],
-                      ["16+", "Teenager (16+)", "May contain non-explicit suggestive adult themes, references to some violence, or coarse language."],
-                      ["18+", "Adults (18+)", "May contain explicit language and adult themes."],
+                      ["All Ages", "All Ages", "Suitable for a general audience."],
+                      ["Teen (13+)", "Teen (13+)", "May contain some violence, minor coarse language, or suggestive themes."],
+                      ["Mature (18+)", "Mature (18+)", "May contain explicit language and adult themes."],
                     ].map(([val, label, hint]) => (
                       <label key={val} className="radio-card">
                         <input type="radio" checked={settings.age_rating === val} onChange={() => setSettings({ ...settings, age_rating: val })} />

@@ -6,6 +6,7 @@ import {
   followAuthor,
   getAuthorFollow,
   getBook,
+  getBookComments,
   getBookChapters,
   getBookLike,
   getBookReviews,
@@ -14,6 +15,8 @@ import {
   getChapterReactions,
   getToken,
   postChapterComment,
+  postBookComment,
+  reportBook,
   resolveAssetUrl,
   toggleBookLike,
   toggleChapterReaction,
@@ -48,6 +51,7 @@ export default function StoryPage({ user }) {
   const [book, setBook] = useState(null);
   const [chapters, setChapters] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [bookComments, setBookComments] = useState([]);
   const [recs, setRecs] = useState([]);
   const [liked, setLiked] = useState(false);
   const [following, setFollowing] = useState(false);
@@ -56,6 +60,14 @@ export default function StoryPage({ user }) {
   const [listOpen, setListOpen] = useState(false);
   const [chOpen, setChOpen] = useState(true);
   const [authorOpen, setAuthorOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("Spam or misleading content");
+  const [reportBusy, setReportBusy] = useState(false);
+  const [fontSize, setFontSize] = useState(() => {
+    const saved = Number(localStorage.getItem("novelhub_reader_font_size"));
+    return saved >= 16 && saved <= 26 ? saved : 19;
+  });
+  const [warmPage, setWarmPage] = useState(() => localStorage.getItem("novelhub_reader_warm_page") === "true");
 
   // Paragraph comments on first readable chapter (Inkitt story page layout)
   const [comments, setComments] = useState([]);
@@ -66,6 +78,10 @@ export default function StoryPage({ user }) {
   const [reactionCounts, setReactionCounts] = useState({});
   const [mine, setMine] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [bookCommentDraft, setBookCommentDraft] = useState("");
+  const [bookCommentBusy, setBookCommentBusy] = useState(false);
+  const [chapterCommentMsg, setChapterCommentMsg] = useState("");
+  const [bookCommentMsg, setBookCommentMsg] = useState("");
 
   const firstChapter = chapters[0] || null;
   const chapterNumber = Number(firstChapter?.chapter_number) || 1;
@@ -83,9 +99,11 @@ export default function StoryPage({ user }) {
       const res = await getChapterComments(id, num);
       setComments(res?.items || []);
       setParaCounts(res?.paragraph_counts || {});
-    } catch {
+      setChapterCommentMsg("");
+    } catch (err) {
       setComments([]);
       setParaCounts({});
+      setChapterCommentMsg(`Chapter comments could not load: ${err.message || "check your connection and try again."}`);
     }
   }
 
@@ -105,25 +123,29 @@ export default function StoryPage({ user }) {
     (async () => {
       setError("");
       try {
-        const [b, ch, rev, boot] = await Promise.all([
+        const [b, ch, rev, boot, bookDiscussion] = await Promise.all([
           getBook(id),
           getBookChapters(id),
           getBookReviews(id).then((r) => r?.items || r || []).catch(() => []),
           getBootstrap().catch(() => null),
+          getBookComments(id).then((r) => r?.items || []).catch(() => []),
         ]);
         if (cancelled) return;
         setBook(b);
         const items = ch?.items || [];
         setChapters(items);
         setReviews(Array.isArray(rev) ? rev : []);
+        setBookComments(Array.isArray(bookDiscussion) ? bookDiscussion : []);
 
         // recommendations: other books excluding current
         const pool = [];
         const add = (arr) => (arr || []).forEach((x) => x?.id && pool.push(x));
         if (boot) {
           add(boot.trending);
-          add(boot.featured);
-          add(boot.books);
+          add(boot.featured ? [boot.featured] : []);
+          add(boot.featured_book ? [boot.featured_book] : []);
+          add(boot.discover_books);
+          add(boot.recently_completed);
           add(boot.recently_updated);
         }
         const seen = new Set([String(id)]);
@@ -215,11 +237,54 @@ export default function StoryPage({ user }) {
     }
     try {
       await addToReadingList(Number(id));
-      setMsg("Added to Currently Reading");
+      setMsg("Saved to your reading list.");
       setListOpen(false);
     } catch (e) {
       setMsg(String(e.message || e));
     }
+  }
+
+  async function submitReport(event) {
+    event.preventDefault();
+    if (!getToken() || guest) {
+      setMsg("Sign in to report a story.");
+      setReportOpen(false);
+      return;
+    }
+    setReportBusy(true);
+    try {
+      const result = await reportBook(id, reportReason);
+      setMsg(result?.self ? "You cannot report your own story." : result?.already_reported ? "You have already reported this story." : "Report sent to the moderation team.");
+      setReportOpen(false);
+    } catch (e) {
+      setMsg(String(e.message || e));
+    } finally {
+      setReportBusy(false);
+    }
+  }
+
+  async function copyStoryLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setMsg("Story link copied.");
+    } catch {
+      setMsg("Your browser could not copy the link. Copy it from the address bar.");
+    }
+  }
+
+  function adjustFontSize(amount) {
+    setFontSize((current) => {
+      const next = Math.max(16, Math.min(26, current + amount));
+      localStorage.setItem("novelhub_reader_font_size", String(next));
+      return next;
+    });
+  }
+
+  function toggleWarmPage() {
+    setWarmPage((current) => {
+      localStorage.setItem("novelhub_reader_warm_page", String(!current));
+      return !current;
+    });
   }
 
   function openPara(i) {
@@ -230,11 +295,15 @@ export default function StoryPage({ user }) {
   async function submitComment(e) {
     e.preventDefault();
     if (!getToken() || guest) {
-      setMsg("Sign in to comment");
+      setChapterCommentMsg("Sign in to comment.");
       return;
     }
-    if (!draft.trim()) return;
+    if (!draft.trim()) {
+      setChapterCommentMsg("Write a comment before posting.");
+      return;
+    }
     setBusy(true);
+    setChapterCommentMsg("");
     try {
       await postChapterComment(id, chapterNumber, {
         body: draft.trim(),
@@ -242,10 +311,38 @@ export default function StoryPage({ user }) {
       });
       setDraft("");
       await loadComments(chapterNumber);
+      setChapterCommentMsg("Chapter comment posted.");
     } catch (err) {
-      setMsg(String(err.message || err));
+      setChapterCommentMsg(String(err.message || err));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function submitBookComment(e) {
+    e.preventDefault();
+    const body = bookCommentDraft.trim();
+    if (!getToken() || guest) {
+      setBookCommentMsg("Sign in to join the story discussion.");
+      return;
+    }
+    if (!body) {
+      setBookCommentMsg("Write a comment before posting.");
+      return;
+    }
+    if (bookCommentBusy) return;
+    setBookCommentBusy(true);
+    setBookCommentMsg("");
+    try {
+      await postBookComment(id, body);
+      const response = await getBookComments(id);
+      setBookComments(response?.items || []);
+      setBookCommentDraft("");
+      setBookCommentMsg("Story comment posted.");
+    } catch (err) {
+      setBookCommentMsg(String(err.message || err));
+    } finally {
+      setBookCommentBusy(false);
     }
   }
 
@@ -271,6 +368,7 @@ export default function StoryPage({ user }) {
   if (error) return <div className="container page error-banner">{error}</div>;
   if (!book) return <div className="container page">Loading…</div>;
 
+  const isStoryOwner = !guest && Number(book.user_id || book.author_user_id) === Number(user?.user_id || user?.id);
   const cover = resolveAssetUrl(book.cover_path || book.coverPath || "");
   const tags = [book.genre, book.primary_genre, book.secondary_genre, book.section_name]
     .filter(Boolean)
@@ -289,7 +387,7 @@ export default function StoryPage({ user }) {
         className="story-hero"
         style={{
           backgroundImage: cover
-            ? `linear-gradient(180deg, rgba(20,20,30,0.45), rgba(255,255,255,0.97) 72%), url(${cover})`
+            ? `linear-gradient(180deg, rgba(11,10,18,0.25), rgba(11,10,18,0.96) 76%), url(${cover})`
             : undefined,
         }}
       >
@@ -320,16 +418,9 @@ export default function StoryPage({ user }) {
             </button>
             {listOpen && (
               <div className="list-dropdown">
-                <div className="list-dropdown-title">Private Lists</div>
-                <button type="button" onClick={onAddList}>
-                  Currently Reading
-                </button>
-                <button type="button" onClick={onAddList}>
-                  Archived / Finished Books
-                </button>
-                <button type="button" className="list-create" onClick={onAddList}>
-                  + Create New List
-                </button>
+                <div className="list-dropdown-title">Save this story</div>
+                <button type="button" onClick={onAddList}>Save to reading list</button>
+                <Link className="list-create" to="/library" onClick={() => setListOpen(false)}>Manage reading lists</Link>
               </div>
             )}
           </div>
@@ -343,32 +434,29 @@ export default function StoryPage({ user }) {
           <div className="share-block">
             <span className="meta">Share with your friends</span>
             <div className="share-row">
-              <button type="button" className="share-ico" title="Facebook" onClick={() => navigator.clipboard?.writeText(window.location.href)}>
+              <button type="button" className="share-ico" title="Facebook" onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, "_blank", "noopener,noreferrer")}>
                 f
               </button>
-              <button type="button" className="share-ico" title="Twitter" onClick={() => navigator.clipboard?.writeText(window.location.href)}>
+              <button type="button" className="share-ico" title="Share on X" onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(book.title || "A story on NovelHub")}`, "_blank", "noopener,noreferrer")}>
                 𝕏
               </button>
-              <button type="button" className="share-ico" title="Copy link" onClick={() => navigator.clipboard?.writeText(window.location.href)}>
+              <button type="button" className="share-ico" title="Copy link" onClick={copyStoryLink}>
                 🔗
               </button>
             </div>
           </div>
 
-          <button type="button" className="story-action-btn muted">
+          <button type="button" className="story-action-btn muted" onClick={() => guest ? navigate("/login") : setReportOpen(true)}>
             Report
           </button>
 
           <div className="readability-block">
             <span className="meta">Customize readability</span>
             <div className="readability-row">
-              <button type="button" className="story-action-btn compact">
-                Aa
-              </button>
-              <button type="button" className="story-action-btn compact">
-                ☀
-              </button>
-            </div>
+  <button type="button" className="story-action-btn compact" onClick={() => adjustFontSize(-1)} aria-label="Decrease reading text size">A-</button>
+  <button type="button" className="story-action-btn compact" onClick={() => adjustFontSize(1)} aria-label="Increase reading text size">A+</button>
+  <button type="button" className={`story-action-btn compact ${warmPage ? "selected" : ""}`} onClick={toggleWarmPage} aria-pressed={warmPage}>Warm</button>
+</div>
           </div>
         </aside>
 
@@ -432,13 +520,13 @@ export default function StoryPage({ user }) {
             </div>
             <div>
               <span className="meta-label">Age Rating</span>
-              <strong>13+</strong>
+              <strong>{book.audience || "All Ages"}</strong>
             </div>
           </div>
 
           {/* Chapter 1 body with paragraph bubbles */}
           {firstChapter && (
-            <section className="story-chapter-inline">
+            <section className={`story-chapter-inline ${warmPage ? "story-chapter-inline--warm" : ""}`} style={{ "--reader-font-size": `${fontSize}px` }}>
               <h2 className="chapter-inline-title">
                 {firstChapter.title || `Chapter ${chapterNumber}`}
               </h2>
@@ -508,7 +596,7 @@ export default function StoryPage({ user }) {
               </section>
 
               <section className="chapter-comments-inline">
-                <h3 className="meta">Comments</h3>
+                <h3 className="meta">Chapter discussion</h3>
                 <ul className="comment-thread">
                   {comments
                     .filter((c) => Number(c.paragraph_index) < 0 || c.paragraph_index == null)
@@ -524,7 +612,7 @@ export default function StoryPage({ user }) {
                       </li>
                     ))}
                 </ul>
-                <form className="comment-compose" onSubmit={submitComment}>
+                {!isStoryOwner ? <form className="comment-compose" onSubmit={submitComment}>
                   <input
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
@@ -534,10 +622,31 @@ export default function StoryPage({ user }) {
                   <button type="submit" className="btn btn-primary" disabled={guest || busy}>
                     Post
                   </button>
-                </form>
+                </form> : <p className="comment-form-status meta">You own this story. Reader chapter comments appear here.</p>}
+                {chapterCommentMsg ? <p className="comment-form-status meta" role="status">{chapterCommentMsg}</p> : null}
               </section>
             </section>
           )}
+
+          <section className="book-comments-section" aria-labelledby="book-comments-title">
+            <div className="book-comments-heading">
+              <div><span className="eyebrow">THE WHOLE STORY</span><h2 id="book-comments-title">Story discussion <span>({bookComments.length})</span></h2></div>
+            </div>
+            <ul className="comment-thread book-comment-thread">
+              {bookComments.map((comment) => (
+                <li key={comment.id}>
+                  <div className="comment-avatar">{(comment.display_name || "R").slice(0, 1).toUpperCase()}</div>
+                  <div><strong>{comment.display_name || "Reader"}</strong><p>{comment.body}</p><span className="meta">{comment.created_at || ""}</span></div>
+                </li>
+              ))}
+              {!bookComments.length ? <li className="meta">Start a conversation about this story.</li> : null}
+            </ul>
+            {!isStoryOwner ? <form className="comment-compose book-comment-compose" onSubmit={submitBookComment}>
+              <input value={bookCommentDraft} onChange={(event) => setBookCommentDraft(event.target.value)} maxLength={4000} placeholder={guest ? "Sign in to join the story discussion…" : "Share a thought about this story…"} disabled={guest || bookCommentBusy} />
+              <button type="submit" className="btn btn-primary" disabled={guest || bookCommentBusy || !bookCommentDraft.trim()}>{bookCommentBusy ? "Posting…" : "Post comment"}</button>
+            </form> : <p className="comment-form-status meta">You own this story. Reader story comments appear here.</p>}
+            {bookCommentMsg ? <p className="comment-form-status meta" role="status">{bookCommentMsg}</p> : null}
+          </section>
 
           <section className="reviews-block">
             <h2 className="section-title">Reviews ({reviews.length})</h2>
@@ -569,7 +678,7 @@ export default function StoryPage({ user }) {
                 ))}
               </div>
               <div className="more-recs-wrap">
-                <Link className="btn more-recs-btn" to="/discover">
+                <Link className="btn more-recs-btn" to="/">
                   More Recommendations
                 </Link>
               </div>
@@ -632,7 +741,7 @@ export default function StoryPage({ user }) {
             <h4>POPULAR COLLECTIONS</h4>
             <Link to="/genres/Love">Love</Link>
             <Link to="/genres/Dark">Dark</Link>
-            <Link to="/discover">More</Link>
+            <Link to="/">More</Link>
           </div>
           <div>
             <h4>FOR AUTHORS</h4>
@@ -684,7 +793,7 @@ export default function StoryPage({ user }) {
               <li className="meta">No comments on this paragraph yet.</li>
             )}
           </ul>
-          <form className="comment-compose" onSubmit={submitComment}>
+          {!isStoryOwner ? <form className="comment-compose" onSubmit={submitComment}>
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -694,7 +803,7 @@ export default function StoryPage({ user }) {
             <button type="submit" className="btn btn-primary" disabled={guest || busy}>
               Post
             </button>
-          </form>
+          </form> : <p className="comment-form-status meta">You own this story. Reader paragraph comments appear here.</p>}
         </div>
       )}
 
@@ -718,12 +827,39 @@ export default function StoryPage({ user }) {
                 {following ? "Following" : "Follow +"}
               </button>
             </div>
-            {book.author_id && (
-              <Link className="meta" to={`/authors/${book.author_id}`} onClick={() => setAuthorOpen(false)}>
+            {(book.author_id || book.user_id) && (
+              <Link className="meta" to={`/authors/${book.author_id || book.user_id}`} onClick={() => setAuthorOpen(false)}>
                 View profile →
               </Link>
             )}
           </div>
+        </div>
+      )}
+
+      {reportOpen && (
+        <div className="modal-backdrop" role="presentation" onClick={() => setReportOpen(false)}>
+          <section className="modal-card story-report-dialog" role="dialog" aria-modal="true" aria-labelledby="story-report-title" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-head">
+              <h2 id="story-report-title">Report this story</h2>
+              <button type="button" className="auth-close" onClick={() => setReportOpen(false)} aria-label="Close report dialog">X</button>
+            </div>
+            <p className="meta">Tell the moderation team what concerns you. Reports are reviewed and may affect story availability.</p>
+            <form onSubmit={submitReport}>
+              <label className="story-report-label" htmlFor="story-report-reason">Reason</label>
+              <select id="story-report-reason" value={reportReason} onChange={(event) => setReportReason(event.target.value)}>
+                <option>Spam or misleading content</option>
+                <option>Harassment or hateful content</option>
+                <option>Copyright concern</option>
+                <option>Unsafe or inappropriate content</option>
+                <option>Other</option>
+              </select>
+              {msg ? <p className="meta" role="status">{msg}</p> : null}
+              <div className="modal-actions">
+                <button type="button" className="btn" onClick={() => setReportOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={reportBusy}>{reportBusy ? "Sending..." : "Send report"}</button>
+              </div>
+            </form>
+          </section>
         </div>
       )}
     </div>

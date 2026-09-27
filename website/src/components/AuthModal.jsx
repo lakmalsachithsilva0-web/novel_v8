@@ -117,6 +117,7 @@ export default function AuthModal({ open, mode = "signin", onClose, onSuccess })
         email: em,
         password: password || undefined,
         display_name: displayName.trim() || em.split("@")[0],
+        mode: authMode === "signup" ? "register" : "login",
       });
       const token = res?.access_token || res?.token;
       if (!token) throw new Error("No access token returned");

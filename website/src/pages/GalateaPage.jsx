@@ -46,7 +46,7 @@ export default function GalateaPage() {
             Curated reads from the same NovelHub catalog — romance, fantasy, and more. Full chapters
             stay on NovelHub; this shelf highlights standout titles.
           </p>
-          <Link className="btn btn-primary" to="/discover">
+          <Link className="btn btn-primary" to="/">
             Explore Free Books
           </Link>
         </div>
@@ -56,7 +56,7 @@ export default function GalateaPage() {
         <div className="container page">Loading…</div>
       ) : (
         <>
-          <Shelf title="Galatea Picks" books={top} seeAllTo="/discover" />
+          <Shelf title="Galatea Picks" books={top} seeAllTo="/" />
           <div className="container page">
             <h2>Newest collections</h2>
             <div className="collection-links">

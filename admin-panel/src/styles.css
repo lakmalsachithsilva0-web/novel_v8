@@ -1,19 +1,19 @@
 /* NovelHub-style Admin — dark theme, responsive */
 :root {
-  --bg: #0f1219;
-  --bg-elevated: #161b26;
-  --bg-card: #1a2030;
-  --bg-sidebar: #12161f;
-  --border: #2a3344;
-  --text: #e8edf7;
-  --text-muted: #8b95a8;
-  --accent: #00A88E;
-  --accent-hover: #008f78;
+  --bg: #0B0A12;
+  --bg-elevated: #12101A;
+  --bg-card: #1A1625;
+  --bg-sidebar: #12101A;
+  --border: #2E2640;
+  --text: #F5F3FF;
+  --text-muted: #A89BB8;
+  --accent: #8B5CF6;
+  --accent-hover: #A78BFA;
   --green: #22c55e;
   --orange: #f59e0b;
   --red: #ef4444;
   --purple: #a78bfa;
-  --teal: #00A88E;
+  --teal: #8B5CF6;
   --radius: 12px;
   --sidebar-w: 240px;
   --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -37,7 +37,7 @@ a { color: var(--accent); }
   display: grid;
   place-items: center;
   padding: 24px;
-  background: radial-gradient(ellipse at 30% 20%, #0d3d36 0%, var(--bg) 55%);
+  background: radial-gradient(ellipse at 30% 20%, #2A1F3D 0%, var(--bg) 55%);
 }
 .login-card {
   width: min(400px, 100%);
@@ -100,7 +100,7 @@ a { color: var(--accent); }
 .brand-mark {
   width: 32px; height: 32px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #00A88E, #0d9488);
+  background: linear-gradient(135deg, #8B5CF6, #A78BFA);
   display: grid; place-items: center;
   font-size: .85rem; color: #fff; font-weight: 800;
 }
@@ -120,7 +120,7 @@ a { color: var(--accent); }
   text-align: left;
   font-size: .9rem;
 }
-.nav-item:hover { background: rgba(0,168,142,.08); color: var(--text); }
+.nav-item:hover { background: rgba(139,92,246,.12); color: var(--text); }
 .nav-item.active {
   background: var(--accent);
   color: #fff;
@@ -198,7 +198,7 @@ a { color: var(--accent); }
 .user-chip img, .avatar-fallback {
   width: 32px; height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #00A88E, #0d9488);
+  background: linear-gradient(135deg, #8B5CF6, #A78BFA);
   object-fit: cover;
 }
 .avatar-fallback {
@@ -246,7 +246,7 @@ a { color: var(--accent); }
   width: 28px; height: 28px;
   border-radius: 8px;
   display: grid; place-items: center;
-  background: rgba(0,168,142,.15);
+  background: rgba(139,92,246,.16);
   color: var(--accent);
   font-size: .85rem;
 }
@@ -305,7 +305,7 @@ table.data td {
   border-bottom: 1px solid rgba(42,51,68,.6);
   vertical-align: middle;
 }
-table.data tr:hover td { background: rgba(0,168,142,.04); }
+table.data tr:hover td { background: rgba(139,92,246,.06); }
 
 .cover-thumb {
   width: 40px; height: 56px;
@@ -337,7 +337,7 @@ table.data tr:hover td { background: rgba(0,168,142,.04); }
 .badge-green { background: rgba(34,197,94,.15); color: var(--green); }
 .badge-orange { background: rgba(245,158,11,.15); color: var(--orange); }
 .badge-red { background: rgba(239,68,68,.15); color: var(--red); }
-.badge-blue { background: rgba(0,168,142,.15); color: var(--accent); }
+.badge-blue { background: rgba(139,92,246,.15); color: var(--accent); }
 .badge-gray { background: rgba(139,149,168,.15); color: var(--text-muted); }
 
 .btn {
@@ -729,7 +729,7 @@ table.data tr:hover td { background: rgba(0,168,142,.04); }
 .pro-view-hero-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(145deg, rgba(0,168,142,0.22) 0%, rgba(15,18,25,0.4) 55%, transparent 100%);
+  background: linear-gradient(145deg, rgba(139,92,246,0.22) 0%, rgba(11,10,18,0.4) 55%, transparent 100%);
   pointer-events: none;
 }
 .pro-view-close {
@@ -764,13 +764,13 @@ table.data tr:hover td { background: rgba(0,168,142,.04); }
   height: 72px;
   border-radius: 18px;
   object-fit: cover;
-  border: 2px solid rgba(0,168,142,0.45);
+  border: 2px solid rgba(139,92,246,0.45);
   box-shadow: 0 8px 24px rgba(0,0,0,0.35);
 }
 .pro-view-avatar-fallback {
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #00A88E, #0d9488);
+  background: linear-gradient(135deg, #8B5CF6, #A78BFA);
   color: #fff;
   font-size: 1.6rem;
   font-weight: 700;
@@ -799,9 +799,9 @@ table.data tr:hover td { background: rgba(0,168,142,.04); }
   border-radius: 999px;
   font-size: 0.7rem;
   font-weight: 600;
-  background: rgba(0,168,142,0.15);
+  background: rgba(139,92,246,0.15);
   color: var(--accent);
-  border: 1px solid rgba(0,168,142,0.3);
+  border: 1px solid rgba(139,92,246,0.3);
 }
 .pro-chip.muted {
   background: rgba(139,149,168,0.12);

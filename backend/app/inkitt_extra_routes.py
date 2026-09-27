@@ -188,8 +188,9 @@ def register_inkitt_extra_routes(
         try:
             rows = fetch_all(
                 """
-                SELECT id, name, story_count, cover_path, sort_order
+                SELECT id, name, cover_path, sort_order
                 FROM reading_lists
+                WHERE user_id IS NULL
                 ORDER BY sort_order ASC, id ASC
                 LIMIT 40
                 """
@@ -197,15 +198,17 @@ def register_inkitt_extra_routes(
             items = []
             for r in rows or []:
                 if not isinstance(r, dict):
-                    r = {"id": r[0], "name": r[1], "story_count": r[2], "cover_path": r[3] if len(r) > 3 else ""}
+                    r = {"id": r[0], "name": r[1], "cover_path": r[2] if len(r) > 2 else "", "sort_order": r[3] if len(r) > 3 else 0}
                 lid = r.get("id")
                 covers = []
+                actual_story_count = 0
                 try:
                     cov = fetch_all(
                         """
                         SELECT b.cover_path FROM reading_list_items rli
                         JOIN books b ON b.id = rli.book_id
                         WHERE rli.reading_list_id=%s
+                        ORDER BY rli.created_at DESC, rli.id DESC
                         LIMIT 4
                         """,
                         (lid,),
@@ -214,32 +217,36 @@ def register_inkitt_extra_routes(
                         cp = c.get("cover_path") if isinstance(c, dict) else c[0]
                         if cp:
                             covers.append(cp)
+                    count_rows = fetch_all(
+                        "SELECT COUNT(*) AS story_count FROM reading_list_items WHERE reading_list_id=%s",
+                        (lid,),
+                    )
+                    if count_rows:
+                        count_row = count_rows[0]
+                        actual_story_count = int(count_row.get("story_count") or 0) if isinstance(count_row, dict) else int(count_row[0] or 0)
                 except Exception:
                     pass
-                # fallback: sample book covers
-                if len(covers) < 4:
-                    try:
-                        extra = fetch_all(
-                            "SELECT cover_path FROM books WHERE cover_path IS NOT NULL AND cover_path != '' ORDER BY id DESC LIMIT 4",
-                            (),
-                        )
-                        for c in extra or []:
-                            cp = c.get("cover_path") if isinstance(c, dict) else c[0]
-                            if cp and cp not in covers:
-                                covers.append(cp)
-                    except Exception:
-                        pass
                 items.append(
                     {
                         "id": lid,
                         "name": r.get("name"),
-                        "story_count": int(r.get("story_count") or 0),
+                        "story_count": actual_story_count,
                         "cover_path": r.get("cover_path") or "",
                         "covers": covers[:4],
                         "owner_name": "Community",
                     }
                 )
-            return {"items": items}
+            # Bootstrap seeds from older versions can contain duplicate labels.
+            # Keep one stable public collection per normalized name.
+            unique_items = []
+            seen_names = set()
+            for item in items:
+                key = " ".join(str(item.get("name") or "").casefold().split())
+                if not key or key in seen_names:
+                    continue
+                seen_names.add(key)
+                unique_items.append(item)
+            return {"items": unique_items}
         except Exception as exc:
             LOGGER.exception("public reading lists: %s", exc)
             return {"items": []}

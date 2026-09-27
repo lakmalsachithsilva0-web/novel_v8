@@ -25,7 +25,7 @@ function buildLists(books) {
 function ListCard({ list }) {
   const covers = (list.items || list.books || []).slice(0, 3);
   return (
-    <Link to={`/discover?genre=${encodeURIComponent((list.name || "").replace(/ picks$/i, ""))}`} className="rl-card">
+    <Link to={`/genres/${encodeURIComponent((list.name || "").replace(/ picks$/i, ""))}`} className="rl-card">
       <div className="rl-stack">
         {[0, 1, 2].map((i) => {
           const b = covers[i];
@@ -35,7 +35,7 @@ function ListCard({ list }) {
               {src ? (
                 <img src={src} alt="" />
               ) : (
-                <div className="rl-cover-empty" style={{ background: b?.accent_hex || "#cbd5e1" }} />
+                <div className="rl-cover-empty" style={{ background: b?.accent_hex || "var(--bg-elevated)" }} />
               )}
             </div>
           );
@@ -59,7 +59,7 @@ export default function ReadingListsRow({ lists, books = [] }) {
       <div className="full-bleed-inner">
       <div className="rl-header">
         <h2 className="rl-title">Reading Lists</h2>
-        <Link to="/discover" className="trending-see-all">
+        <Link to="/" className="trending-see-all">
           See all
         </Link>
       </div>

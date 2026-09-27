@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { createSupportRequest, getMyPreferences, updateMyPreferences } from "../api";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { isGuestUser } from "../utils/guest";
 
@@ -29,13 +30,13 @@ const FAQ = {
     },
     {
       q: "How are reading stats calculated?",
-      a: "Chapters read, completed books and day streak come from your library activity stored on the same server as the Flutter app.",
+      a: "Your reading stats are calculated from the chapters and stories you read.",
     },
   ],
   "Writing & Stories": [
     {
       q: "How do I publish a story?",
-      a: "Open Write → create a story, add chapters, then publish. Stories use the same database as the mobile app.",
+      a: "Open Write, create a story, add chapters, and publish when you are ready.",
     },
     {
       q: "Where do likes and reviews appear?",
@@ -158,40 +159,75 @@ export function AccountHelp() {
 }
 
 export function AccountContact() {
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
+  const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [issue, setIssue] = useState("general");
+  const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
-    setSent(true);
+    setError("");
+    setLoading(true);
+    try {
+      await createSupportRequest({
+        email: email.trim(),
+        first_name: firstName.trim() || "Reader",
+        issue,
+        subject: subject.trim() || "Website contact",
+        description: message.trim(),
+        device_type: "web",
+      });
+      setSent(true);
+    } catch (err) {
+      setError(String(err.message || err));
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <PageShell title="Contact us">
       <div className="card-panel">
+        {error ? <div className="error-banner">{error}</div> : null}
         {sent ? (
           <p>
-            Thanks — your message was recorded in this browser session. For production support, email
-            your project maintainer or use the in-app contact channel.
+            Thank you — your message was sent to support.
+            An admin can reply from the admin panel.
           </p>
         ) : (
           <form className="contact-form" onSubmit={submit}>
             <label>
               Name
-              <input value={name} onChange={(e) => setName(e.target.value)} required />
+              <input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
             </label>
             <label>
               Email
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
             <label>
+              Topic
+              <select value={issue} onChange={(e) => setIssue(e.target.value)}>
+                <option value="general">General</option>
+                <option value="account">Account / login</option>
+                <option value="reading">Reading / library</option>
+                <option value="writing">Writing / stories</option>
+                <option value="bug">Bug report</option>
+              </select>
+            </label>
+            <label>
+              Subject
+              <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Short summary" />
+            </label>
+            <label>
               Message
               <textarea value={message} onChange={(e) => setMessage(e.target.value)} required />
             </label>
-            <button type="submit" className="btn btn-primary">
-              Send message
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? "Sending…" : "Send message"}
             </button>
           </form>
         )}
@@ -218,7 +254,7 @@ export function AccountStats({ user }) {
         </div>
       </div>
       <p className="meta" style={{ marginTop: 16 }}>
-        Stats come from the same <code>/api/me</code> data used by the Flutter app when you are signed in.
+        A snapshot of your reading activity and story progress.
       </p>
       <Link className="btn btn-primary" to="/library" style={{ marginTop: 12, display: "inline-flex" }}>
         Open library
@@ -235,17 +271,19 @@ export function AccountNotifications() {
       return {};
     }
   });
-  function toggle(key) {
-    setFlags((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      localStorage.setItem("nh_notif", JSON.stringify(next));
-      return next;
-    });
+  const [status, setStatus] = useState("");
+  useEffect(() => { getMyPreferences().then((p) => { if (p?.notifications) setFlags(p.notifications); }).catch((e) => setStatus(e.message)); }, []);
+  async function toggle(key) {
+    const next = { ...flags, [key]: !flags[key] };
+    setFlags(next); setStatus("Saving…");
+    try { await updateMyPreferences({ notifications: { [key]: next[key] } }); localStorage.setItem("nh_notif", JSON.stringify(next)); setStatus("Saved to your account"); }
+    catch (e) { setFlags(flags); setStatus(e.message || "Could not save preference"); }
   }
   const rows = [
-    ["reading", "Reading reminders"],
-    ["releases", "New releases"],
-    ["recs", "Recommendations"],
+    ["reading_reminders", "Reading reminders"],
+    ["new_releases", "New releases"],
+    ["recommendations", "Recommendations"],
+    ["marketing", "NovelHub updates"],
     ["system", "System messages"],
   ];
   return (
@@ -256,14 +294,14 @@ export function AccountNotifications() {
             <span>{label}</span>
             <button
               type="button"
-              className={`toggle-switch ${flags[key] ? "on" : ""}`}
-              aria-pressed={!!flags[key]}
+              className={`toggle-switch ${flags[key] !== false ? "on" : ""}`}
+              aria-pressed={flags[key] !== false}
               onClick={() => toggle(key)}
             />
           </div>
         ))}
       </div>
-      <p className="meta">Preferences are saved in this browser (same idea as Flutter settings toggles).</p>
+      <p className="meta" role="status">{status || "Preferences sync with your NovelHub account."}</p>
     </PageShell>
   );
 }
@@ -276,12 +314,13 @@ export function AccountGenres() {
       return [];
     }
   });
-  function toggle(g) {
-    setSelected((prev) => {
-      const next = prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g];
-      localStorage.setItem("nh_genres", JSON.stringify(next));
-      return next;
-    });
+  const [status, setStatus] = useState("");
+  useEffect(() => { getMyPreferences().then((p) => { if (Array.isArray(p?.favourite_genres)) setSelected(p.favourite_genres); }).catch((e) => setStatus(e.message)); }, []);
+  async function toggle(g) {
+    const next = selected.includes(g) ? selected.filter((x) => x !== g) : [...selected, g];
+    setSelected(next); setStatus("Saving…");
+    try { await updateMyPreferences({ favourite_genres: next }); localStorage.setItem("nh_genres", JSON.stringify(next)); setStatus("Saved to your account"); }
+    catch (e) { setSelected(selected); setStatus(e.message || "Could not save genres"); }
   }
   return (
     <PageShell title="Favourite genres">
@@ -299,7 +338,7 @@ export function AccountGenres() {
           ))}
         </div>
       </div>
-      <p className="meta">Selected genres help personalize discovery on this device.</p>
+      <p className="meta" role="status">{status || "Selected genres personalize your account across devices."}</p>
     </PageShell>
   );
 }
@@ -312,12 +351,13 @@ export function AccountWarnings() {
       return [];
     }
   });
-  function toggle(w) {
-    setSelected((prev) => {
-      const next = prev.includes(w) ? prev.filter((x) => x !== w) : [...prev, w];
-      localStorage.setItem("nh_warn", JSON.stringify(next));
-      return next;
-    });
+  const [status, setStatus] = useState("");
+  useEffect(() => { getMyPreferences().then((p) => { if (p?.content_warnings) setSelected(Object.keys(p.content_warnings).filter((k) => p.content_warnings[k])); }).catch((e) => setStatus(e.message)); }, []);
+  async function toggle(w) {
+    const next = selected.includes(w) ? selected.filter((x) => x !== w) : [...selected, w];
+    setSelected(next); setStatus("Saving…");
+    try { await updateMyPreferences({ content_warnings: Object.fromEntries(WARNINGS.map((item) => [item, next.includes(item)])) }); localStorage.setItem("nh_warn", JSON.stringify(next)); setStatus("Saved to your account"); }
+    catch (e) { setSelected(selected); setStatus(e.message || "Could not save content warnings"); }
   }
   return (
     <PageShell title="Content warnings">
@@ -335,7 +375,7 @@ export function AccountWarnings() {
           ))}
         </div>
       </div>
-      <p className="meta">Mark topics you prefer to be careful with while browsing.</p>
+      <p className="meta" role="status">{status || "These choices sync with your NovelHub account."}</p>
     </PageShell>
   );
 }
@@ -361,15 +401,16 @@ export function AccountLegal({ kind }) {
 }
 
 export function AccountLanguage() {
+  const [language, setLanguage] = useState("en");
+  const [status, setStatus] = useState("");
+  useEffect(() => { getMyPreferences().then((p) => setLanguage(p?.language || "en")).catch((e) => setStatus(e.message)); }, []);
+  async function save(e) { const value = e.target.value; setLanguage(value); setStatus("Saving…"); try { await updateMyPreferences({ language: value }); setStatus("Saved to your account"); } catch (err) { setStatus(err.message || "Could not save language"); } }
   return (
     <PageShell title="Language">
       <div className="account-section">
-        <div className="toggle-row">
-          <span>English (default)</span>
-          <span className="meta">Active</span>
-        </div>
+        <label className="toggle-row"><span>Display language</span><select value={language} onChange={save}><option value="en">English</option></select></label>
       </div>
-      <p className="meta">Additional languages can be added later without changing the Flutter app.</p>
+      <p className="meta" role="status">{status || "Language preference syncs with your account."}</p>
     </PageShell>
   );
 }
@@ -387,129 +428,54 @@ export function AccountSimple({ title, body }) {
 
 export default function AccountPage({ user, onLogout }) {
   const guest = isGuestUser(user);
-  const name = user?.display_name || user?.email || "Guest";
+  const name = user?.display_name || user?.email || "Reader";
+  const initial = String(name).trim().charAt(0).toUpperCase() || "R";
+  const groups = [
+    { title: "Your space", description: "Pick up a read or return to your writing.", links: [["Library", "Your saved stories and collections", "/library"], ["My stories", "Drafts and published work", "/manage-stories"], ["Reading stats", "Your reading activity", "/account/stats"]] },
+    { title: "Preferences", description: "Shape the stories and updates you see.", links: [["Notifications", "Choose which updates reach you", "/account/notifications"], ["Language", "Set your preferred language", "/account/language"], ["Favourite genres", "Tune story recommendations", "/account/genres"], ["Content warnings", "Manage sensitive content filters", "/account/warnings"]] },
+    { title: "Help & support", description: "Find an answer or get in touch with the team.", links: [["Help center", "Answers to common questions", "/account/help"], ["Contact us", "Send a message to NovelHub support", "/account/contact"]] },
+    { title: "Policies", description: "Read how NovelHub works and protects your data.", links: [["Terms of service", "The rules for using NovelHub", "/account/terms"], ["Privacy policy", "How account information is handled", "/account/privacy"], ["Cookie preferences", "Review cookie information", "/account/cookies"]] },
+  ];
 
   return (
-    <div className="container page account-page">
-      <div className="account-hero">
-        <div className="profile-avatar-lg" style={{ width: 72, height: 72, fontSize: "1.6rem" }}>
-          {String(name).trim().charAt(0).toUpperCase()}
+    <div className="container page account-page more-page">
+      <header className="more-hero card-panel">
+        <div className="more-avatar" aria-hidden="true">{initial}</div>
+        <div className="more-hero-copy">
+          <span className="eyebrow">NOVELHUB ACCOUNT</span>
+          <h1>{guest ? "Make NovelHub yours" : `Welcome back, ${name.split(" ")[0]}`}</h1>
+          <p className="meta">{guest ? "Sign in to sync your library, preferences, and writing across devices." : user?.email || "Your reading and writing, all in one place."}</p>
         </div>
-        <div>
-          <h1 style={{ margin: 0 }}>{guest ? "Account & More" : name}</h1>
-          <p className="meta" style={{ margin: "6px 0 0" }}>
-            {guest
-              ? "Sign in for full profile sync with the mobile app."
-              : user?.email || "Signed in"}
-          </p>
-          <div className="profile-actions-bar">
-            {!guest ? <Link className="btn btn-primary" to="/profile">View profile</Link> : null}
-            {guest ? <Link className="btn btn-primary" to="/login">Sign in</Link> : null}
-          </div>
+        <div className="more-hero-actions">
+          {guest ? <Link className="btn btn-primary" to="/login">Sign in</Link> : <Link className="btn btn-primary" to="/profile">View profile</Link>}
         </div>
+      </header>
+
+      <div className="more-groups-grid">
+        {groups.map((group) => (
+          <section className="more-group" key={group.title}>
+            <div className="more-group-heading"><h2>{group.title}</h2><p className="meta">{group.description}</p></div>
+            <nav className="more-menu" aria-label={group.title}>
+              {group.links.map(([label, detail, to]) => (
+                <Link className="more-menu-item" to={to} key={to}>
+                  <span className="more-menu-icon" aria-hidden="true">{label.slice(0, 3).toUpperCase()}</span>
+                  <span className="more-menu-copy"><strong>{label}</strong><small>{detail}</small></span>
+                  <span className="more-menu-chevron" aria-hidden="true">&gt;</span>
+                </Link>
+              ))}
+            </nav>
+          </section>
+        ))}
       </div>
 
-      <section className="account-section">
-        <h2>Profile</h2>
-        <ul className="account-menu">
-          <li>
-            <Link to="/profile">
-              View profile <span className="chev">›</span>
-            </Link>
-          </li>
-          <li>
-            <Link to="/library">
-              Library <span className="chev">›</span>
-            </Link>
-          </li>
-          <li>
-            <Link to="/manage-stories">
-              My stories / Write <span className="chev">›</span>
-            </Link>
-          </li>
-          <li>
-            <Link to="/account/stats">
-              Reading stats <span className="chev">›</span>
-            </Link>
-          </li>
-        </ul>
-      </section>
-
-      <section className="account-section">
-        <h2>Support</h2>
-        <ul className="account-menu">
-          <li>
-            <Link to="/account/help">
-              Help Center <span className="chev">›</span>
-            </Link>
-          </li>
-          <li>
-            <Link to="/account/contact">
-              Contact us <span className="chev">›</span>
-            </Link>
-          </li>
-        </ul>
-      </section>
-
-      <section className="account-section">
-        <h2>Settings</h2>
-        <ul className="account-menu">
-          <li>
-            <Link to="/account/notifications">
-              Notifications <span className="chev">›</span>
-            </Link>
-          </li>
-          <li>
-            <Link to="/account/language">
-              Language <span className="chev">›</span>
-            </Link>
-          </li>
-          <li>
-            <Link to="/account/genres">
-              Favourite genres <span className="chev">›</span>
-            </Link>
-          </li>
-          <li>
-            <Link to="/account/warnings">
-              Content warnings <span className="chev">›</span>
-            </Link>
-          </li>
-        </ul>
-      </section>
-
-      <section className="account-section">
-        <h2>Legal</h2>
-        <ul className="account-menu">
-          <li>
-            <Link to="/account/terms">
-              Terms of Service <span className="chev">›</span>
-            </Link>
-          </li>
-          <li>
-            <Link to="/account/privacy">
-              Privacy Policy <span className="chev">›</span>
-            </Link>
-          </li>
-          <li>
-            <Link to="/account/cookies">
-              Cookie preferences <span className="chev">›</span>
-            </Link>
-          </li>
-        </ul>
-      </section>
-
       {!guest ? (
-        <section className="account-section">
-          <h2>Change accounts</h2>
-          <ul className="account-menu">
-            <li>
-              <button type="button" className="menu-row danger" onClick={() => onLogout?.()}>
-                Sign out <span className="chev">›</span>
-              </button>
-            </li>
-          </ul>
+        <section className="more-signout card-panel">
+          <div><h2>Need a different account?</h2><p className="meta">Sign out from this device and continue with another account.</p></div>
+          <button type="button" className="btn btn-ghost" onClick={() => onLogout?.()}>Sign out</button>
         </section>
-      ) : null}
+      ) : (
+        <div className="more-guest-note"><p className="meta">You can explore stories as a guest. Sign in is needed to save preferences and sync your reading.</p></div>
+      )}
     </div>
   );
 }

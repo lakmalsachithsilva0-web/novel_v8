@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   addToReadingList,
   getBook,
@@ -7,6 +7,7 @@ import {
   getChapterComments,
   getChapterReactions,
   getToken,
+  saveLibraryProgress,
   postChapterComment,
   toggleChapterReaction,
 } from "../api";
@@ -33,12 +34,14 @@ const REACTIONS = [
 
 export default function ChapterPage({ user }) {
   const { id, chapterId } = useParams();
+  const navigate = useNavigate();
   const guest = isGuestUser(user);
   const [book, setBook] = useState(null);
   const [chapters, setChapters] = useState([]);
   const [chapter, setChapter] = useState(null);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
+  const [commentMsg, setCommentMsg] = useState("");
   const [comments, setComments] = useState([]);
   const [paraCounts, setParaCounts] = useState({});
   const [activePara, setActivePara] = useState(null);
@@ -47,6 +50,12 @@ export default function ChapterPage({ user }) {
   const [busy, setBusy] = useState(false);
   const [reactionCounts, setReactionCounts] = useState({});
   const [mine, setMine] = useState([]);
+  const [fontSize, setFontSize] = useState(() => {
+    const saved = Number(localStorage.getItem("novelhub_reader_font_size"));
+    return saved >= 16 && saved <= 26 ? saved : 19;
+  });
+  const [warmPage, setWarmPage] = useState(() => localStorage.getItem("novelhub_reader_warm_page") === "true");
+  const progressTimer = useRef(null);
 
   const chapterNumber = useMemo(() => {
     if (!chapter) return 1;
@@ -58,9 +67,11 @@ export default function ChapterPage({ user }) {
       const res = await getChapterComments(id, num);
       setComments(res?.items || []);
       setParaCounts(res?.paragraph_counts || {});
-    } catch {
+      setCommentMsg("");
+    } catch (err) {
       setComments([]);
       setParaCounts({});
+      setCommentMsg(`Comments could not load: ${err.message || "check your connection and try again."}`);
     }
   }
 
@@ -102,6 +113,44 @@ export default function ChapterPage({ user }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, chapterId]);
 
+  useEffect(() => {
+    if (!chapter || !getToken() || guest) return undefined;
+    const total = chapters.length;
+    const chapterNum = Number(chapter.chapter_number) || 1;
+    saveLibraryProgress({
+      book_id: Number(id),
+      reading_status: "Reading",
+      chapters: total,
+      last_chapter_number: chapterNum,
+      last_paragraph_index: 0,
+      chapters_read: chapterNum,
+      primary_genre: book?.primary_genre || book?.genre || "",
+    }).catch(() => {});
+    return undefined;
+  }, [chapter?.id, chapters.length, guest, id, book?.primary_genre, book?.genre]);
+
+  useEffect(() => () => clearTimeout(progressTimer.current), []);
+
+  useEffect(() => {
+    if (!chapter || guest || !getToken()) return undefined;
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const visible = [...document.querySelectorAll("[data-reader-paragraph]")]
+          .filter((node) => node.getBoundingClientRect().top < window.innerHeight * 0.68);
+        const current = visible.at(-1);
+        if (current) recordProgress(Number(current.dataset.readerParagraph));
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, [chapter?.id, guest]);
+
   const idx = chapters.findIndex((c) => String(c.id) === String(chapterId));
   if (guest && !isChapterAllowedForGuest(idx >= 0 ? idx : 0)) {
     return (
@@ -124,6 +173,7 @@ export default function ChapterPage({ user }) {
 
   if (error) return <div className="container page error-banner">{error}</div>;
   if (!chapter) return <div className="container page">Loading chapter…</div>;
+  const isStoryOwner = !guest && Number(book?.user_id || book?.author_user_id) === Number(user?.user_id || user?.id);
 
   const prev = idx > 0 ? chapters[idx - 1] : null;
   const next = idx >= 0 && idx < chapters.length - 1 ? chapters[idx + 1] : null;
@@ -134,19 +184,41 @@ export default function ChapterPage({ user }) {
     .map((p) => p.trim())
     .filter(Boolean);
 
+  function recordProgress(i) {
+    if (getToken() && !guest) {
+      clearTimeout(progressTimer.current);
+      progressTimer.current = setTimeout(() => {
+        saveLibraryProgress({
+          book_id: Number(id),
+          reading_status: "Reading",
+          chapters: chapters.length,
+          last_chapter_number: chapterNumber,
+          last_paragraph_index: i,
+          chapters_read: chapterNumber,
+          primary_genre: book?.primary_genre || book?.genre || "",
+        }).catch(() => {});
+      }, 700);
+    }
+  }
+
   function openPara(i) {
     setActivePara(i);
     setPanelOpen(true);
+    recordProgress(i);
   }
 
   async function submitComment(e) {
     e.preventDefault();
     if (!getToken() || guest) {
-      setMsg("Sign in to comment");
+      setCommentMsg("Sign in to comment.");
       return;
     }
-    if (!draft.trim()) return;
+    if (!draft.trim()) {
+      setCommentMsg("Write a comment before posting.");
+      return;
+    }
     setBusy(true);
+    setCommentMsg("");
     try {
       await postChapterComment(id, chapterNumber, {
         body: draft.trim(),
@@ -154,9 +226,9 @@ export default function ChapterPage({ user }) {
       });
       setDraft("");
       await loadComments(chapterNumber);
-      setMsg("Comment posted");
+      setCommentMsg("Comment posted.");
     } catch (err) {
-      setMsg(String(err.message || err));
+      setCommentMsg(String(err.message || err));
     } finally {
       setBusy(false);
     }
@@ -197,6 +269,44 @@ export default function ChapterPage({ user }) {
     }
   }
 
+  async function finishStory() {
+    if (!getToken() || guest) {
+      setMsg("Sign in to save your reading progress");
+      return;
+    }
+    try {
+      await saveLibraryProgress({
+        book_id: Number(id),
+        reading_status: "Completed",
+        updated_text: "Finished",
+        chapters: chapters.length,
+        last_chapter_number: chapterNumber,
+        last_paragraph_index: Math.max(0, paragraphs.length - 1),
+        chapters_read: chapters.length,
+        primary_genre: book?.primary_genre || book?.genre || "",
+      });
+      setMsg("Story marked completed");
+      navigate(`/stories/${id}`);
+    } catch (err) {
+      setMsg(String(err.message || err));
+    }
+  }
+
+  function adjustFontSize(amount) {
+    setFontSize((current) => {
+      const next = Math.max(16, Math.min(26, current + amount));
+      localStorage.setItem("novelhub_reader_font_size", String(next));
+      return next;
+    });
+  }
+
+  function toggleWarmPage() {
+    setWarmPage((current) => {
+      localStorage.setItem("novelhub_reader_warm_page", String(!current));
+      return !current;
+    });
+  }
+
   const panelComments =
     activePara == null
       ? comments
@@ -216,14 +326,14 @@ export default function ChapterPage({ user }) {
           <div className="reader-font-tools">
             <span className="meta">Customize readability</span>
             <div className="font-btns">
-              <button type="button" className="story-action-btn">
-                Aa
-              </button>
+              <button type="button" className="story-action-btn" onClick={() => adjustFontSize(-1)} aria-label="Decrease reading text size">A-</button>
+              <button type="button" className="story-action-btn" onClick={() => adjustFontSize(1)} aria-label="Increase reading text size">A+</button>
+              <button type="button" className={`story-action-btn ${warmPage ? "selected" : ""}`} onClick={toggleWarmPage} aria-pressed={warmPage}>Warm page</button>
             </div>
           </div>
         </aside>
 
-        <article className="reader-main">
+        <article className={`reader-main ${warmPage ? "reader-main--warm" : ""}`}>
           <div className="reader-top-inline">
             <Link to={`/stories/${id}`} className="back-link">
               ← {book?.title || "Story"}
@@ -231,13 +341,35 @@ export default function ChapterPage({ user }) {
             <h1 className="chapter-heading">{chapter.title || `Chapter ${chapterNumber}`}</h1>
           </div>
 
-          <div className="reader-paragraphs">
+          <nav className="reader-chapter-tabs" aria-label="Choose a chapter">
+            {chapters.map((item, index) => {
+              const locked = guest && !isChapterAllowedForGuest(index);
+              const selected = String(item.id) === String(chapterId);
+              return locked ? (
+                <span className="reader-chapter-tab is-locked" key={item.id} aria-disabled="true">
+                  {item.chapter_number ?? index + 1}
+                </span>
+              ) : (
+                <Link
+                  className={`reader-chapter-tab${selected ? " is-active" : ""}`}
+                  key={item.id}
+                  to={`/stories/${id}/chapters/${item.id}`}
+                  aria-current={selected ? "page" : undefined}
+                  title={item.title || `Chapter ${item.chapter_number ?? index + 1}`}
+                >
+                  {item.chapter_number ?? index + 1}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="reader-paragraphs" style={{ "--reader-font-size": `${fontSize}px` }}>
             {paragraphs.length ? (
               paragraphs.map((p, i) => {
                 const count = Number(paraCounts[i] || paraCounts[String(i)] || 0);
                 return (
                   <div key={i} className="para-row">
-                    <p className="para-text">{p}</p>
+                    <p className="para-text" data-reader-paragraph={i}>{p}</p>
                     <button
                       type="button"
                       className={`para-bubble ${count > 0 ? "has-comments" : ""}`}
@@ -301,9 +433,9 @@ export default function ChapterPage({ user }) {
                 Next →
               </Link>
             ) : (
-              <Link className="btn" to={`/stories/${id}`}>
-                Back to story
-              </Link>
+              <button className="btn btn-primary" type="button" onClick={finishStory}>
+                Finish story
+              </button>
             )}
           </div>
         </article>
@@ -320,7 +452,7 @@ export default function ChapterPage({ user }) {
               {chapters.map((c, i) => {
                 const locked = guest && !isChapterAllowedForGuest(i);
                 return (
-                  <li key={c.id} className={locked ? "chapter-locked" : ""}>
+                  <li key={c.id} className={locked ? "chapter-locked" : String(c.id) === String(chapterId) ? "active-ch" : ""}>
                     {locked ? (
                       <span>
                         {c.chapter_number != null ? `${c.chapter_number}. ` : ""}
@@ -362,7 +494,7 @@ export default function ChapterPage({ user }) {
             ))}
             {panelComments.length === 0 && <li className="meta">No comments on this paragraph yet.</li>}
           </ul>
-          <form className="comment-compose" onSubmit={submitComment}>
+          {!isStoryOwner ? <form className="comment-compose" onSubmit={submitComment}>
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -372,7 +504,8 @@ export default function ChapterPage({ user }) {
             <button type="submit" className="btn btn-primary" disabled={guest || busy}>
               Post
             </button>
-          </form>
+          </form> : <p className="comment-form-status meta">You own this story. Reader comments appear here.</p>}
+          {commentMsg ? <p className="comment-form-status meta" role="status">{commentMsg}</p> : null}
         </div>
       )}
     </div>
