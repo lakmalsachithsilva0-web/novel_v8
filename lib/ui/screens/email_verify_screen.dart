@@ -10,11 +10,13 @@ class EmailVerifyScreen extends StatefulWidget {
     required this.email,
     required this.apiService,
     this.initialDevToken,
+    this.emailSent = true,
   });
 
   final String email;
   final ApiService apiService;
   final String? initialDevToken;
+  final bool emailSent;
 
   @override
   State<EmailVerifyScreen> createState() => _EmailVerifyScreenState();
@@ -24,10 +26,12 @@ class _EmailVerifyScreenState extends State<EmailVerifyScreen> {
   final _codeCtrl = TextEditingController();
   bool _busy = false;
   bool _resent = false;
+  late bool _emailSent;
 
   @override
   void initState() {
     super.initState();
+    _emailSent = widget.emailSent;
     if ((widget.initialDevToken ?? '').isNotEmpty) {
       _codeCtrl.text = widget.initialDevToken!;
     }
@@ -80,7 +84,10 @@ class _EmailVerifyScreenState extends State<EmailVerifyScreen> {
       final dev = (res['dev_token'] ?? '').toString();
       if (dev.isNotEmpty) _codeCtrl.text = dev;
       if (!mounted) return;
-      setState(() => _resent = true);
+      setState(() {
+        _resent = true;
+        _emailSent = res['email_sent'] == true;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -126,7 +133,9 @@ class _EmailVerifyScreenState extends State<EmailVerifyScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'We sent a verification code to\n${widget.email}',
+                _emailSent
+                    ? 'We sent a verification code to\n${widget.email}'
+                    : 'We could not send a code to\n${widget.email}. Try resending after email delivery is configured.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.black54, height: 1.4),
               ),

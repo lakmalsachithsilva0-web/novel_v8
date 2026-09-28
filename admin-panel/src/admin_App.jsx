@@ -521,7 +521,7 @@ export default function App() {
                   setSidebarOpen(false);
                 }}
               >
-                <span className="nav-icon">{n.icon}</span>
+                <span className="nav-icon" aria-hidden="true">{n.label.slice(0, 1)}</span>
                 {n.label}
               </button>
             </li>
@@ -535,12 +535,12 @@ export default function App() {
       <div className="main-col">
         <header className="topbar">
           <button type="button" className="mobile-menu-btn" onClick={() => setSidebarOpen(true)}>
-            ☰
+            {String.fromCharCode(9776)}
           </button>
           <h1>{pageTitle}</h1>
           <div className="top-search">
             <input
-              placeholder="Search novels, authors, users…"
+              placeholder="Search novels, authors, users..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -550,8 +550,7 @@ export default function App() {
               {loading ? "Sync…" : "Refresh"}
             </button>
             <div className="icon-btn" title="Notifications">
-              🔔
-              {stats.pending > 0 && <span className="badge-dot">{Math.min(stats.pending, 9)}</span>}
+              {String.fromCharCode(128276)}{stats.pending > 0 && <span className="badge-dot">{Math.min(stats.pending, 9)}</span>}
             </div>
             <div className="user-chip">
               <div className="avatar-fallback">{(session?.username || "A")[0].toUpperCase()}</div>

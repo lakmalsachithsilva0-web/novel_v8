@@ -11,6 +11,7 @@ class ApiService {
   ApiService();
 
   String? _authToken;
+  Future<void> Function(String message)? onSessionRejected;
 
   String? get authTokenForPersistence => _authToken;
 
@@ -101,13 +102,37 @@ class ApiService {
     Duration timeout,
   ) async {
     try {
-      return await request(_baseUrl).timeout(timeout);
+      final response = await request(_baseUrl).timeout(timeout);
+      await _handleSessionRejection(response);
+      return response;
     } on http.ClientException {
       if (kDebugMode || _baseUrl == _productionApiBaseUrl) rethrow;
-      return request(_productionApiBaseUrl).timeout(timeout);
+      final response = await request(_productionApiBaseUrl).timeout(timeout);
+      await _handleSessionRejection(response);
+      return response;
     } on TimeoutException {
       if (kDebugMode || _baseUrl == _productionApiBaseUrl) rethrow;
-      return request(_productionApiBaseUrl).timeout(timeout);
+      final response = await request(_productionApiBaseUrl).timeout(timeout);
+      await _handleSessionRejection(response);
+      return response;
+    }
+  }
+
+  Future<void> _handleSessionRejection(http.Response response) async {
+    if (_authToken == null || _authToken!.isEmpty) return;
+    final body = response.body.toLowerCase();
+    final rejected = response.statusCode == 401 ||
+        (response.statusCode == 403 &&
+            (body.contains('banned') ||
+                body.contains('suspended') ||
+                body.contains('deleted')));
+    if (!rejected) return;
+    final message = _authErrorBody(response);
+    final callback = onSessionRejected;
+    if (callback != null) {
+      await callback(message);
+    } else {
+      setAuthToken(null);
     }
   }
 

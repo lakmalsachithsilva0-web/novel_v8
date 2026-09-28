@@ -1153,13 +1153,14 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                       if (text.isEmpty) return;
                                       setModal(() => posting = true);
                                       try {
-                                        final item = await widget.apiService
-                                            .postChapterComment(
-                                              bookId: bookId,
-                                              chapterNumber: _chapterNumber,
-                                              body: text,
-                                              paragraphIndex: paragraphIndex,
-                                            );
+                                        final item = await _postCommentGuarded(
+                                          body: text,
+                                          paragraphIndex: paragraphIndex,
+                                        );
+                                        if (item == null) {
+                                          setModal(() => posting = false);
+                                          return;
+                                        }
                                         // Ensure UI has body/name even if API omits them
                                         final normalized = <String, dynamic>{
                                           'display_name':
@@ -2040,15 +2041,16 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     }
   }
 
-  Future<bool> _postCommentGuarded({
+  Future<Map<String, dynamic>?> _postCommentGuarded({
     required String body,
     int? paragraphIndex,
   }) async {
     final bookId = widget.bookId;
-    if (bookId == null) return false;
-    if (await _isAuthorReadingOwnBook() && paragraphIndex == null) {
+    if (bookId == null) return null;
+    if (await _isAuthorReadingOwnBook() &&
+        (paragraphIndex == null || paragraphIndex < 0)) {
       // Chapter-level new comment by author blocked; paragraph/reply style still allowed via paragraphIndex
-      if (!mounted) return false;
+      if (!mounted) return null;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -2056,15 +2058,14 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
           ),
         ),
       );
-      return false;
+      return null;
     }
-    await widget.apiService.postChapterComment(
+    return widget.apiService.postChapterComment(
       bookId: bookId,
       chapterNumber: _chapterNumber,
       body: body,
       paragraphIndex: paragraphIndex,
     );
-    return true;
   }
 
   Future<void> _editOwnComment({
@@ -2544,12 +2545,13 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                       if (text.isEmpty) return;
                                       setModal(() => posting = true);
                                       try {
-                                        final item = await widget.apiService
-                                            .postChapterComment(
-                                              bookId: bookId,
-                                              chapterNumber: _chapterNumber,
-                                              body: text,
-                                            );
+                                        final item = await _postCommentGuarded(
+                                          body: text,
+                                        );
+                                        if (item == null) {
+                                          setModal(() => posting = false);
+                                          return;
+                                        }
                                         controller.clear();
                                         setModal(() {
                                           comments = [item, ...comments];

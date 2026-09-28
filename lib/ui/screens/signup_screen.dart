@@ -178,6 +178,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
               builder: (_) => EmailVerifyScreen(
                 apiService: _api,
                 email: _emailCtrl.text.trim(),
+                initialDevToken: result['dev_token']?.toString(),
+                emailSent: result['email_sent'] == true,
               ),
             ),
           );

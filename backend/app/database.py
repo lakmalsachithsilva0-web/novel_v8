@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sqlite3
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 from uuid import uuid4
 
 try:
@@ -27,6 +28,37 @@ if os.getenv("DB_TYPE", "mysql").strip().lower() != "mysql":
 USE_SQLITE = False
 
 MYSQL_ERROR = mysql_connector.Error if mysql_connector is not None else Exception
+
+
+def mysql_connection_settings(*, include_database: bool = True) -> dict:
+    """Build connector settings from MYSQL_* fields or a hosted MYSQL_URL."""
+    parsed = None
+    mysql_url = os.getenv("MYSQL_URL", "").strip()
+    if mysql_url:
+        parsed = urlsplit(mysql_url)
+        if parsed.scheme not in {"mysql", "mariadb"} or not parsed.hostname:
+            raise ValueError("MYSQL_URL must be a mysql:// or mariadb:// connection URL")
+
+    settings = {
+        "host": os.getenv("MYSQL_HOST") or (parsed.hostname if parsed else "127.0.0.1"),
+        "port": int(os.getenv("MYSQL_PORT") or (parsed.port if parsed else 3306)),
+        "user": os.getenv("MYSQL_USER") or (unquote(parsed.username or "") if parsed else "root"),
+        "password": os.getenv("MYSQL_PASSWORD") or (unquote(parsed.password or "") if parsed else ""),
+        "ssl_disabled": os.getenv("MYSQL_SSL_DISABLED", "false").strip().lower() == "true",
+        "use_pure": True,
+    }
+    if include_database:
+        database_name = os.getenv("MYSQL_DATABASE", "").strip()
+        if not database_name and parsed:
+            database_name = unquote(parsed.path.lstrip("/"))
+        settings["database"] = database_name or "defaultdb"
+
+    ssl_ca = os.getenv("MYSQL_SSL_CA", "").strip()
+    if ssl_ca:
+        settings["ssl_ca"] = ssl_ca
+    if os.getenv("MYSQL_SSL_VERIFY_CERT", "false").strip().lower() == "true":
+        settings["ssl_verify_cert"] = True
+    return settings
 
 REQUIRED_TABLES = {
     "categories",
@@ -968,20 +1000,20 @@ def _split_sql_statements(sql_content: str) -> list[str]:
 
 def _ensure_database_exists() -> None:
     """Create the target database if it does not exist yet."""
-    ssl_disabled = os.getenv("MYSQL_SSL_DISABLED", "false").lower() == "true"
-    db_name = os.getenv("MYSQL_DATABASE", "defaultdb")
+    # Managed database add-ons provide an already-created database in MYSQL_URL;
+    # their application user may not have privileges to CREATE DATABASE.
+    if os.getenv("MYSQL_URL", "").strip():
+        return
+    settings = mysql_connection_settings(include_database=False)
+    db_name = os.getenv("MYSQL_DATABASE", "").strip()
+    if not db_name and os.getenv("MYSQL_URL", "").strip():
+        db_name = unquote(urlsplit(os.environ["MYSQL_URL"]).path.lstrip("/"))
+    db_name = db_name or "defaultdb"
     if mysql_connector is None:
         raise RuntimeError("mysql.connector is not installed; install mysql-connector-python to use MySQL mode")
 
     try:
-        connection = mysql_connector.connect(
-            host=os.getenv("MYSQL_HOST", "127.0.0.1"),
-            port=int(os.getenv("MYSQL_PORT", "3306")),
-            user=os.getenv("MYSQL_USER", "root"),
-            password=os.getenv("MYSQL_PASSWORD", ""),
-            ssl_disabled=ssl_disabled,
-            use_pure=True,
-        )
+        connection = mysql_connector.connect(**settings)
         cursor = connection.cursor()
         cursor.execute(
             f"CREATE DATABASE IF NOT EXISTS `{db_name}` "
@@ -2253,7 +2285,6 @@ def run_startup_migrations() -> dict[str, int]:
     connection.close()
     return result
 def get_connection():
-    ssl_disabled = os.getenv("MYSQL_SSL_DISABLED", "false").lower() == "true"
     if mysql_connector is None:
         raise RuntimeError("mysql.connector is not installed; install mysql-connector-python to use MySQL mode")
 
@@ -2266,13 +2297,7 @@ def get_connection():
     read_timeout_s = int(os.getenv("MYSQL_READ_TIMEOUT", default_rw))
     write_timeout_s = int(os.getenv("MYSQL_WRITE_TIMEOUT", default_rw))
     kwargs = dict(
-        host=os.getenv("MYSQL_HOST", "127.0.0.1"),
-        port=int(os.getenv("MYSQL_PORT", "3306")),
-        user=os.getenv("MYSQL_USER", "root"),
-        password=os.getenv("MYSQL_PASSWORD", ""),
-        database=os.getenv("MYSQL_DATABASE", "defaultdb"),
-        ssl_disabled=ssl_disabled,
-        use_pure=True,
+        **mysql_connection_settings(include_database=True),
         connection_timeout=timeout_s,
         autocommit=True,
     )

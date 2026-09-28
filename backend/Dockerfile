@@ -13,16 +13,17 @@ COPY app/ ./app/
 COPY sql/ ./sql/
 COPY uploads/ ./uploads/
 
-# Defaults: SQLite (local + free cloud). Override with env/secrets.
-ENV DB_TYPE=sqlite \
-    SQLITE_FILE=/data/novel_app.db \
-    UPLOAD_DIR=/data/uploads \
+# The backend requires MySQL. Local settings stay in backend/.env; production
+# credentials are supplied by the hosting platform at runtime.
+ENV DB_TYPE=mysql \
+    MYSQL_SSL_DISABLED=false \
+    UPLOAD_DIR=/app/uploads \
     PYTHONUNBUFFERED=1 \
-    PORT=7860
+    PORT=8000
 
-RUN mkdir -p /data/uploads /app/uploads
+RUN mkdir -p /app/uploads
 
-# HF Spaces uses 7860; Render injects $PORT
-EXPOSE 7860
+# SnapDeploy can route to this port; PORT can still override it at runtime.
+EXPOSE 8000
 
-CMD ["sh", "-c", "mkdir -p /data/uploads || true; mkdir -p "$UPLOAD_DIR" || true; if [ ! -w /data 2>/dev/null ]; then export SQLITE_FILE=/app/novel_app.db UPLOAD_DIR=/app/uploads; fi; uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}"]
+CMD ["sh", "-c", "mkdir -p \"${UPLOAD_DIR:-/app/uploads}\" && uvicorn app.main:app --host 0.0.0.0 --port \"${PORT:-8000}\""]

@@ -37,6 +37,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   String _contentVersion = '';
   Timer? _syncTimer;
   AuthSession? _session;
+  bool _handlingAuthFailure = false;
   // Every fresh app launch starts at Login. Existing sessions are validated in
   // the background but do not bypass the explicit sign-in screen.
   bool _showLoginOverlay = true;
@@ -66,6 +67,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _apiService.onSessionRejected = _handleRejectedSession;
     _bootstrapApp();
     unawaited(_restoreWriteTabFromPrefs());
     // Poll less often - fewer Vercel cold invocations; still refreshes on resume
@@ -370,6 +372,34 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
       _profileGatePassed = false;
     });
     await _loadBootstrap();
+  }
+
+  Future<void> _handleRejectedSession(String message) async {
+    if (_handlingAuthFailure || _session == null) return;
+    _handlingAuthFailure = true;
+    try {
+      await _authService.signOut();
+    } catch (_) {
+      _apiService.setAuthToken(null);
+    }
+    if (!mounted) {
+      _handlingAuthFailure = false;
+      return;
+    }
+    setState(() {
+      _session = null;
+      _selectedIndex = 1;
+      _showLoginOverlay = true;
+      _profileGatePassed = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message.isEmpty ? 'Your session ended. Please sign in again.' : message,
+        ),
+      ),
+    );
+    _handlingAuthFailure = false;
   }
 
   void _requireAuth({int? afterLoginIndex}) {

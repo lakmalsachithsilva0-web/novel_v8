@@ -37,6 +37,12 @@ LOGGER = logging.getLogger(__name__)
 UPLOAD_ROOT = Path(os.getenv("UPLOAD_DIR", "./uploads")).resolve()
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-key-change-in-production")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+_runtime_env = os.getenv("ENV", "").strip().lower()
+_is_production_runtime = _runtime_env in {"prod", "production"} or bool(
+    os.getenv("VERCEL") or os.getenv("VERCEL_ENV")
+)
+if _is_production_runtime and JWT_SECRET == "dev-secret-key-change-in-production":
+    raise RuntimeError("Set a unique JWT_SECRET before running the backend in production.")
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin_Supun")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Ux3@f=7x2")
 ADMIN_TOKEN_EXPIRES_HOURS = int(os.getenv("ADMIN_TOKEN_EXPIRES_HOURS", "24"))
@@ -459,14 +465,17 @@ def _password_policy_ok(password: str) -> tuple[bool, str]:
 
 
 def _send_verification_email(to_email: str, token: str, display_name: str = "") -> bool:
-    """Send verification email via Gmail SMTP (env or app defaults)."""
+    """Send verification email using deployment-provided SMTP credentials."""
     import os
     import smtplib
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
 
-    smtp_user = os.environ.get("SMTP_EMAIL", "malindasilva047@gmail.com").strip()
-    smtp_pass = os.environ.get("SMTP_APP_PASSWORD", "nodv evuf pxpn qzeq").replace(" ", "")
+    smtp_user = os.environ.get("SMTP_EMAIL", "").strip()
+    smtp_pass = os.environ.get("SMTP_APP_PASSWORD", "").replace(" ", "")
+    if not smtp_user or not smtp_pass:
+        LOGGER.warning("Verification email not sent: SMTP_EMAIL/SMTP_APP_PASSWORD are not configured")
+        return False
     app_name = os.environ.get("APP_NAME", "Wingsaga")
     # Deep link / web verify URL for the app
     base = os.environ.get("APP_PUBLIC_URL", "https://novel-v7.vercel.app").rstrip("/")
@@ -494,6 +503,16 @@ def _send_verification_email(to_email: str, token: str, display_name: str = "") 
     except Exception as exc:
         LOGGER.exception("Failed to send verification email: %s", exc)
         return False
+
+
+def _development_verification_fields(token: str) -> dict[str, str]:
+    """Expose a verification code only for explicit local development runs."""
+    env_name = os.getenv("ENV", "").strip().lower()
+    if env_name in {"dev", "development", "local"} and not (
+        os.getenv("VERCEL") or os.getenv("VERCEL_ENV")
+    ):
+        return {"dev_token": token}
+    return {}
 
 
 def _hash_password(password: str, salt: str | None = None) -> str:
@@ -533,6 +552,10 @@ class RegisterRequest(BaseModel):
     username: str
     photo_url: str = ""
     cover_url: str = ""
+    gender: str | None = None
+    birth_date: str | None = None
+    country: str | None = None
+    profile_complete: bool = False
 
 
 class VerifyEmailRequest(BaseModel):
@@ -1893,15 +1916,34 @@ def register_user(payload: RegisterRequest):
     pwd_hash = _hash_password(password)
     photo = (payload.photo_url or "").strip()
     cover = (payload.cover_url or "").strip()
+    gender = (payload.gender or "").strip()
+    birth_date = (payload.birth_date or "").strip()
+    country = (payload.country or "").strip()
+    profile_complete = bool(
+        payload.profile_complete and gender and birth_date and country
+    )
     try:
         user_id, _ = execute_write(
             """
             INSERT INTO app_users
               (email, provider, display_name, photo_url, cover_url, password_hash,
-               username, email_verified, verification_token)
-            VALUES (%s, 'email', %s, %s, %s, %s, %s, 0, %s)
+               username, email_verified, verification_token, gender, birth_date,
+               country, profile_complete)
+            VALUES (%s, 'email', %s, %s, %s, %s, %s, 0, %s, %s, %s, %s, %s)
             """,
-            (email, display_name, photo, cover, pwd_hash, username, token),
+            (
+                email,
+                display_name,
+                photo,
+                cover,
+                pwd_hash,
+                username,
+                token,
+                gender,
+                birth_date,
+                country,
+                int(profile_complete),
+            ),
         )
     except Exception:
         user_id, _ = execute_write(
@@ -1915,29 +1957,35 @@ def register_user(payload: RegisterRequest):
             execute_write(
                 """
                 UPDATE app_users
-                SET username=%s, email_verified=0, verification_token=%s, cover_url=%s
+                SET username=%s, email_verified=0, verification_token=%s, cover_url=%s,
+                    gender=%s, birth_date=%s, country=%s, profile_complete=%s
                 WHERE id=%s
                 """,
-                (username, token, cover, user_id),
+                (
+                    username,
+                    token,
+                    cover,
+                    gender,
+                    birth_date,
+                    country,
+                    int(profile_complete),
+                    user_id,
+                ),
             )
         except Exception:
             pass
-    try:
-        execute_write(
-            "UPDATE app_users SET profile_complete=1 WHERE id=%s",
-            (user_id,),
-        )
-    except Exception:
-        pass
     sent = _send_verification_email(email, token, display_name)
     return {
         "ok": True,
         "needs_verification": True,
         "email": email,
         "email_sent": sent,
-        "message": "Check your email for a verification code, then log in.",
-        # Dev fallback when SMTP fails (still return token only if send failed)
-        **({} if sent else {"dev_token": token}),
+        "message": (
+            "Check your email for a verification code, then log in."
+            if sent
+            else "Verification email could not be sent. Configure email delivery or try again later."
+        ),
+        **({} if sent else _development_verification_fields(token)),
     }
 
 
@@ -2097,8 +2145,12 @@ def resend_verification(payload: VerifyEmailRequest):
     return {
         "ok": True,
         "email_sent": sent,
-        "message": "Verification code sent.",
-        **({} if sent else {"dev_token": token}),
+        "message": (
+            "Verification code sent."
+            if sent
+            else "Verification email could not be sent. Please try again later."
+        ),
+        **({} if sent else _development_verification_fields(token)),
     }
 
 
@@ -6920,8 +6972,13 @@ def create_chapter_comment(
     _ensure_chapter_comments_table()
     owner_rows = fetch_all("SELECT user_id FROM books WHERE id=%s LIMIT 1", (book_id,))
     owner_id = int(_row_get(owner_rows[0], "user_id") or 0) if owner_rows else 0
-    if owner_id and owner_id == int(user["user_id"]):
-        raise HTTPException(status_code=400, detail="You cannot comment on your own story")
+    paragraph_index = payload.paragraph_index
+    if paragraph_index is None or int(paragraph_index) < 0:
+        if owner_id and owner_id == int(user["user_id"]):
+            raise HTTPException(
+                status_code=400,
+                detail="You cannot add a chapter-level comment to your own story",
+            )
     body = (payload.body or "").strip()
     if not body:
         raise HTTPException(status_code=400, detail="Comment cannot be empty")
@@ -9326,6 +9383,46 @@ try:
     )
 except Exception as _inkitt_exc:
     LOGGER.warning("inkitt_routes not registered: %s", _inkitt_exc)
+
+
+@app.get("/api/genres/{genre_name:path}/books")
+def list_books_by_genre(genre_name: str, sort: str | None = None):
+    """Return public stories for the Flutter genre detail screen."""
+    from urllib.parse import unquote
+
+    clean = unquote(genre_name or "").strip()
+    if not clean:
+        raise HTTPException(status_code=400, detail="Genre required")
+    like = f"%{clean}%"
+    order = "COALESCE(b.rating, 0) DESC, b.id DESC"
+    if (sort or "top").strip().lower() in ("recent", "new"):
+        order = "b.id DESC"
+    elif (sort or "").strip().lower() in ("trending", "views"):
+        order = "COALESCE(b.view_count, 0) DESC, b.id DESC"
+    try:
+        rows = fetch_all(
+            f"""
+            SELECT b.* FROM books b
+            WHERE LOWER(COALESCE(b.status_text, 'draft')) NOT IN
+                  ('draft', 'unpublished', 'private', 'unlisted', '')
+              AND (
+                LOWER(COALESCE(b.primary_genre, '')) = LOWER(%s)
+                OR LOWER(COALESCE(b.genre, '')) = LOWER(%s)
+                OR LOWER(COALESCE(b.secondary_genre, '')) = LOWER(%s)
+                OR LOWER(COALESCE(b.primary_genre, '')) LIKE LOWER(%s)
+                OR LOWER(COALESCE(b.genre, '')) LIKE LOWER(%s)
+                OR LOWER(COALESCE(b.secondary_genre, '')) LIKE LOWER(%s)
+              )
+            ORDER BY {order}
+            LIMIT 100
+            """,
+            (clean, clean, clean, like, like, like),
+        ) or []
+    except Exception as exc:
+        LOGGER.exception("books by genre failed for %s: %s", clean, exc)
+        raise HTTPException(status_code=500, detail="Could not load genre stories") from exc
+    items = [_serialize_book(row) for row in rows]
+    return {"genre": clean, "items": items, "count": len(items)}
 
 try:
     from .admin_tags import register_admin_tag_routes

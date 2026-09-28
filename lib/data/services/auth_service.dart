@@ -65,6 +65,15 @@ class AuthService {
   final ApiService _apiService;
   final GoogleSignIn _googleSignIn;
 
+  String _acceptSessionToken(Map<String, dynamic> payload) {
+    final token = payload['token']?.toString().trim() ?? '';
+    if (token.isEmpty || token.toLowerCase() == 'null') {
+      throw Exception('The server did not return a session token. Please try again.');
+    }
+    _apiService.setAuthToken(token);
+    return token;
+  }
+
   Future<String> _deviceId() async {
     final prefs = await SharedPreferences.getInstance();
     var id = prefs.getString(_deviceIdKey);
@@ -74,6 +83,16 @@ class AuthService {
       await prefs.setString(_deviceIdKey, id);
     }
     return id;
+  }
+
+  bool _isRejectedSessionError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('session revoked') ||
+        message.contains('session expired') ||
+        message.contains('token expired') ||
+        message.contains('invalid user token') ||
+        message.contains('missing user token') ||
+        message.contains('account not found');
   }
 
   String _friendlyAuthError(Object e) {
@@ -116,7 +135,10 @@ class AuthService {
     _apiService.setAuthToken(token);
     try {
       final me = await _apiService.fetchMeStrict();
-      if (me.isEmpty || me['id'] == null) return null;
+      if (me.isEmpty || me['id'] == null) {
+        await _clearLocalSession(keepDeviceId: true);
+        return null;
+      }
       if (me['display_name'] != null) {
         await prefs.setString(_displayNameKey, me['display_name'].toString());
       }
@@ -140,7 +162,10 @@ class AuthService {
             'Reader',
         photoUrl: prefs.getString(_photoUrlKey) ?? photo,
       );
-    } catch (_) {
+    } catch (error) {
+      if (_isRejectedSessionError(error)) {
+        await _clearLocalSession(keepDeviceId: true);
+      }
       return null;
     }
   }
@@ -162,6 +187,7 @@ class AuthService {
     try {
       final me = await _apiService.fetchMeStrict();
       if (me.isEmpty || me['id'] == null) {
+        await _clearLocalSession(keepDeviceId: true);
         return null;
       }
       if (me['email'] != null) {
@@ -200,11 +226,7 @@ class AuthService {
         throw AuthBlockedException(_friendlyAuthError(e));
       }
       // Hard session failures: revoked, expired, invalid token → clear local session
-      if (msg.contains('session revoked') ||
-          msg.contains('token expired') ||
-          msg.contains('invalid user token') ||
-          msg.contains('missing user token') ||
-          msg.contains('account not found')) {
+      if (_isRejectedSessionError(e)) {
         await signOut();
         return null;
       }
@@ -213,6 +235,7 @@ class AuthService {
       final email = prefs.getString(_emailKey) ?? '';
       final displayName = prefs.getString(_displayNameKey) ?? email;
       if (email.isEmpty && method != 'guest') {
+        await _clearLocalSession(keepDeviceId: true);
         return null;
       }
       return AuthSession(
@@ -248,7 +271,7 @@ class AuthService {
         idToken: auth.idToken,
         accessToken: auth.accessToken,
       );
-      _apiService.setAuthToken(payload['token']?.toString());
+      _acceptSessionToken(payload);
       final session = AuthSession(
         id: payload['id'] is num ? (payload['id'] as num).toInt() : null,
         method: 'google',
@@ -305,7 +328,7 @@ class AuthService {
         displayName: displayName,
         username: ident,
       );
-      _apiService.setAuthToken(payload['token']?.toString());
+      _acceptSessionToken(payload);
       final id = payload['user_id'] is num
           ? (payload['user_id'] as num).toInt()
           : (payload['id'] is num ? (payload['id'] as num).toInt() : null);
@@ -330,7 +353,7 @@ class AuthService {
     final deviceId = await _deviceId();
     try {
       final payload = await _apiService.verifyGuestSignIn(deviceId: deviceId);
-      _apiService.setAuthToken(payload['token']?.toString());
+      _acceptSessionToken(payload);
       final session = AuthSession(
         id: payload['id'] is num ? (payload['id'] as num).toInt() : null,
         method: 'guest',

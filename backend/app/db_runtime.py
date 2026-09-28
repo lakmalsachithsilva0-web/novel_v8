@@ -21,15 +21,18 @@ def apply_mysql_fallback_if_needed(db_mod: Any) -> dict[str, Any]:
     if mysql_connector is None:
         raise RuntimeError("mysql-connector-python is required; SQLite fallback is disabled")
 
-    ssl_disabled = os.getenv("MYSQL_SSL_DISABLED", "false").lower() == "true"
     try:
+        settings_builder = getattr(db_mod, "mysql_connection_settings", None)
+        settings = settings_builder(include_database=False) if settings_builder else {
+            "host": os.getenv("MYSQL_HOST", "127.0.0.1"),
+            "port": int(os.getenv("MYSQL_PORT", "3306")),
+            "user": os.getenv("MYSQL_USER", "root"),
+            "password": os.getenv("MYSQL_PASSWORD", ""),
+            "ssl_disabled": os.getenv("MYSQL_SSL_DISABLED", "false").lower() == "true",
+            "use_pure": True,
+        }
         conn = mysql_connector.connect(
-            host=os.getenv("MYSQL_HOST", "127.0.0.1"),
-            port=int(os.getenv("MYSQL_PORT", "3306")),
-            user=os.getenv("MYSQL_USER", "root"),
-            password=os.getenv("MYSQL_PASSWORD", ""),
-            ssl_disabled=ssl_disabled,
-            use_pure=True,
+            **settings,
             connection_timeout=3,
         )
         conn.close()
