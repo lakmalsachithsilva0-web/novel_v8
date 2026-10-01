@@ -38,10 +38,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   Color _textHi = Color(0xFF231F20);
   Color _textLo = Color(0xFF767676);
   Color _textFaint = Color(0xFF9A9A9A);
-  Color _magenta = Color(0xFF6C3CE1);
+  Color _magenta = Color(0xFF8B5CF6);
   Color _violet = Color(0xFFB794F6);
   Color _amber = Color(0xFFF0B357);
-  Color _green = Color(0xFF6C3CE1);
+  Color _green = Color(0xFF8B5CF6);
 
   void _applyThemeColors(BuildContext context) {
     final c = AppStyles.colors(context);
@@ -1518,7 +1518,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                           Text(
                                             '#$t',
                                             style: TextStyle(
-                                              color: Color(0xFF6C3CE1),
+                                              color: Color(0xFF8B5CF6),
                                               fontSize: 12.5,
                                             ),
                                           ),
@@ -1528,7 +1528,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                                             child: Icon(
                                               Icons.close,
                                               size: 12,
-                                              color: Color(0xFF6C3CE1),
+                                              color: Color(0xFF8B5CF6),
                                             ),
                                           ),
                                         ],

@@ -17,7 +17,7 @@ class MorePageChrome {
   static BoxDecoration card(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return BoxDecoration(
-      color: dark ? const Color(0xFF121212) : Colors.white,
+      color: dark ? const Color(0xFF0B0A12) : Colors.white,
       borderRadius: BorderRadius.circular(16),
       border: Border.all(
         color: dark ? Colors.white24 : const Color(0xFFE9E4F5),
@@ -381,7 +381,7 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
                             color: isUser
                                 ? MorePageChrome.purple
                                 : (isDark
-                                      ? const Color(0xFF2A2A2A)
+                                      ? const Color(0xFF221C30)
                                       : const Color(0xFFF3F0FA)),
                             borderRadius: BorderRadius.only(
                               topLeft: const Radius.circular(16),
@@ -499,7 +499,7 @@ class ContactUsScreen extends StatefulWidget {
 }
 
 class _ContactUsScreenState extends State<ContactUsScreen> {
-  static const _purple = Color(0xFF6C3CE1);
+  static const _purple = Color(0xFF8B5CF6);
   static const _paper = Color(0xFFF7F5FC);
   static const _ink = Color(0xFF1A1A2E);
 
@@ -644,8 +644,8 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF121212) : _paper;
-    final card = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final bg = isDark ? const Color(0xFF0B0A12) : _paper;
+    final card = isDark ? const Color(0xFF1A1625) : Colors.white;
     final fg = isDark ? Colors.white : _ink;
     final muted = isDark ? Colors.white70 : const Color(0xFF5B5F66);
 
@@ -743,7 +743,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
                 isExpanded: true,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: isLight(card) ? Colors.white : const Color(0xFF2A2A2A),
+                  fillColor: isLight(card) ? Colors.white : const Color(0xFF221C30),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 hint: const Text('Select a topic'),

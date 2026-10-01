@@ -271,7 +271,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
     final sorted = _sorted;
     final featured = sorted.take(8).toList();
     final top = sorted.take(20).toList();
-    final surfaceColor = isDark ? const Color(0xFF121212) : AppTheme.bgOf(context);
+    final surfaceColor = AppTheme.bgOf(context);
 
     return Scaffold(
       backgroundColor: surfaceColor,
@@ -286,8 +286,8 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
- SliverToBoxAdapter(child: _header(isDark)),
- SliverPersistentHeader(
+                    SliverToBoxAdapter(child: _header(isDark)),
+                    SliverPersistentHeader(
                       pinned: true,
                       delegate: _HashtagTabDelegate(
                         child: Container(
@@ -296,14 +296,16 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                             controller: _tabs,
                             isScrollable: true,
                             labelColor: AppTheme.brand,
-                            unselectedLabelColor: isDark ? const Color(0xFFC4B8D9) : AppTheme.mutedOf(context),
+                            unselectedLabelColor: isDark
+                                ? const Color(0xFFC4B8D9)
+                                : AppTheme.mutedOf(context),
                             indicatorColor: AppTheme.brand,
                             indicatorWeight: 3,
                             tabs: const [
- Tab(text: 'Top'),
- Tab(text: 'Recent'),
- Tab(text: 'Trending'),
- Tab(text: 'Most Liked'),
+                              Tab(text: 'Top'),
+                              Tab(text: 'Recent'),
+                              Tab(text: 'Trending'),
+                              Tab(text: 'Most Liked'),
                             ],
                           ),
                         ),
@@ -323,11 +325,11 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
 
   Color _tagAccent() {
     const palette = <Color>[
- Color(0xFF8B6FE8),
- Color(0xFFD9678F),
- Color(0xFFE8A33D),
- Color(0xFF4FB8AE),
- Color(0xFFC2554B),
+      Color(0xFF8B6FE8),
+      Color(0xFFD9678F),
+      Color(0xFFE8A33D),
+      Color(0xFF4FB8AE),
+      Color(0xFFC2554B),
     ];
     final idx = _tagName.isEmpty
         ? 0
@@ -354,9 +356,13 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
             const Color(0xFFFFF7EC),
             accent.withValues(alpha: 0.18),
           );
-    final textColor = isDark ? const Color(0xFFF8F5FF) : AppTheme.inkOf(context);
+    final textColor = isDark
+        ? const Color(0xFFF8F5FF)
+        : AppTheme.inkOf(context);
     // High-contrast muted (readable on purple gradients)
-    final mutedText = isDark ? const Color(0xFFE0D6F5) : const Color(0xFF5C5470);
+    final mutedText = isDark
+        ? const Color(0xFFE0D6F5)
+        : const Color(0xFF5C5470);
     final tileBg = isDark ? Colors.black.withValues(alpha: 0.15) : Colors.white;
     final tileBorder = isDark
         ? Colors.white.withValues(alpha: 0.16)
@@ -367,9 +373,9 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
       children: [
         // Full-width cover photo from admin / tag meta
         if (coverUrl != null)
- Stack(
+          Stack(
             children: [
- SizedBox(
+              SizedBox(
                 width: double.infinity,
                 height: AppBreakpoints.heroCoverHeight(context),
                 child: Image.network(
@@ -382,7 +388,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                   ),
                 ),
               ),
- Positioned(
+              Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
@@ -390,7 +396,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                   bottom: false,
                   child: Row(
                     children: [
- IconButton(
+                      IconButton(
                         icon: const Icon(
                           Icons.arrow_back_ios_new_rounded,
                           size: 18,
@@ -406,13 +412,13 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
             ],
           )
         else
- SafeArea(
+          SafeArea(
             bottom: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
               child: Row(
                 children: [
- IconButton(
+                  IconButton(
                     icon: const Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 18,
@@ -425,7 +431,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
               ),
             ),
           ),
- Container(
+        Container(
           width: double.infinity,
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -442,9 +448,9 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
- Row(
+              Row(
                 children: [
- Expanded(
+                  Expanded(
                     child: Text(
                       _displayTag,
                       style: TextStyle(
@@ -462,8 +468,9 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                       backgroundColor: _following
                           ? AppTheme.borderOf(context)
                           : const Color(0xFFE8A33D),
-                      foregroundColor:
-                          _following ? AppTheme.inkOf(context) : const Color(0xFF241804),
+                      foregroundColor: _following
+                          ? AppTheme.inkOf(context)
+                          : const Color(0xFF241804),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 18,
                         vertical: 10,
@@ -481,7 +488,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                 ],
               ),
               const SizedBox(height: 8),
- Text(
+              Text(
                 '$count ${count == 1 ? 'story' : 'stories'} · $_followerCount ${_followerCount == 1 ? 'follower' : 'followers'}',
                 style: TextStyle(
                   color: mutedText,
@@ -490,13 +497,13 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                 ),
               ),
               const SizedBox(height: 12),
- Text(
+              Text(
                 _tagDescription,
                 style: TextStyle(color: mutedText, fontSize: 13, height: 1.5),
               ),
               const SizedBox(height: 18),
               // Stories + Followers only (no readers/writers, no notify)
- Container(
+              Container(
                 decoration: BoxDecoration(
                   color: tileBg,
                   borderRadius: BorderRadius.circular(14),
@@ -504,13 +511,13 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                 ),
                 child: Row(
                   children: [
- Expanded(
+                    Expanded(
                       child: Center(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Column(
                             children: [
- Text(
+                              Text(
                                 '$count',
                                 style: TextStyle(
                                   color: textColor,
@@ -519,7 +526,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                                 ),
                               ),
                               const SizedBox(height: 2),
- Text(
+                              Text(
                                 'Stories',
                                 style: TextStyle(
                                   color: mutedText,
@@ -531,14 +538,14 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                         ),
                       ),
                     ),
- Container(width: 1, height: 42, color: tileBorder),
- Expanded(
+                    Container(width: 1, height: 42, color: tileBorder),
+                    Expanded(
                       child: Center(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Column(
                             children: [
- Text(
+                              Text(
                                 '$_followerCount',
                                 style: TextStyle(
                                   color: textColor,
@@ -547,7 +554,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                                 ),
                               ),
                               const SizedBox(height: 2),
- Text(
+                              Text(
                                 'Followers',
                                 style: TextStyle(
                                   color: mutedText,
@@ -571,21 +578,23 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
 
   List<Widget> _featuredSection(List<Map<String, dynamic>> books, bool isDark) {
     return [
- SliverToBoxAdapter(
+      SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Row(
             children: [
- Text(
+              Text(
                 'Featured Stories',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
-                  color: isDark ? const Color(0xFFF5F0FF) : AppTheme.inkOf(context),
+                  color: isDark
+                      ? const Color(0xFFF5F0FF)
+                      : AppTheme.inkOf(context),
                 ),
               ),
               const Spacer(),
- Text(
+              Text(
                 'See All',
                 style: TextStyle(
                   color: AppTheme.brand,
@@ -597,7 +606,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
           ),
         ),
       ),
- SliverToBoxAdapter(
+      SliverToBoxAdapter(
         child: SizedBox(
           height: 210,
           child: ListView.separated(
@@ -618,14 +627,16 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
- Expanded(
+                      Expanded(
                         child: Stack(
                           children: [
- ClipRRect(
+                            ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
                                 width: 120,
-                                color: isDark ? const Color(0xFF2A2140) : const Color(0xFFF3F0FF),
+                                color: isDark
+                                    ? const Color(0xFF2A2140)
+                                    : const Color(0xFFF3F0FF),
                                 child: url == null
                                     ? const Icon(Icons.menu_book)
                                     : Image.network(
@@ -638,7 +649,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                                       ),
                               ),
                             ),
- Positioned(
+                            Positioned(
                               left: 8,
                               top: 8,
                               child: Container(
@@ -664,7 +675,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                         ),
                       ),
                       const SizedBox(height: 6),
- Text(
+                      Text(
                         (m['title'] ?? '').toString(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -673,7 +684,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                           fontSize: 12,
                         ),
                       ),
- Text(
+                      Text(
                         'by ${(m['author'] ?? '').toString()}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -698,21 +709,23 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
     bool isDark,
   ) {
     return [
- SliverToBoxAdapter(
+      SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
           child: Row(
             children: [
- Text(
+              Text(
                 'Top Stories',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
-                  color: isDark ? const Color(0xFFF5F0FF) : AppTheme.inkOf(context),
+                  color: isDark
+                      ? const Color(0xFFF5F0FF)
+                      : AppTheme.inkOf(context),
                 ),
               ),
               const Spacer(),
- Text(
+              Text(
                 'Sort by Top',
                 style: TextStyle(color: const Color(0xFFD4CBE8), fontSize: 12),
               ),
@@ -720,7 +733,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
           ),
         ),
       ),
- SliverList(
+      SliverList(
         delegate: SliverChildBuilderDelegate((context, i) {
           final m = books[i];
           final cover = _coverPath(m);
@@ -742,12 +755,14 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
- Container(
+                  Container(
                     width: 28,
                     height: 28,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF2A2140) : const Color(0xFFF3F0FF),
+                      color: isDark
+                          ? const Color(0xFF2A2140)
+                          : const Color(0xFFF3F0FF),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -759,12 +774,14 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                     ),
                   ),
                   const SizedBox(width: 10),
- ClipRRect(
+                  ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
                       width: 56,
                       height: 72,
-                      color: isDark ? const Color(0xFF2A2140) : const Color(0xFFF3F0FF),
+                      color: isDark
+                          ? const Color(0xFF2A2140)
+                          : const Color(0xFFF3F0FF),
                       child: url == null
                           ? const Icon(Icons.menu_book, size: 20)
                           : Image.network(
@@ -776,21 +793,23 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                     ),
                   ),
                   const SizedBox(width: 12),
- Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
- Text(
+                        Text(
                           title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 14,
-                            color: isDark ? const Color(0xFFF5F0FF) : AppTheme.inkOf(context),
+                            color: isDark
+                                ? const Color(0xFFF5F0FF)
+                                : AppTheme.inkOf(context),
                           ),
                         ),
- Text(
+                        Text(
                           'by $author',
                           style: TextStyle(
                             fontSize: 12,
@@ -798,7 +817,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                           ),
                         ),
                         if (desc.isNotEmpty)
- Text(
+                          Text(
                             desc,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -809,9 +828,9 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                             ),
                           ),
                         const SizedBox(height: 4),
- Row(
+                        Row(
                           children: [
- Expanded(
+                            Expanded(
                               child: Wrap(
                                 spacing: 6,
                                 runSpacing: 4,
@@ -833,13 +852,13 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                               ),
                             ),
                             const SizedBox(width: 6),
- Icon(
+                            Icon(
                               Icons.visibility_outlined,
                               size: 14,
                               color: Colors.grey.shade500,
                             ),
                             const SizedBox(width: 3),
- Text(
+                            Text(
                               '$views',
                               style: TextStyle(
                                 fontSize: 11,
@@ -852,7 +871,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                               size: 14,
                               color: Color(0xFFF3C623),
                             ),
- Text(
+                            Text(
                               rating.toStringAsFixed(1),
                               style: TextStyle(
                                 fontSize: 11,
@@ -886,7 +905,11 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg),
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: fg,
+          ),
         ),
       ),
     );
@@ -894,7 +917,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
 
   List<Widget> _relatedSection(bool isDark) {
     return [
- SliverToBoxAdapter(
+      SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
           child: const Text(
@@ -903,7 +926,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
           ),
         ),
       ),
- SliverToBoxAdapter(
+      SliverToBoxAdapter(
         child: SizedBox(
           height: 72,
           child: ListView.separated(
@@ -934,7 +957,7 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                   ),
                   decoration: BoxDecoration(
                     color: isDark
-                        ? const Color(0xFF1E1E1E)
+                        ? const Color(0xFF1A1625)
                         : const Color(0xFFF7F5FC),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: const Color(0xFFEDE9FE)),
@@ -943,14 +966,14 @@ class _HashtagDetailScreenState extends State<HashtagDetailScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
- Text(
+                      Text(
                         name.startsWith('#') ? name : '#$name',
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 13,
                         ),
                       ),
- Text(
+                      Text(
                         '$count stories',
                         style: TextStyle(
                           fontSize: 11,

@@ -802,7 +802,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     final bg = isDark ? const Color(0xFF121218) : AppTheme.bgOf(context);
     final fg = isDark ? Colors.white : AppTheme.inkOf(context);
     final muted = isDark ? Colors.white70 : Colors.black54;
-    const inkittGreen = Color(0xFF6C3CE1); // brand purple
+    const inkittGreen = Color(0xFF8B5CF6); // brand purple
 
     final coverUrl = _book.coverPath.trim().isEmpty
         ? null
@@ -1104,7 +1104,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               ? Colors.grey
                               : (_saved
                                     ? const Color(
-                                        0xFF6C3CE1,
+                                        0xFF8B5CF6,
                                       ) // primary purple when saved
                                     : fg),
                         ),
@@ -1178,7 +1178,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
  Chip(
                                 label: Text(g.trim()),
                                 backgroundColor: isDark
-                                    ? const Color(0xFF2A2A2A)
+                                    ? const Color(0xFF221C30)
                                     : const Color(0xFFF3F0FF),
                                 side: BorderSide.none,
                               ),
@@ -1215,7 +1215,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               label: Text(
                                 t.startsWith('#') ? t.substring(1) : t,
                                 style: const TextStyle(
-                                  color: Color(0xFF6C3CE1),
+                                  color: Color(0xFF8B5CF6),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1401,11 +1401,11 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               gradient: const LinearGradient(
-                colors: [Color(0xFF6C3CE1), Color(0xFF4B27B8)],
+                colors: [Color(0xFF8B5CF6), Color(0xFF4B27B8)],
               ),
               boxShadow: [
  BoxShadow(
-                  color: const Color(0xFF6C3CE1).withValues(alpha: 0.42),
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.42),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -1630,7 +1630,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
  Text(
                     'By ${widget.book.author}',
                     style: const TextStyle(
-                      color: Color(0xFF6C3CE1),
+                      color: Color(0xFF8B5CF6),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -1651,7 +1651,7 @@ class _BookReviewsPageState extends State<_BookReviewsPage> {
  Center(
                       child: FilledButton(
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF6C3CE1),
+                          backgroundColor: const Color(0xFF8B5CF6),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 28,
                             vertical: 12,
@@ -2132,7 +2132,7 @@ class _WriteReviewScreenState extends State<_WriteReviewScreen> {
               child: FilledButton(
                 onPressed: _saving ? null : _submit,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF6C3CE1),
+                  backgroundColor: const Color(0xFF8B5CF6),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(28),
                   ),

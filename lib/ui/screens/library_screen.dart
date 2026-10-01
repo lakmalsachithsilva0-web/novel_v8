@@ -60,11 +60,15 @@ class _LibraryScreenState extends State<LibraryScreen>
     if (e.lastParagraphIndex > 0) return true;
     if (e.lastChapterNumber > 1) return true;
     final s = e.readingStatus.toLowerCase().trim();
-    if (s == 'reading' || s == 'ongoing' || s == 'in progress' || s.contains('read')) {
+    if (s == 'reading' ||
+        s == 'ongoing' ||
+        s == 'in progress' ||
+        s.contains('read')) {
       return true;
     }
     // Any library entry with updated text from reader counts as ongoing
-    if (e.updatedText.toLowerCase().contains('ch.') || e.updatedText.toLowerCase().contains('para')) {
+    if (e.updatedText.toLowerCase().contains('ch.') ||
+        e.updatedText.toLowerCase().contains('para')) {
       return true;
     }
     return true; // keep entry visible in Ongoing until marked Completed
@@ -127,9 +131,9 @@ class _LibraryScreenState extends State<LibraryScreen>
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
- SnackBar(content: Text('Could not load library: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not load library: $e')));
       }
     }
   }
@@ -160,11 +164,11 @@ class _LibraryScreenState extends State<LibraryScreen>
           decoration: const InputDecoration(hintText: 'List name'),
         ),
         actions: [
- TextButton(
+          TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
- FilledButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, c.text.trim()),
             child: const Text('Create'),
           ),
@@ -186,7 +190,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       if (!mounted) return;
       final newId = (created['id'] as num?)?.toInt();
       ScaffoldMessenger.of(context).showSnackBar(
- SnackBar(
+        SnackBar(
           content: Text(
             newId != null
                 ? 'Created "$name"'
@@ -194,15 +198,14 @@ class _LibraryScreenState extends State<LibraryScreen>
           ),
         ),
       );
-      if (_readingLists.isEmpty ||
-          !_readingLists.any((l) => l.name == name)) {
+      if (_readingLists.isEmpty || !_readingLists.any((l) => l.name == name)) {
         await Future<void>.delayed(const Duration(milliseconds: 400));
         await _loadLists();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
- SnackBar(
+          SnackBar(
             content: Text(
               e.toString().contains('401') || e.toString().contains('403')
                   ? 'Please sign in to create a reading list'
@@ -222,7 +225,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       return;
     }
     await Navigator.of(context).push(
- MaterialPageRoute(
+      MaterialPageRoute(
         builder: (_) => _ListDetail(
           listId: list.id,
           listName: list.name,
@@ -271,19 +274,23 @@ class _LibraryScreenState extends State<LibraryScreen>
   Widget build(BuildContext context) {
     final ongoing = _entries.where(_isOngoing).toList();
     final history = _entries.where(_isCompleted).toList();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? const Color(0xFFA0A0A0) : AppTheme.mutedOf(context);
-    final fg = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final muted = AppTheme.mutedOf(context);
+    final fg = AppTheme.inkOf(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header: title + Premium + bell
- Padding(
-          padding: EdgeInsets.fromLTRB(AppBreakpoints.pagePadding(context), 12, 8, 4),
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppBreakpoints.pagePadding(context),
+            12,
+            8,
+            4,
+          ),
           child: Row(
             children: [
- Text(
+              Text(
                 'Library',
                 style: TextStyle(
                   fontSize: 28,
@@ -294,9 +301,13 @@ class _LibraryScreenState extends State<LibraryScreen>
               ),
               const Spacer(),
               // Premium button hidden per product request
- IconButton(
+              IconButton(
                 tooltip: 'Notifications',
-                icon: Icon(Icons.notifications_none_rounded, size: 26, color: fg),
+                icon: Icon(
+                  Icons.notifications_none_rounded,
+                  size: 26,
+                  color: fg,
+                ),
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -312,19 +323,23 @@ class _LibraryScreenState extends State<LibraryScreen>
           ),
         ),
         // Soft search (filters current tab client-side via existing lists — opens focus on lists)
- Padding(
+        Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF3F0FF),
+              color: AppTheme.fieldOf(context),
               borderRadius: BorderRadius.circular(28),
             ),
             child: Row(
               children: [
- Icon(Icons.search_rounded, size: 20, color: Colors.grey.shade500),
+                Icon(
+                  Icons.search_rounded,
+                  size: 20,
+                  color: Colors.grey.shade500,
+                ),
                 const SizedBox(width: 10),
- Expanded(
+                Expanded(
                   child: Text(
                     'Search in your library…',
                     style: TextStyle(
@@ -339,19 +354,19 @@ class _LibraryScreenState extends State<LibraryScreen>
           ),
         ),
         // Stats strip
- Padding(
+        Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
           child: Row(
             children: [
- Expanded(
+              Expanded(
                 child: _LibraryStatChip(
                   icon: Icons.menu_book_outlined,
                   value: '${_entries.length}',
                   label: 'Stories',
-                  color: const Color(0xFF6C3CE1),
+                  color: const Color(0xFF8B5CF6),
                 ),
               ),
- Expanded(
+              Expanded(
                 child: _LibraryStatChip(
                   icon: Icons.timelapse_rounded,
                   value: '${ongoing.length}',
@@ -359,7 +374,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                   color: const Color(0xFFF59E0B),
                 ),
               ),
- Expanded(
+              Expanded(
                 child: _LibraryStatChip(
                   icon: Icons.check_circle_outline,
                   value: '${history.length}',
@@ -367,7 +382,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                   color: const Color(0xFF10B981),
                 ),
               ),
- Expanded(
+              Expanded(
                 child: _LibraryStatChip(
                   icon: Icons.bookmark_border_rounded,
                   value: '${_readingLists.length}',
@@ -378,20 +393,23 @@ class _LibraryScreenState extends State<LibraryScreen>
             ],
           ),
         ),
- TabBar(
+        TabBar(
           controller: _tabController,
           labelColor: AppTheme.brand,
           unselectedLabelColor: muted,
           indicatorColor: AppTheme.brand,
           indicatorWeight: 3,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
           tabs: const [
- Tab(text: 'Ongoing'),
- Tab(text: 'Reading Lists'),
- Tab(text: 'Completed'),
+            Tab(text: 'Ongoing'),
+            Tab(text: 'Reading Lists'),
+            Tab(text: 'Completed'),
           ],
         ),
- Expanded(
+        Expanded(
           child: TabBarView(
             controller: _tabController,
             children: [
@@ -458,14 +476,14 @@ class _LibraryStatChip extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 4),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : color.withValues(alpha: 0.08),
+        color: isDark ? const Color(0xFF1A1625) : color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         children: [
- Icon(icon, size: 18, color: color),
+          Icon(icon, size: 18, color: color),
           const SizedBox(height: 4),
- Text(
+          Text(
             value,
             style: TextStyle(
               fontWeight: FontWeight.w800,
@@ -473,7 +491,7 @@ class _LibraryStatChip extends StatelessWidget {
               color: isDark ? Colors.white : const Color(0xFF1A1A1A),
             ),
           ),
- Text(
+          Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -521,7 +539,7 @@ class _EntriesList extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(24, 14, 24, 30),
         children: [
- Text(
+          Text(
             history ? 'Completed' : 'Continue Reading',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               fontSize: 18,
@@ -530,11 +548,13 @@ class _EntriesList extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
- Text(
+          Text(
             history
                 ? 'Books you finished (all chapters read or marked completed).'
                 : 'Books you started but have not finished yet.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: muted),
           ),
           const SizedBox(height: 18),
           if (loading)
@@ -545,150 +565,148 @@ class _EntriesList extends StatelessWidget {
               ),
             )
           else if (entries.isEmpty)
- Center(
+            Center(
               child: Text(
-                history ? 'No completed books yet.\nFinish the last chapter of a story to move it here.' : 'No ongoing books yet.\nOpen a chapter to start tracking.',
+                history
+                    ? 'No completed books yet.\nFinish the last chapter of a story to move it here.'
+                    : 'No ongoing books yet.\nOpen a chapter to start tracking.',
                 style: TextStyle(color: muted),
               ),
             )
           else
-            ...entries.map(
-              (e) {
-                final coverUrl = e.book.coverPath.isNotEmpty
-                    ? api.resolveAssetUrl(e.book.coverPath)
-                    : '';
-                final desc = e.book.description.trim();
-                final progress = e.progressFraction.clamp(0.0, 1.0);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Material(
-                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            ...entries.map((e) {
+              final coverUrl = e.book.coverPath.isNotEmpty
+                  ? api.resolveAssetUrl(e.book.coverPath)
+                  : '';
+              final desc = e.book.description.trim();
+              final progress = e.progressFraction.clamp(0.0, 1.0);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Material(
+                  color: isDark ? const Color(0xFF1A1625) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  elevation: 0,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    elevation: 0,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () async {
-                        // Ongoing: resume at last chapter + paragraph
-                        // History: open story detail
-                        if (history) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => StoryDetailScreen(
-                                apiService: api,
-                                book: BookDetailModel(
-                                  id: e.book.id,
-                                  title: e.book.title,
-                                  author: e.book.author,
-                                  description: e.book.description,
-                                  statusText: e.book.statusText,
-                                  rating: e.book.rating,
-                                  genre: e.book.primaryGenre,
-                                  cta: e.book.cta,
-                                  coverPath: e.book.coverPath,
-                                  authorUserId: e.book.authorUserId,
-                                ),
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-                        List<Map<String, dynamic>> chapters = const [];
-                        try {
-                          chapters = await api.fetchStoryChapters(e.book.id);
-                        } catch (_) {}
-                        if (!context.mounted) return;
-                        if (chapters.isEmpty) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => StoryDetailScreen(
-                                apiService: api,
-                                book: BookDetailModel(
-                                  id: e.book.id,
-                                  title: e.book.title,
-                                  author: e.book.author,
-                                  description: e.book.description,
-                                  statusText: e.book.statusText,
-                                  rating: e.book.rating,
-                                  genre: e.book.primaryGenre,
-                                  cta: e.book.cta,
-                                  coverPath: e.book.coverPath,
-                                  authorUserId: e.book.authorUserId,
-                                ),
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-                        var idx = chapters.indexWhere(
-                          (c) => (c['chapter_number'] as num?)?.toInt() == e.lastChapterNumber,
-                        );
-                        if (idx < 0) idx = 0;
-                        final ch = chapters[idx];
-                        final chapterNo = (ch['chapter_number'] as num?)?.toInt() ?? e.lastChapterNumber;
-                        final chapterTitle = (ch['title'] ?? 'Chapter $chapterNo').toString();
-                        final content = (ch['content'] ?? '').toString();
-                        await Navigator.of(context).push(
+                    onTap: () async {
+                      // Ongoing: resume at last chapter + paragraph
+                      // History: open story detail
+                      if (history) {
+                        Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => ChapterReaderScreen(
+                            builder: (_) => StoryDetailScreen(
                               apiService: api,
-                              title: e.book.title,
-                              author: e.book.author,
-                              coverPath: e.book.coverPath,
-                              chapterNumber: chapterNo,
-                              chapterTitle: chapterTitle,
-                              chapterContent: content,
-                              bookId: e.book.id,
-                              authorUserId: e.book.authorUserId,
-                              chapters: chapters,
-                              initialChapterIndex: idx,
-                              initialParagraphIndex: e.lastParagraphIndex,
+                              book: BookDetailModel(
+                                id: e.book.id,
+                                title: e.book.title,
+                                author: e.book.author,
+                                description: e.book.description,
+                                statusText: e.book.statusText,
+                                rating: e.book.rating,
+                                genre: e.book.primaryGenre,
+                                cta: e.book.cta,
+                                coverPath: e.book.coverPath,
+                                authorUserId: e.book.authorUserId,
+                              ),
                             ),
                           ),
                         );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isDark
-                                ? const Color(0xFF2C2C2C)
-                                : const Color(0xFFEDE9FE),
+                        return;
+                      }
+                      List<Map<String, dynamic>> chapters = const [];
+                      try {
+                        chapters = await api.fetchStoryChapters(e.book.id);
+                      } catch (_) {}
+                      if (!context.mounted) return;
+                      if (chapters.isEmpty) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => StoryDetailScreen(
+                              apiService: api,
+                              book: BookDetailModel(
+                                id: e.book.id,
+                                title: e.book.title,
+                                author: e.book.author,
+                                description: e.book.description,
+                                statusText: e.book.statusText,
+                                rating: e.book.rating,
+                                genre: e.book.primaryGenre,
+                                cta: e.book.cta,
+                                coverPath: e.book.coverPath,
+                                authorUserId: e.book.authorUserId,
+                              ),
+                            ),
                           ),
-                          boxShadow: isDark
-                              ? const []
-                              : [
- BoxShadow(
-                                    color: const Color(0xFF6C3CE1).withValues(alpha: 0.05),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
+                        );
+                        return;
+                      }
+                      var idx = chapters.indexWhere(
+                        (c) =>
+                            (c['chapter_number'] as num?)?.toInt() ==
+                            e.lastChapterNumber,
+                      );
+                      if (idx < 0) idx = 0;
+                      final ch = chapters[idx];
+                      final chapterNo =
+                          (ch['chapter_number'] as num?)?.toInt() ??
+                          e.lastChapterNumber;
+                      final chapterTitle = (ch['title'] ?? 'Chapter $chapterNo')
+                          .toString();
+                      final content = (ch['content'] ?? '').toString();
+                      await Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => ChapterReaderScreen(
+                            apiService: api,
+                            title: e.book.title,
+                            author: e.book.author,
+                            coverPath: e.book.coverPath,
+                            chapterNumber: chapterNo,
+                            chapterTitle: chapterTitle,
+                            chapterContent: content,
+                            bookId: e.book.id,
+                            authorUserId: e.book.authorUserId,
+                            chapters: chapters,
+                            initialChapterIndex: idx,
+                            initialParagraphIndex: e.lastParagraphIndex,
+                          ),
                         ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
- ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: SizedBox(
-                                width: 72,
-                                height: 102,
-                                child: coverUrl.isNotEmpty
-                                    ? Image.network(
-                                        coverUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) =>
- ColoredBox(
-                                          color: isDark
-                                              ? const Color(0xFF2C2C2C)
-                                              : const Color(0xFFE4E4E4),
-                                          child: const Icon(
-                                            Icons.menu_book_rounded,
-                                          ),
-                                        ),
-                                      )
-                                    : ColoredBox(
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFF2C2C2C)
+                              : const Color(0xFFEDE9FE),
+                        ),
+                        boxShadow: isDark
+                            ? const []
+                            : [
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFF8B5CF6,
+                                  ).withValues(alpha: 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              width: 72,
+                              height: 102,
+                              child: coverUrl.isNotEmpty
+                                  ? Image.network(
+                                      coverUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => ColoredBox(
                                         color: isDark
                                             ? const Color(0xFF2C2C2C)
                                             : const Color(0xFFE4E4E4),
@@ -696,170 +714,180 @@ class _EntriesList extends StatelessWidget {
                                           Icons.menu_book_rounded,
                                         ),
                                       ),
-                              ),
+                                    )
+                                  : ColoredBox(
+                                      color: isDark
+                                          ? const Color(0xFF2C2C2C)
+                                          : const Color(0xFFE4E4E4),
+                                      child: const Icon(
+                                        Icons.menu_book_rounded,
+                                      ),
+                                    ),
                             ),
-                            const SizedBox(width: 12),
- Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
- Text(
-                                    e.book.title,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  e.book.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  () {
+                                    final genre = e.primaryGenre.isNotEmpty
+                                        ? e.primaryGenre
+                                        : e.book.primaryGenre;
+                                    if (genre.isNotEmpty &&
+                                        e.book.author.isNotEmpty) {
+                                      return '$genre · ${e.book.author}';
+                                    }
+                                    if (genre.isNotEmpty) return genre;
+                                    if (e.book.author.isNotEmpty)
+                                      return 'By ${e.book.author}';
+                                    return e.readingStatus;
+                                  }(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: muted,
+                                  ),
+                                ),
+                                if (desc.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    desc,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
- Text(
-                                    () {
-                                      final genre = e.primaryGenre.isNotEmpty
-                                          ? e.primaryGenre
-                                          : e.book.primaryGenre;
-                                      if (genre.isNotEmpty && e.book.author.isNotEmpty) {
-                                        return '$genre · ${e.book.author}';
-                                      }
-                                      if (genre.isNotEmpty) return genre;
-                                      if (e.book.author.isNotEmpty) return 'By ${e.book.author}';
-                                      return e.readingStatus;
-                                    }(),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontSize: 12.5,
+                                      fontSize: 12,
+                                      height: 1.3,
                                       color: muted,
                                     ),
                                   ),
-                                  if (desc.isNotEmpty) ...[
-                                    const SizedBox(height: 4),
- Text(
-                                      desc,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        height: 1.3,
-                                        color: muted,
+                                ],
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    if (e.book.rating > 0) ...[
+                                      const Icon(
+                                        Icons.star_rounded,
+                                        size: 14,
+                                        color: Color(0xFFFFC107),
                                       ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 6),
- Row(
-                                    children: [
-                                      if (e.book.rating > 0) ...[
-                                        const Icon(
-                                          Icons.star_rounded,
-                                          size: 14,
-                                          color: Color(0xFFFFC107),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        e.book.rating.toStringAsFixed(1),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
                                         ),
-                                        const SizedBox(width: 2),
- Text(
-                                          e.book.rating.toStringAsFixed(1),
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                      ],
-                                      if (e.primaryGenre.isNotEmpty ||
-                                          e.book.primaryGenre.isNotEmpty)
- Flexible(
-                                          child: Text(
-                                            e.primaryGenre.isNotEmpty
-                                                ? e.primaryGenre
-                                                : e.book.primaryGenre,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: 11.5,
-                                              color: muted,
-                                            ),
-                                          ),
-                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
                                     ],
-                                  ),
-                                  if (!history) ...[
-                                    const SizedBox(height: 8),
- ClipRRect(
-                                      borderRadius: BorderRadius.circular(3),
-                                      child: LinearProgressIndicator(
-                                        value: progress < 0.05 ? 0.05 : progress,
-                                        minHeight: 6,
-                                        backgroundColor: isDark
-                                            ? const Color(0xFF333333)
-                                            : const Color(0xFFEDE9FE),
-                                        color: const Color(0xFF6C3CE1),
+                                    if (e.primaryGenre.isNotEmpty ||
+                                        e.book.primaryGenre.isNotEmpty)
+                                      Flexible(
+                                        child: Text(
+                                          e.primaryGenre.isNotEmpty
+                                              ? e.primaryGenre
+                                              : e.book.primaryGenre,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            color: muted,
+                                          ),
+                                        ),
                                       ),
+                                  ],
+                                ),
+                                if (!history) ...[
+                                  const SizedBox(height: 8),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(3),
+                                    child: LinearProgressIndicator(
+                                      value: progress < 0.05 ? 0.05 : progress,
+                                      minHeight: 6,
+                                      backgroundColor: isDark
+                                          ? const Color(0xFF333333)
+                                          : const Color(0xFFEDE9FE),
+                                      color: const Color(0xFF8B5CF6),
                                     ),
-                                    const SizedBox(height: 4),
- Row(
-                                      children: [
- Expanded(
-                                          child: Text(
-                                            e.chapters > 0
-                                                ? 'Ch. ${e.lastChapterNumber} of ${e.chapters} · para ${e.lastParagraphIndex + 1}'
-                                                : (e.updatedText.isNotEmpty
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          e.chapters > 0
+                                              ? 'Ch. ${e.lastChapterNumber} of ${e.chapters} · para ${e.lastParagraphIndex + 1}'
+                                              : (e.updatedText.isNotEmpty
                                                     ? e.updatedText
                                                     : 'Ch. ${e.lastChapterNumber} · para ${e.lastParagraphIndex + 1}'),
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: muted,
-                                            ),
-                                          ),
-                                        ),
- Text(
-                                          '${(progress.clamp(0.0, 1.0) * 100).round()}%',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF6C3CE1),
+                                            color: muted,
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            PopupMenuButton<String>(
-                              onSelected: (v) {
-                                if (v == 'status') onToggle(e);
-                                if (v == 'delete') onDelete(e);
-                              },
-                              itemBuilder: (_) => [
- PopupMenuItem(
-                                  value: 'status',
-                                  child: Text(
-                                    history
-                                        ? 'Mark as Ongoing'
-                                        : 'Mark as Completed',
+                                      ),
+                                      Text(
+                                        '${(progress.clamp(0.0, 1.0) * 100).round()}%',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF8B5CF6),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Text('Delete'),
-                                ),
+                                ],
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                          PopupMenuButton<String>(
+                            onSelected: (v) {
+                              if (v == 'status') onToggle(e);
+                              if (v == 'delete') onDelete(e);
+                            },
+                            itemBuilder: (_) => [
+                              PopupMenuItem(
+                                value: 'status',
+                                child: Text(
+                                  history
+                                      ? 'Mark as Ongoing'
+                                      : 'Mark as Completed',
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Delete'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            }),
           if (!history) ...[
             const SizedBox(height: 20),
- SizedBox(
+            SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: onDiscover,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF6C3CE1),
+                  backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -903,7 +931,7 @@ class _ListsPane extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(24, 14, 24, 30),
         children: [
- Text(
+          Text(
             'My Collections',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               fontSize: 18,
@@ -912,15 +940,17 @@ class _ListsPane extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
- Text(
+          Text(
             'Tap a list to open, add, or remove stories.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: muted),
           ),
           const SizedBox(height: 18),
           if (loading)
             const Center(child: CircularProgressIndicator())
           else if (lists.isEmpty)
- Center(
+            Center(
               child: Text('No lists yet', style: TextStyle(color: muted)),
             )
           else
@@ -933,12 +963,14 @@ class _ListsPane extends StatelessWidget {
               childAspectRatio: 1.15,
               children: [
                 for (final l in lists)
- GestureDetector(
+                  GestureDetector(
                     onTap: () => onOpen(l),
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF7F5FC),
+                        color: isDark
+                            ? const Color(0xFF1A1A1A)
+                            : const Color(0xFFF7F5FC),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isDark
@@ -949,36 +981,37 @@ class _ListsPane extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
- Container(
+                          Container(
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF6C3CE1).withValues(alpha: 0.12),
+                              color: const Color(
+                                0xFF8B5CF6,
+                              ).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
                               Icons.collections_bookmark_outlined,
-                              color: Color(0xFF6C3CE1),
+                              color: Color(0xFF8B5CF6),
                             ),
                           ),
                           const Spacer(),
- Text(
+                          Text(
                             l.name,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
-                              color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF1A1A1A),
                             ),
                           ),
                           const SizedBox(height: 4),
- Text(
+                          Text(
                             '${l.storyCount} stories',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: muted,
-                            ),
+                            style: TextStyle(fontSize: 12, color: muted),
                           ),
                         ],
                       ),
@@ -987,12 +1020,12 @@ class _ListsPane extends StatelessWidget {
               ],
             ),
           const SizedBox(height: 20),
- SizedBox(
+          SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: () => onCreate(),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF6C3CE1),
+                backgroundColor: const Color(0xFF8B5CF6),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -1006,7 +1039,6 @@ class _ListsPane extends StatelessWidget {
           const SizedBox(height: 8),
           // keep spacer for layout parity
           const SizedBox.shrink(),
-
         ],
       ),
     );
@@ -1111,7 +1143,7 @@ class _ListDetailState extends State<_ListDetail> {
                 ),
               ),
               const Divider(height: 1),
- Expanded(
+              Expanded(
                 child: ListView.builder(
                   itemCount: rows.length,
                   itemBuilder: (ctx, i) {
@@ -1130,8 +1162,8 @@ class _ListDetailState extends State<_ListDetail> {
       ),
     );
     if (picked == null) return;
-    final id = (picked['id'] as num?)?.toInt() ??
-        (picked['book_id'] as num?)?.toInt();
+    final id =
+        (picked['id'] as num?)?.toInt() ?? (picked['book_id'] as num?)?.toInt();
     if (id == null || id <= 0) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1150,9 +1182,9 @@ class _ListDetailState extends State<_ListDetail> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
- SnackBar(content: Text('Could not save: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not save: $e')));
       }
     }
   }
@@ -1163,8 +1195,8 @@ class _ListDetailState extends State<_ListDetail> {
       appBar: AppBar(
         title: Text(_name),
         actions: [
- IconButton(icon: const Icon(Icons.add), onPressed: _add),
- IconButton(
+          IconButton(icon: const Icon(Icons.add), onPressed: _add),
+          IconButton(
             icon: const Icon(Icons.delete_outline),
             onPressed: () async {
               try {
@@ -1192,7 +1224,8 @@ class _ListDetailState extends State<_ListDetail> {
                 final title = '${it['title'] ?? ''}';
                 final author = '${it['author'] ?? ''}';
                 final cover = '${it['cover_path'] ?? it['coverPath'] ?? ''}';
-                final bookId = (it['book_id'] as num?)?.toInt() ??
+                final bookId =
+                    (it['book_id'] as num?)?.toInt() ??
                     (it['id'] as num?)?.toInt() ??
                     0;
                 // Prefer explicit book_id; item id is list-item id
@@ -1231,7 +1264,7 @@ class _ListDetailState extends State<_ListDetail> {
                       padding: const EdgeInsets.all(10),
                       child: Row(
                         children: [
- ClipRRect(
+                          ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: SizedBox(
                               width: 52,
@@ -1242,21 +1275,27 @@ class _ListDetailState extends State<_ListDetail> {
                                       fit: BoxFit.cover,
                                       errorBuilder: (_, _, _) => ColoredBox(
                                         color: Theme.of(ctx).dividerColor,
-                                        child: const Icon(Icons.menu_book, size: 22),
+                                        child: const Icon(
+                                          Icons.menu_book,
+                                          size: 22,
+                                        ),
                                       ),
                                     )
                                   : ColoredBox(
                                       color: Theme.of(ctx).dividerColor,
-                                      child: const Icon(Icons.menu_book, size: 22),
+                                      child: const Icon(
+                                        Icons.menu_book,
+                                        size: 22,
+                                      ),
                                     ),
                             ),
                           ),
                           const SizedBox(width: 12),
- Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
- Text(
+                                Text(
                                   title.isEmpty ? 'Untitled' : title,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -1266,8 +1305,10 @@ class _ListDetailState extends State<_ListDetail> {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
- Text(
-                                  author.isEmpty ? 'Unknown author' : 'by $author',
+                                Text(
+                                  author.isEmpty
+                                      ? 'Unknown author'
+                                      : 'by $author',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -1278,7 +1319,7 @@ class _ListDetailState extends State<_ListDetail> {
                               ],
                             ),
                           ),
- IconButton(
+                          IconButton(
                             icon: const Icon(Icons.remove_circle_outline),
                             onPressed: () async {
                               final itemId = (it['id'] as num?)?.toInt();

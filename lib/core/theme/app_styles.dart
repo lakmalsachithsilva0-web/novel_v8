@@ -52,25 +52,25 @@ class AppStyles {
       Theme.of(context).brightness == Brightness.dark;
 
   static BoxDecoration cardDark({bool glow = false}) => BoxDecoration(
-        color: blackCard,
-        borderRadius: BorderRadius.circular(radiusMd),
-        border: Border.all(color: border),
-        boxShadow: glow
-            ? [
-                BoxShadow(
-                  color: purple.withValues(alpha: 0.22),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ]
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-      );
+    color: blackCard,
+    borderRadius: BorderRadius.circular(radiusMd),
+    border: Border.all(color: border),
+    boxShadow: glow
+        ? [
+            BoxShadow(
+              color: purple.withValues(alpha: 0.22),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ]
+        : [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+  );
 
   static BoxDecoration card(BuildContext context, {bool glow = false}) {
     final c = colors(context);
@@ -97,10 +97,10 @@ class AppStyles {
   }
 
   static LinearGradient purpleGradient() => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [purpleDeep, purpleBright],
-      );
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [purpleDeep, purpleBright],
+  );
 
   static LinearGradient heroGradient(BuildContext context) {
     final dark = isDark(context);
@@ -109,20 +109,20 @@ class AppStyles {
       end: Alignment.bottomRight,
       colors: dark
           ? const [Color(0xFF3B2A6B), Color(0xFF1A1228)]
-          : const [Color(0xFF6C3CE1), Color(0xFF9B6DFF)],
+          : const [Color(0xFF8B5CF6), Color(0xFFA78BFA)],
     );
   }
 
   static ButtonStyle primaryButton() => ElevatedButton.styleFrom(
-        backgroundColor: purple,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMd),
-        ),
-        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-      );
+    backgroundColor: purple,
+    foregroundColor: Colors.white,
+    elevation: 0,
+    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(radiusMd),
+    ),
+    textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+  );
 }
 
 /// Semantic colors that flip with theme brightness.
@@ -181,7 +181,7 @@ class AppColorBundle {
     textPrimary: AppStyles.lightText,
     textMuted: AppStyles.lightMuted,
     textFaint: Color(0xFF9A9A9A),
-    brand: Color(0xFF6C3CE1),
+    brand: AppStyles.purple,
     brandSoft: Color(0xFFF3EEFF),
   );
 }

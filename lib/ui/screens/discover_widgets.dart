@@ -740,7 +740,7 @@ class _StoryCardState extends State<_StoryCard> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           color: Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF1E1E1E)
+              ? const Color(0xFF1A1625)
               : Colors.white,
           boxShadow: [
  BoxShadow(
@@ -1468,12 +1468,12 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? const Color(0xFF1E1E1E)
+                                  ? const Color(0xFF1A1625)
                                   : Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: isDark
-                                    ? const Color(0xFF2A2A2A)
+                                    ? const Color(0xFF221C30)
                                     : const Color(0xFFEDE9FE),
                               ),
                               boxShadow: isDark
@@ -1481,7 +1481,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                                   : [
  BoxShadow(
                                         color: const Color(
-                                          0xFF6C3CE1,
+                                          0xFF8B5CF6,
                                         ).withValues(alpha: 0.06),
                                         blurRadius: 12,
                                         offset: const Offset(0, 4),
@@ -1548,7 +1548,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                                           backgroundColor: isDark
                                               ? Colors.white12
                                               : const Color(0xFFEDE9FE),
-                                          color: const Color(0xFF6C3CE1),
+                                          color: const Color(0xFF8B5CF6),
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -1559,7 +1559,7 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                                           style: const TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
-                                            color: Color(0xFF6C3CE1),
+                                            color: Color(0xFF8B5CF6),
                                           ),
                                         ),
                                       ),
@@ -1578,12 +1578,12 @@ class _ContinueReadingSectionState extends State<_ContinueReadingSection> {
                         height: 108,
                         decoration: BoxDecoration(
                           color: isDark
-                              ? const Color(0xFF1E1E1E)
+                              ? const Color(0xFF1A1625)
                               : const Color(0xFFF7F5FC),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isDark
-                                ? const Color(0xFF2A2A2A)
+                                ? const Color(0xFF221C30)
                                 : const Color(0xFFEDE9FE),
                           ),
                         ),
@@ -1646,7 +1646,7 @@ class _BrowseGenresSection extends StatelessWidget {
   static const _palette = <Color>[
  Color(0xFFE14FA0),
  Color(0xFF8B5CF6),
- Color(0xFF6C3CE1),
+ Color(0xFF8B5CF6),
  Color(0xFFF0B357),
  Color(0xFF5B9BD5),
  Color(0xFFE85D4C),
@@ -1963,13 +1963,13 @@ class _SectionBooksScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : null,
+      backgroundColor: isDark ? const Color(0xFF0B0A12) : null,
       appBar: AppBar(
         title: Text(
           title,
           style: TextStyle(color: isDark ? Colors.white : null),
         ),
-        backgroundColor: isDark ? const Color(0xFF121212) : null,
+        backgroundColor: isDark ? const Color(0xFF0B0A12) : null,
         iconTheme: IconThemeData(color: isDark ? Colors.white : null),
       ),
       body: books.isEmpty
@@ -2468,14 +2468,14 @@ class _GenreBooksScreenState extends State<_GenreBooksScreen> {
                                     const Icon(
                                       Icons.check_circle,
                                       size: 14,
-                                      color: Color(0xFF6C3CE1),
+                                      color: Color(0xFF8B5CF6),
                                     ),
                                     const SizedBox(width: 4),
                                     const Text(
                                       'Completed',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Color(0xFF6C3CE1),
+                                        color: Color(0xFF8B5CF6),
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -2758,12 +2758,12 @@ class _HomeFeaturedBanner extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: isDark
               ? const [Color(0xFF2A1F4D), Color(0xFF15101F)]
-              : const [Color(0xFF5B2FD6), Color(0xFF8B5CF6), Color(0xFFC4B5FD)],
+              : const [Color(0xFF7C3AED), Color(0xFF8B5CF6), Color(0xFFC4B5FD)],
           stops: isDark ? null : const [0.0, 0.55, 1.0],
         ),
         boxShadow: [
  BoxShadow(
-            color: const Color(0xFF6C3CE1).withValues(alpha: 0.22),
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.22),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -2816,7 +2816,7 @@ class _HomeFeaturedBanner extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.2,
-                    color: const Color(0xFF6C3CE1).withValues(alpha: 0.9),
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.9),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -2877,7 +2877,7 @@ class _HomeFeaturedBanner extends StatelessWidget {
  FilledButton(
                   onPressed: () => _open(context),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF6C3CE1),
+                    backgroundColor: const Color(0xFF8B5CF6),
                     foregroundColor: Colors.white,
                     minimumSize: const Size(0, 40),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -3179,19 +3179,19 @@ class _HomeTopGenresRow extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: isDark
-                          ? const Color(0xFF1E1E1E)
+                          ? const Color(0xFF1A1625)
                           : const Color(0xFFF7F5FC),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isDark
-                            ? const Color(0xFF2A2A2A)
+                            ? const Color(0xFF221C30)
                             : const Color(0xFFEDE9FE),
                       ),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
- Icon(icon, color: const Color(0xFF6C3CE1), size: 24),
+ Icon(icon, color: const Color(0xFF8B5CF6), size: 24),
                         const SizedBox(height: 8),
  Text(
                           name,
@@ -3352,7 +3352,7 @@ class _HomeCategoryGrid extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: isDark
-                    ? const Color(0xFF2A2A2A)
+                    ? const Color(0xFF221C30)
                     : const Color(0xFFE9E1FF),
               ),
             ),
@@ -3362,10 +3362,10 @@ class _HomeCategoryGrid extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6C3CE1).withValues(alpha: 0.12),
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, size: 18, color: const Color(0xFF6C3CE1)),
+                  child: Icon(icon, size: 18, color: const Color(0xFF8B5CF6)),
                 ),
                 const SizedBox(width: 10),
  Expanded(
@@ -3458,7 +3458,7 @@ class _HomeTrendingList extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isDark
-                      ? const Color(0xFF2A2A2A)
+                      ? const Color(0xFF221C30)
                       : const Color(0xFFEDE9FE),
                 ),
               ),
@@ -3470,7 +3470,7 @@ class _HomeTrendingList extends StatelessWidget {
                     height: 28,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6C3CE1),
+                      color: const Color(0xFF8B5CF6),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -3762,13 +3762,13 @@ class _AllGenresScreenState extends State<_AllGenresScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF0B0A12) : Colors.white,
       appBar: AppBar(
         title: const Text(
           'Genres',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+        backgroundColor: isDark ? const Color(0xFF0B0A12) : Colors.white,
         foregroundColor: isDark ? Colors.white : Colors.black87,
         elevation: 0,
       ),
@@ -3780,7 +3780,7 @@ class _AllGenresScreenState extends State<_AllGenresScreen> {
               separatorBuilder: (_, _) => Divider(
                 height: 1,
                 color: isDark
-                    ? const Color(0xFF2A2A2A)
+                    ? const Color(0xFF221C30)
                     : const Color(0xFFEEEEEE),
               ),
               itemBuilder: (context, index) {
@@ -3793,13 +3793,13 @@ class _AllGenresScreenState extends State<_AllGenresScreen> {
                     height: 44,
                     decoration: BoxDecoration(
                       color: isDark
-                          ? const Color(0xFF1E1E1E)
+                          ? const Color(0xFF1A1625)
                           : const Color(0xFFF3EEFF),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       _iconFor(name),
-                      color: const Color(0xFF6C3CE1),
+                      color: const Color(0xFF8B5CF6),
                       size: 22,
                     ),
                   ),

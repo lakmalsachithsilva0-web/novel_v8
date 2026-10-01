@@ -1119,7 +1119,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                   hintStyle: TextStyle(color: _muted),
                                   filled: true,
                                   fillColor: _theme == _ReaderTheme.nightowl
-                                      ? const Color(0xFF2A2A2A)
+                                      ? const Color(0xFF221C30)
                                       : const Color(0xFFF2F2F2),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(24),
@@ -1144,7 +1144,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                     )
                                   : const Icon(
                                       Icons.send,
-                                      color: Color(0xFF6C3CE1),
+                                      color: Color(0xFF8B5CF6),
                                     ),
                               onPressed: posting
                                   ? null
@@ -1237,7 +1237,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     final key = _paragraphKeys.putIfAbsent(index, () => GlobalKey());
     // Ash/grey when only others commented; purple when current user also commented.
     final commentColor = selfCommented
-        ? const Color(0xFF6C3CE1)
+        ? const Color(0xFF8B5CF6)
         : (count > 0 ? const Color(0xFF9CA3AF) : _muted.withValues(alpha: 0.7));
     return Padding(
       key: key,
@@ -1284,7 +1284,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: selfCommented
-                                ? const Color(0xFF6C3CE1)
+                                ? const Color(0xFF8B5CF6)
                                 : const Color(0xFF9CA3AF),
                           ),
                         ),
@@ -1570,9 +1570,9 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                               child: OutlinedButton(
                                 onPressed: () => unawaited(_goPrev()),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF6C3CE1),
+                                  foregroundColor: const Color(0xFF8B5CF6),
                                   side: const BorderSide(
-                                    color: Color(0xFF6C3CE1),
+                                    color: Color(0xFF8B5CF6),
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
@@ -1601,10 +1601,10 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                               child: ElevatedButton(
                                 onPressed: _goNext,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF6C3CE1),
+                                  backgroundColor: const Color(0xFF8B5CF6),
                                   foregroundColor: Colors.white,
                                   elevation: 4,
-                                  shadowColor: const Color(0xFF6C3CE1),
+                                  shadowColor: const Color(0xFF8B5CF6),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
                                   ),
@@ -1674,7 +1674,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                 shape: BoxShape.circle,
                                 border: selected
                                     ? Border.all(
-                                        color: const Color(0xFF6C3CE1),
+                                        color: const Color(0xFF8B5CF6),
                                         width: 2,
                                       )
                                     : Border.all(
@@ -1696,7 +1696,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: selected
-                                    ? const Color(0xFF6C3CE1)
+                                    ? const Color(0xFF8B5CF6)
                                     : _muted,
                                 fontSize: 11,
                                 fontWeight: selected
@@ -1710,7 +1710,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: selected
-                                      ? const Color(0xFF6C3CE1)
+                                      ? const Color(0xFF8B5CF6)
                                       : _muted,
                                 ),
                               ),
@@ -1816,8 +1816,8 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                 Expanded(
                   child: SliderTheme(
                     data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: const Color(0xFF6C3CE1),
-                      thumbColor: const Color(0xFF6C3CE1),
+                      activeTrackColor: const Color(0xFF8B5CF6),
+                      thumbColor: const Color(0xFF8B5CF6),
                       overlayColor: const Color(0x336C3CE1),
                     ),
                     child: Slider(
@@ -1870,7 +1870,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: selected
-                      ? const Color(0xFF6C3CE1)
+                      ? const Color(0xFF8B5CF6)
                       : Colors.grey.shade400,
                   width: selected ? 2.5 : 1,
                 ),
@@ -1878,7 +1878,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                     ? [
                         BoxShadow(
                           color: const Color(
-                            0xFF6C3CE1,
+                            0xFF8B5CF6,
                           ).withValues(alpha: 0.35),
                           blurRadius: 8,
                         ),
@@ -1898,7 +1898,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
             Text(
               label,
               style: TextStyle(
-                color: selected ? const Color(0xFF6C3CE1) : _muted,
+                color: selected ? const Color(0xFF8B5CF6) : _muted,
                 fontSize: 11,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
@@ -2358,7 +2358,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                             ? Text(
                                                 letter,
                                                 style: const TextStyle(
-                                                  color: Color(0xFF6C3CE1),
+                                                  color: Color(0xFF8B5CF6),
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               )
@@ -2601,7 +2601,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                     )
                                   : const Icon(
                                       Icons.send_rounded,
-                                      color: Color(0xFF6C3CE1),
+                                      color: Color(0xFF8B5CF6),
                                     ),
                             ),
                           ],

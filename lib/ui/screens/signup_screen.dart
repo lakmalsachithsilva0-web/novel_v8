@@ -47,7 +47,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   File? _photo;
   String _photoUrl = '';
 
-  static const _purple = Color(0xFF6C3CE1);
+  static const _purple = Color(0xFF8B5CF6);
   static const _genders = ['Female', 'Male', 'Non-binary', 'Prefer not to say'];
   static const _countries = [
     'United States',

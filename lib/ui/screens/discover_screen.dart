@@ -327,7 +327,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
             delegate: _TabBarDelegate(
               child: Container(
                 color: Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF121212)
+                    ? const Color(0xFF0B0A12)
                     : Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: _CategoryTabs(
@@ -366,7 +366,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
           ? allBooks.skip(4).take(8).toList()
           : allBooks.take(8).toList();
       return Container(
-        color: isDark ? const Color(0xFF121212) : Colors.white,
+        color: isDark ? const Color(0xFF0B0A12) : Colors.white,
         child: ListView(
           physics: const NeverScrollableScrollPhysics(),
           shrinkWrap: true,
@@ -484,7 +484,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     // Other category tabs — keep existing rail behavior
     final showExploreLead = tabLabel == 'new' && sections.isNotEmpty;
     return Container(
-      color: isDark ? const Color(0xFF121212) : Colors.white,
+      color: isDark ? const Color(0xFF0B0A12) : Colors.white,
       child: ListView(
         physics: const NeverScrollableScrollPhysics(),
         shrinkWrap: true,
@@ -1244,7 +1244,7 @@ class _SearchScreenState extends State<SearchScreen> {
           margin: const EdgeInsets.only(right: 4),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF3F0FF),
+            color: isDark ? const Color(0xFF221C30) : const Color(0xFFF3F0FF),
             borderRadius: BorderRadius.circular(22),
           ),
           child: Row(
@@ -1315,7 +1315,7 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
         actions: [
  IconButton(
-            icon: const Icon(Icons.tune_rounded, color: Color(0xFF6C3CE1)),
+            icon: const Icon(Icons.tune_rounded, color: Color(0xFF8B5CF6)),
             onPressed: () async {
               final selected = await showModalBottomSheet<_SearchFilters>(
                 context: context,
@@ -1370,14 +1370,14 @@ class _SearchScreenState extends State<SearchScreen> {
                         }
                       },
                       selectedColor: const Color(
-                        0xFF6C3CE1,
+                        0xFF8B5CF6,
                       ).withValues(alpha: 0.18),
                       backgroundColor: isDark
-                          ? const Color(0xFF1E1E1E)
+                          ? const Color(0xFF1A1625)
                           : const Color(0xFFF7F5FC),
                       side: BorderSide(
                         color: _searchScope == entry['id']
-                            ? const Color(0xFF6C3CE1)
+                            ? const Color(0xFF8B5CF6)
                             : (isDark
                                   ? const Color(0xFF2C2C2C)
                                   : const Color(0xFFEDE9FE)),
@@ -1386,7 +1386,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
                         color: _searchScope == entry['id']
-                            ? const Color(0xFF6C3CE1)
+                            ? const Color(0xFF8B5CF6)
                             : muted,
                       ),
                     ),
@@ -1433,7 +1433,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               ),
                               label: Text(term),
                               backgroundColor: isDark
-                                  ? const Color(0xFF1E1E1E)
+                                  ? const Color(0xFF1A1625)
                                   : const Color(0xFFF7F5FC),
                               side: BorderSide(
                                 color: isDark
@@ -1483,7 +1483,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? const Color(0xFF1E1E1E)
+                                    ? const Color(0xFF1A1625)
                                     : const Color(0xFFF7F5FC),
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
@@ -1497,7 +1497,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                 children: [
  Icon(
                                     g.$2,
-                                    color: const Color(0xFF6C3CE1),
+                                    color: const Color(0xFF8B5CF6),
                                     size: 26,
                                   ),
                                   const SizedBox(height: 8),
@@ -1568,9 +1568,9 @@ class _SearchScreenState extends State<SearchScreen> {
                                       alignment: Alignment.center,
                                       decoration: BoxDecoration(
                                         color: i < 3
-                                            ? const Color(0xFF6C3CE1)
+                                            ? const Color(0xFF8B5CF6)
                                             : (isDark
-                                                  ? const Color(0xFF2A2A2A)
+                                                  ? const Color(0xFF221C30)
                                                   : const Color(0xFFF3F0FF)),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
@@ -1581,7 +1581,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                           fontSize: 12,
                                           color: i < 3
                                               ? Colors.white
-                                              : const Color(0xFF6C3CE1),
+                                              : const Color(0xFF8B5CF6),
                                         ),
                                       ),
                                     ),
@@ -1692,7 +1692,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               child: coverUrl.isEmpty
                                   ? const Icon(
                                       Icons.person,
-                                      color: Color(0xFF6C3CE1),
+                                      color: Color(0xFF8B5CF6),
                                     )
                                   : null,
                             );
@@ -1707,7 +1707,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               ),
                               child: const Icon(
                                 Icons.tag,
-                                color: Color(0xFF6C3CE1),
+                                color: Color(0xFF8B5CF6),
                               ),
                             );
                           } else {
@@ -2003,7 +2003,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                 ),
               ),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF6C3CE1),
+                backgroundColor: const Color(0xFF8B5CF6),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(

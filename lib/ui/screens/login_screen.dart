@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
   bool _busy = false;
 
-  static const _purple = Color(0xFF6C3CE1);
+  static const _purple = Color(0xFF8B5CF6);
   static const _purpleDeep = Color(0xFF4C2BB8);
   static const _purpleSoft = Color(0xFF8B6CF0);
 
@@ -440,7 +440,7 @@ class _SocialBtn extends StatelessWidget {
           child: Icon(
             icon,
             size: 28,
-            color: onTap == null ? Colors.grey.shade400 : const Color(0xFF6C3CE1),
+            color: onTap == null ? Colors.grey.shade400 : const Color(0xFF8B5CF6),
           ),
         ),
       ),

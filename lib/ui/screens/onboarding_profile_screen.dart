@@ -384,7 +384,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: const BoxDecoration(
-                            color: Color(0xFF6C3CE1),
+                            color: Color(0xFF8B5CF6),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(

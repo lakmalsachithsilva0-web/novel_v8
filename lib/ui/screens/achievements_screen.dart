@@ -16,33 +16,31 @@ class AchievementsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final groups = achievements.isNotEmpty
-        ? achievements
-        : _fallbackGroups();
+    final groups = achievements.isNotEmpty ? achievements : _fallbackGroups();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.bgOf(context),
       appBar: AppBar(
         title: const Text('Achievements'),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: AppTheme.bgOf(context),
+        foregroundColor: AppTheme.inkOf(context),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
           if (profile != null) ...[
-            _summaryRow(profile!),
+            _summaryRow(context, profile!),
             const SizedBox(height: 20),
           ],
           for (final group in groups) ...[
             Text(
               group.groupName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A1A),
+                color: AppTheme.inkOf(context),
               ),
             ),
             const SizedBox(height: 12),
@@ -68,26 +66,26 @@ class AchievementsScreen extends StatelessWidget {
     );
   }
 
-  Widget _summaryRow(ProfileModel p) {
+  Widget _summaryRow(BuildContext context, ProfileModel p) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8FA),
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8EAED)),
+        border: Border.all(color: AppTheme.borderOf(context)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _miniStat('${p.chaptersRead}', 'Chapters'),
-          _miniStat('${p.dayStreak}', 'Day streak'),
-          _miniStat('${p.socialKarma}', 'Karma'),
+          _miniStat(context, '${p.chaptersRead}', 'Chapters'),
+          _miniStat(context, '${p.dayStreak}', 'Day streak'),
+          _miniStat(context, '${p.socialKarma}', 'Karma'),
         ],
       ),
     );
   }
 
-  Widget _miniStat(String value, String label) {
+  Widget _miniStat(BuildContext context, String value, String label) {
     return Column(
       children: [
         Text(
@@ -101,7 +99,7 @@ class AchievementsScreen extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF8A8F98)),
+          style: TextStyle(fontSize: 12, color: AppTheme.mutedOf(context)),
         ),
       ],
     );
@@ -179,13 +177,13 @@ class _BadgeCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: unlocked
-            ? const Color(0xFFEEF9F6)
-            : const Color(0xFFF7F8FA),
+            ? AppTheme.brand.withValues(alpha: 0.12)
+            : AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: unlocked
               ? AppTheme.brand.withValues(alpha: 0.35)
-              : const Color(0xFFE8EAED),
+              : AppTheme.borderOf(context),
         ),
       ),
       child: Column(
@@ -200,12 +198,12 @@ class _BadgeCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: unlocked
                       ? AppTheme.brand.withValues(alpha: 0.15)
-                      : Colors.white,
+                      : AppTheme.bgOf(context),
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: unlocked
                         ? AppTheme.brand
-                        : const Color(0xFFD0D5DD),
+                        : AppTheme.borderOf(context),
                   ),
                 ),
                 child: Text(
@@ -214,7 +212,9 @@ class _BadgeCard extends StatelessWidget {
                       : item.badgeValue[0],
                   style: TextStyle(
                     fontSize: unlocked || inProgress ? 18 : 14,
-                    color: unlocked ? AppTheme.brand : const Color(0xFF8A8F98),
+                    color: unlocked
+                        ? AppTheme.brand
+                        : AppTheme.mutedOf(context),
                   ),
                 ),
               ),
@@ -227,7 +227,7 @@ class _BadgeCard extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                     color: unlocked
                         ? AppTheme.brand
-                        : const Color(0xFF8A8F98),
+                        : AppTheme.mutedOf(context),
                   ),
                 ),
             ],
@@ -237,10 +237,10 @@ class _BadgeCard extends StatelessWidget {
             item.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 13,
-              color: Color(0xFF1A1A1A),
+              color: AppTheme.inkOf(context),
             ),
           ),
           const SizedBox(height: 4),
@@ -248,9 +248,9 @@ class _BadgeCard extends StatelessWidget {
             item.subtitle,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
-              color: Color(0xFF8A8F98),
+              color: AppTheme.mutedOf(context),
               height: 1.25,
             ),
           ),
