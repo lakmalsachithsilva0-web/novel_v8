@@ -728,8 +728,8 @@ export default function StoryPage({ user }) {
       <footer className="story-footer-strip">
         <div className="story-footer-inner">
           <div>
-            <h4>GALATEA STORIES</h4>
-            <Link to="/galatea">Explore Galatea</Link>
+            <h4>MORE STORIES</h4>
+            <Link to="/genres/Stories">Explore the NovelHub catalog</Link>
           </div>
           <div>
             <h4>NEWEST COLLECTIONS</h4>

@@ -9,11 +9,7 @@ import 'email_verify_screen.dart';
 
 /// Create Account — pixel-matched to product mock (purple theme).
 class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({
-    super.key,
-    required this.onContinue,
-    this.apiService,
-  });
+  const SignUpScreen({super.key, required this.onContinue, this.apiService});
 
   final Future<void> Function(
     String method, {
@@ -22,7 +18,8 @@ class SignUpScreen extends StatefulWidget {
     String? mode,
     String? displayName,
     String? username,
-  }) onContinue;
+  })
+  onContinue;
 
   final ApiService? apiService;
 
@@ -102,8 +99,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
         bytes,
         name.isEmpty ? 'photo.jpg' : name,
       );
-      final path =
-          (res['path'] ?? res['url'] ?? res['photo_url'] ?? '').toString();
+      final path = (res['path'] ?? res['url'] ?? res['photo_url'] ?? '')
+          .toString();
       return path.isEmpty ? null : path;
     } catch (_) {
       return null;
@@ -198,7 +195,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -212,7 +211,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -239,11 +240,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFEDE9FE)),
+        borderSide: BorderSide(color: AppStyles.colors(context).borderSoft),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _purple, width: 1.5),
+        borderSide: BorderSide(
+          color: AppStyles.colors(context).brand,
+          width: 1.5,
+        ),
       ),
     );
   }
@@ -251,7 +255,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppStyles.colors(context).bg,
       body: SafeArea(
         child: Column(
           children: [
@@ -262,7 +266,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 20,
+                    ),
                   ),
                   const Spacer(),
                   GestureDetector(
@@ -272,13 +279,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       children: [
                         CircleAvatar(
                           radius: 32,
-                          backgroundColor: const Color(0xFFEDE9FE),
-                          backgroundImage:
-                              _photo != null ? FileImage(_photo!) : null,
+                          backgroundColor: AppStyles.colors(context).brandSoft,
+                          backgroundImage: _photo != null
+                              ? FileImage(_photo!)
+                              : null,
                           child: _photo == null
-                              ? const Icon(
+                              ? Icon(
                                   Icons.person_rounded,
-                                  color: _purple,
+                                  color: AppStyles.colors(context).brand,
                                   size: 36,
                                 )
                               : null,
@@ -289,8 +297,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           child: Container(
                             width: 22,
                             height: 22,
-                            decoration: const BoxDecoration(
-                              color: _purple,
+                            decoration: BoxDecoration(
+                              color: AppStyles.colors(context).brand,
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -314,19 +322,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
+                      Text(
                         'Create Account',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF1A1A2E),
+                          color: AppStyles.colors(context).textPrimary,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         'Sign up and start your journey with us',
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: AppStyles.colors(context).textMuted,
                           fontSize: 14,
                         ),
                       ),
@@ -382,7 +390,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             label: 'Birthday',
                             hint: 'Select your birthday',
                             icon: Icons.calendar_today_outlined,
-                            suffix: const Icon(Icons.event, color: _purple, size: 20),
+                            suffix: const Icon(
+                              Icons.event,
+                              color: _purple,
+                              size: 20,
+                            ),
                           ),
                           child: Text(
                             _birthDate == null
@@ -390,8 +402,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 : '${_birthDate!.year}-${_birthDate!.month.toString().padLeft(2, '0')}-${_birthDate!.day.toString().padLeft(2, '0')}',
                             style: TextStyle(
                               color: _birthDate == null
-                                  ? Colors.grey.shade600
-                                  : const Color(0xFF1A1A2E),
+                                  ? AppStyles.colors(context).textMuted
+                                  : AppStyles.colors(context).textPrimary,
                               fontSize: 15,
                             ),
                           ),
@@ -407,7 +419,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           icon: Icons.wc_outlined,
                         ),
                         items: _genders
-                            .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                            .map(
+                              (g) => DropdownMenuItem(value: g, child: Text(g)),
+                            )
                             .toList(),
                         onChanged: (v) => setState(() => _gender = v),
                         validator: (v) =>
@@ -423,7 +437,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           icon: Icons.public_outlined,
                         ),
                         items: _countries
-                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                            .map(
+                              (c) => DropdownMenuItem(value: c, child: Text(c)),
+                            )
                             .toList(),
                         onChanged: (v) => setState(() => _country = v),
                       ),
@@ -441,7 +457,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               _obscure
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined,
-                              color: Colors.grey,
+                              color: AppStyles.colors(context).textMuted,
                             ),
                             onPressed: () =>
                                 setState(() => _obscure = !_obscure),
@@ -462,14 +478,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               _obscure2
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined,
-                              color: Colors.grey,
+                              color: AppStyles.colors(context).textMuted,
                             ),
                             onPressed: () =>
                                 setState(() => _obscure2 = !_obscure2),
                           ),
                         ),
                         validator: (v) {
-                          if (v != _passCtrl.text) return 'Passwords do not match';
+                          if (v != _passCtrl.text) {
+                            return 'Passwords do not match';
+                          }
                           return null;
                         },
                       ),
@@ -495,7 +513,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               TextSpan(
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Colors.grey.shade700,
+                                  color: AppStyles.colors(context).textMuted,
                                 ),
                                 children: const [
                                   TextSpan(text: 'I agree to the '),
@@ -556,7 +574,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         children: [
                           Text(
                             'Already have an account? ',
-                            style: TextStyle(color: Colors.grey.shade700),
+                            style: TextStyle(
+                              color: AppStyles.colors(context).textMuted,
+                            ),
                           ),
                           GestureDetector(
                             onTap: () => Navigator.of(context).maybePop(),
@@ -574,7 +594,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       Center(
                         child: TextButton.icon(
                           onPressed: _busy ? null : _google,
-                          icon: const Icon(Icons.g_mobiledata_rounded, size: 28),
+                          icon: const Icon(
+                            Icons.g_mobiledata_rounded,
+                            size: 28,
+                          ),
                           label: const Text('Continue with Google'),
                           style: TextButton.styleFrom(foregroundColor: _purple),
                         ),

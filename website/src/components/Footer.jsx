@@ -17,7 +17,7 @@ export default function Footer() {
             <span className="footer-signoff"><i>✦</i> Read a little. Feel a lot.</span>
           </div>
           <nav className="footer-link-group" aria-label="Discover NovelHub">
-            <h3>Discover</h3><Link to="/">Home</Link><Link to="/genres/Stories">All stories</Link><Link to="/audiobooks">Audio shelf</Link><Link to="/contests">Writing challenges</Link>
+            <h3>Discover</h3><Link to="/">Explore NovelHub</Link><Link to="/genres/Stories">All stories</Link><Link to="/contests">Writing challenges</Link>
           </nav>
           <nav className="footer-link-group" aria-label="Your NovelHub space">
             <h3>Your space</h3><Link to="/library">My library</Link><Link to="/profile">Profile</Link><Link to="/write">Writing desk</Link><Link to="/community">Community</Link>

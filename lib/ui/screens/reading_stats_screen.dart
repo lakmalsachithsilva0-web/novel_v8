@@ -77,11 +77,12 @@ class _ReadingStatsScreenState extends State<ReadingStatsScreen> {
             if (genres is List) {
               _topGenres.clear();
               for (final g in genres) {
-                if (g is Map)
+                if (g is Map) {
                   _topGenres.add((
                     (g['name'] ?? '').toString(),
                     (g['count'] as num?)?.toInt() ?? 0,
                   ));
+                }
               }
             }
             final rt = remote['reading_time_label']?.toString();
@@ -96,11 +97,12 @@ class _ReadingStatsScreenState extends State<ReadingStatsScreen> {
           ('Thriller', 5),
         ]);
       }
-      if (mounted)
+      if (mounted) {
         setState(() {
           _minutes = mins;
           _loading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }

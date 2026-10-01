@@ -1,5 +1,9 @@
-const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL || "https://novel-v7.vercel.app").replace(/\/$/, "");
+const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/+$/, "");
+const isLoopbackApi = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApiBase);
+const productionApiBase = "https://novel-v7.vercel.app";
+const API_BASE_URL = import.meta.env.DEV
+  ? (configuredApiBase && !isLoopbackApi ? configuredApiBase : "")
+  : (configuredApiBase && !isLoopbackApi ? configuredApiBase : productionApiBase);
 
 const TOKEN_KEY = "novelhub_web_token";
 const DEVICE_ID_KEY = "novelhub_web_device_id";
@@ -459,11 +463,6 @@ export function reportBook(bookId, reason) {
     body: JSON.stringify({ reason }),
   });
 }
-
-export function getAudiobooks() {
-  return request("/api/audiobooks").catch(() => ({ items: [] }));
-}
-
 
 export async function uploadWriteImage(file) {
   const token = getToken();

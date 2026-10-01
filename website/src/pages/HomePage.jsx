@@ -190,6 +190,7 @@ export default function HomePage() {
         );
     return ranked.slice(0, 16);
   }, [allBooks, data, filteredBooks, isFiltered]);
+  const homeGenres = tags.length ? [...tags.slice(0, 5), "More"] : GENRE_PILLS;
 
   function setHomeFilter(key, value) {
     const next = new URLSearchParams(searchParams);
@@ -206,9 +207,8 @@ export default function HomePage() {
       <section className="hero inkitt-hero home-hero home-feed-hero">
         <div className="hero-inner">
           <div className="hero-copy">
-            <span className="hero-eyebrow">NOVELHUB <span aria-hidden="true">✦</span> STORIES BY THE COMMUNITY</span>
+            <span className="hero-eyebrow">NOVELHUB <span aria-hidden="true">✦</span> STORY DISCOVERY</span>
             <h1>What will you read today?</h1>
-            <p className="hero-tagline">Discover your next favorite story.</p>
             <p className="lead">
               Explore new voices, follow stories as they grow, and find a community that loves the same worlds you do.
             </p>
@@ -217,23 +217,6 @@ export default function HomePage() {
               <Link className="btn btn-ghost" to="/write">Share your story</Link>
             </div>
             <p className="hero-stat"><strong>{allBooks.length.toLocaleString()}</strong> stories to explore</p>
-            <p className="hero-explore">Browse by genre</p>
-            <div className="genre-pills">
-              {(tags.length ? [...tags.slice(0, 7), "More"] : GENRE_PILLS).map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  className="genre-pill"
-                  onClick={() =>
-                    g === "More"
-                      ? navigate("/genres/Stories")
-                      : setHomeFilter("genre", g)
-                  }
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
           </div>
           <div className="hero-story-mosaic" aria-label="Stories readers are discovering">
             {trending.slice(0, 3).map((book, index) => {
@@ -259,6 +242,25 @@ export default function HomePage() {
         </div>
       </section>
       <div className="home-hero-foot" aria-label="NovelHub reading community"><span><i>✦</i> Reader-powered discovery</span><span><i>✧</i> New voices every day</span><span><i>♡</i> Stories worth staying for</span></div>
+      <nav className="home-genre-strip" aria-label="Browse by genre">
+        <span>Browse by genre</span>
+        <div className="genre-pills">
+          {homeGenres.map((genre) => (
+            <button
+              key={genre}
+              type="button"
+              className="genre-pill"
+              onClick={() =>
+                genre === "More"
+                  ? navigate("/genres/Stories")
+                  : setHomeFilter("genre", genre)
+              }
+            >
+              {genre}
+            </button>
+          ))}
+        </div>
+      </nav>
 
       <nav className="home-feed-tabs" aria-label="Story feed filters">
         {[["popular", "Popular"], ["newest", "Recently updated"], ["complete", "Completed"]].map(([value, label]) => {

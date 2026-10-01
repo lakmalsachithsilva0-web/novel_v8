@@ -65,7 +65,6 @@ export default function ContestsPage({ user }) {
   return (
     <main className="contest-page page-shell">
       <header className="contest-hero">
-        <div className="contest-hero-orb contest-hero-orb--a" /><div className="contest-hero-orb contest-hero-orb--b" />
         <div className="contest-hero-copy"><span className="eyebrow">A PROMPT. A PAGE. A POSSIBILITY.</span><h1>Let your next story surprise you.</h1><p>Writing challenges give a fresh idea somewhere to grow. Find a theme, follow the feeling, and make it your own.</p><Link className="btn btn-primary" to="/write">Start a story <span aria-hidden="true">→</span></Link></div>
         <div className="contest-hero-feature" aria-label={featured ? `Featured contest: ${featured.title}` : "Writing inspiration"}><span className="contest-feature-star">✦</span><span className="eyebrow">{featured ? "IN THE SPOTLIGHT" : "YOUR NEXT PROMPT"}</span><h2>{featured?.title || "Love in full color"}</h2><p>{featured?.theme || "Write a love story that celebrates every shade of belonging."}</p>{featured?.deadline ? <span className="contest-deadline">{featured.deadline}</span> : null}</div>
         <div className="contest-hero-note" aria-hidden="true">Make it yours <span>✧</span></div>

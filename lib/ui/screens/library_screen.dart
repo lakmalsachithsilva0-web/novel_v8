@@ -750,8 +750,9 @@ class _EntriesList extends StatelessWidget {
                                       return '$genre · ${e.book.author}';
                                     }
                                     if (genre.isNotEmpty) return genre;
-                                    if (e.book.author.isNotEmpty)
+                                    if (e.book.author.isNotEmpty) {
                                       return 'By ${e.book.author}';
+                                    }
                                     return e.readingStatus;
                                   }(),
                                   maxLines: 1,

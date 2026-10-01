@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { getMe, getMyReviews, getMyStories, getUserActivity, getUserWall, postUserWall, resolveAssetUrl, updateMe, uploadProfileImage } from "../api";
 import { isGuestUser } from "../utils/guest";
 
-const TABS = ["About", "Stories", "Wall", "Reviews"];
+const TABS = ["About", "Stories", "Wall", "Activity", "Reviews"];
 
 function normalizeItems(value) {
   if (Array.isArray(value)) return value;
@@ -11,7 +11,7 @@ function normalizeItems(value) {
   return [];
 }
 
-export default function ProfilePage({ user, onLogout }) {
+export default function ProfilePage({ user }) {
   const guest = isGuestUser(user);
   const [me, setMe] = useState(user);
   const [stories, setStories] = useState([]);
@@ -188,13 +188,10 @@ export default function ProfilePage({ user, onLogout }) {
             <h1>{name}</h1>
             {username ? <p className="profile-handle">@{username}</p> : null}
             {me?.email ? <p className="profile-email">{me.email}</p> : null}
-            <p className="profile-bio-text">{me?.bio?.trim() || "Your story is still being written. Add a little about yourself in the NovelHub app."}</p>
+            <p className="profile-bio-text">{me?.bio?.trim() || "Your story is still being written. Add a little about yourself to your profile."}</p>
             <div className="profile-actions-bar">
               <button type="button" className="btn btn-ghost" onClick={() => { setEditing((value) => !value); setSaveMessage(""); }}>{editing ? "Cancel edit" : "Edit profile"}</button>
               <Link className="btn btn-primary" to="/manage-stories">Manage stories</Link>
-              <Link className="btn btn-ghost" to="/library">Open library</Link>
-              <Link className="btn btn-ghost" to="/account">More</Link>
-              <button type="button" className="btn btn-ghost" onClick={() => onLogout?.()}>Sign out</button>
             </div>
             {saveMessage ? <p className="meta" role="status">{saveMessage}</p> : null}
             {editing ? <form className="profile-edit-form" onSubmit={saveProfile}>
@@ -238,7 +235,7 @@ export default function ProfilePage({ user, onLogout }) {
           <section className="profile-about card-panel">
             <span className="eyebrow">A LITTLE INTRODUCTION</span>
             <h2>About {name.split(" ")[0]}</h2>
-            <p>{me?.bio?.trim() || "No bio yet. When you add one in the NovelHub app, it will appear here."}</p>
+            <p>{me?.bio?.trim() || "No bio yet. Add a few lines about yourself to make this profile your own."}</p>
             <div className="profile-about-details">
               <div><span>Saved stories</span><strong>{me?.library_count ?? 0}</strong></div>
               <div><span>Reading lists</span><strong>{me?.reading_list_count ?? 0}</strong></div>

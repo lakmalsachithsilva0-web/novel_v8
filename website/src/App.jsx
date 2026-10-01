@@ -5,7 +5,6 @@ import Footer from "./components/Footer";
 import YouMayAlsoLike from "./components/YouMayAlsoLike";
 import HomePage from "./pages/HomePage";
 import AudiobooksPage from "./pages/AudiobooksPage";
-import GalateaPage from "./pages/GalateaPage";
 import ContestsPage from "./pages/ContestsPage";
 import CommunityPage from "./pages/CommunityPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
@@ -44,7 +43,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [bootLoading, setBootLoading] = useState(true);
   const path = location.pathname;
-  const recommendationsExcluded = path === "/" || path === "/login" || path.startsWith("/write") || path.startsWith("/manage-stories") || path.startsWith("/account") || path === "/subscription" || /^\/stories\/\d+$/.test(path);
+  const recommendationsExcluded = path === "/" || path === "/login" || path === "/profile" || path === "/library" || path === "/community" || path === "/notifications" || path.startsWith("/write") || path.startsWith("/manage-stories") || path.startsWith("/account") || path === "/subscription" || /^\/stories\/\d+$/.test(path);
   const currentStoryId = path.match(/^\/stories\/(\d+)/)?.[1];
 
   const refreshUser = useCallback(async () => {
@@ -148,7 +147,7 @@ export default function App() {
             <Route path="/account/cookies" element={<AccountLegal kind="cookies" />} />
 
             <Route path="/audiobooks" element={<AudiobooksPage />} />
-            <Route path="/galatea" element={<GalateaPage />} />
+            <Route path="/galatea" element={<Navigate to="/genres/Stories" replace />} />
             <Route path="/contests" element={<ContestsPage user={user} />} />
             <Route path="/subscription" element={<SubscriptionPage user={user} />} />
             <Route path="/community" element={<CommunityPage user={user} />} />

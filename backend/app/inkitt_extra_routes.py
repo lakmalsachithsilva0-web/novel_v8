@@ -281,36 +281,9 @@ def register_inkitt_extra_routes(
 
     @app.get("/api/audiobooks")
     def list_audiobooks():
-        """Catalog slice for audiobooks page — featured / high-rated stories as listenables."""
-        try:
-            rows = fetch_all(
-                """
-                SELECT id, title, author, description, cover_path, accent_hex, rating, genre, primary_genre, secondary_genre, section_name
-                FROM books
-                WHERE (section_name IN ('featured', 'trending') OR rating >= 4.5)
-                ORDER BY rating DESC, id DESC
-                LIMIT 40
-                """
-            )
-            items = []
-            for r in rows or []:
-                if not isinstance(r, dict):
-                    continue
-                items.append(
-                    {
-                        "id": r.get("id"),
-                        "title": r.get("title"),
-                        "author": r.get("author"),
-                        "description": r.get("description") or "",
-                        "cover_path": r.get("cover_path") or "",
-                        "accent_hex": r.get("accent_hex") or "#1f2937",
-                        "rating": r.get("rating"),
-                        "genre": r.get("genre") or r.get("primary_genre") or "",
-                        "tag": r.get("secondary_genre") or "",
-                        "is_audiobook": True,
-                    }
-                )
-            return {"items": items}
-        except Exception as exc:
-            LOGGER.exception("audiobooks: %s", exc)
-            return {"items": []}
+        """Report unavailable until the catalog stores playable audio assets."""
+        return {
+            "available": False,
+            "items": [],
+            "message": "Audiobook editions are not available yet.",
+        }

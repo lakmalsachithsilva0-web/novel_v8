@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_styles.dart';
 
-
 /// Login — layout matched to product mock (purple theme aligned with home).
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -17,7 +16,8 @@ class LoginScreen extends StatefulWidget {
     String? password,
     String? mode,
     String? username,
-  }) onContinue;
+  })
+  onContinue;
   final VoidCallback? onOpenSignUp;
   final VoidCallback? onSkipAsReader;
 
@@ -31,10 +31,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passCtrl = TextEditingController();
   bool _obscure = true;
   bool _busy = false;
-
-  static const _purple = Color(0xFF8B5CF6);
-  static const _purpleDeep = Color(0xFF4C2BB8);
-  static const _purpleSoft = Color(0xFF8B6CF0);
 
   @override
   void dispose() {
@@ -50,7 +46,9 @@ class _LoginScreenState extends State<LoginScreen> {
       await action();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -60,13 +58,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final ident = _userCtrl.text.trim();
-    await _run(() => widget.onContinue(
-          'email',
-          email: ident,
-          password: _passCtrl.text,
-          mode: 'login',
-          username: ident,
-        ));
+    await _run(
+      () => widget.onContinue(
+        'email',
+        email: ident,
+        password: _passCtrl.text,
+        mode: 'login',
+        username: ident,
+      ),
+    );
   }
 
   InputDecoration _field({
@@ -78,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      prefixIcon: Icon(icon, color: _purple, size: 22),
+      prefixIcon: Icon(icon, color: AppStyles.colors(context).brand, size: 22),
       suffixIcon: suffix,
       filled: true,
       fillColor: AppStyles.colors(context).field,
@@ -93,7 +93,10 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _purple, width: 1.5),
+        borderSide: BorderSide(
+          color: AppStyles.colors(context).brand,
+          width: 1.5,
+        ),
       ),
     );
   }
@@ -112,12 +115,8 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Stack(
               children: [
                 Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [_purpleDeep, _purple, _purpleSoft],
-                    ),
+                  decoration: BoxDecoration(
+                    gradient: AppStyles.heroGradient(context),
                   ),
                 ),
                 // soft dots
@@ -152,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFF6B9D).withValues(alpha: 0.5),
+                      color: AppStyles.purpleBright.withValues(alpha: 0.5),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -212,18 +211,19 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
             ),
           ),
-          // Overlapping white card
+          // Form surface follows the active app theme.
           Expanded(
             child: Transform.translate(
               offset: const Offset(0, -28),
               child: Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: AppStyles.colors(context).card,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                  border: Border.all(color: AppStyles.colors(context).border),
                   boxShadow: [
                     BoxShadow(
-                      color: Color(0x1A000000),
+                      color: Colors.black.withValues(alpha: 0.16),
                       blurRadius: 16,
                       offset: Offset(0, -4),
                     ),
@@ -245,8 +245,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             hint: 'Enter your user ID',
                             icon: Icons.alternate_email_rounded,
                           ),
-                          validator: (v) =>
-                              (v ?? '').trim().isEmpty ? 'Enter user ID or email' : null,
+                          validator: (v) => (v ?? '').trim().isEmpty
+                              ? 'Enter user ID or email'
+                              : null,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -261,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 _obscure
                                     ? Icons.visibility_off_outlined
                                     : Icons.visibility_outlined,
-                                color: Colors.grey,
+                                color: AppStyles.colors(context).textMuted,
                               ),
                               onPressed: () =>
                                   setState(() => _obscure = !_obscure),
@@ -285,7 +286,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     );
                                   },
                             style: TextButton.styleFrom(
-                              foregroundColor: _purple,
+                              foregroundColor: AppStyles.colors(context).brand,
                               padding: const EdgeInsets.symmetric(vertical: 8),
                             ),
                             child: const Text(
@@ -300,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: FilledButton(
                             onPressed: _busy ? null : _login,
                             style: FilledButton.styleFrom(
-                              backgroundColor: _purple,
+                              backgroundColor: AppStyles.colors(context).brand,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(28),
                               ),
@@ -329,8 +330,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             const Expanded(child: Divider()),
                             Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
                               child: Text(
                                 'or continue with',
                                 style: TextStyle(
@@ -351,7 +353,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               label: 'G',
                               onTap: _busy
                                   ? null
-                                  : () => _run(() => widget.onContinue('google')),
+                                  : () =>
+                                        _run(() => widget.onContinue('google')),
                             ),
                             const SizedBox(width: 16),
                             _SocialBtn(
@@ -373,14 +376,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             Text(
                               "Don't have an account? ",
-                              style: TextStyle(color: AppStyles.colors(context).textMuted),
+                              style: TextStyle(
+                                color: AppStyles.colors(context).textMuted,
+                              ),
                             ),
                             GestureDetector(
                               onTap: widget.onOpenSignUp,
-                              child: const Text(
+                              child: Text(
                                 'Sign Up',
                                 style: TextStyle(
-                                  color: _purple,
+                                  color: AppStyles.colors(context).brand,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -393,7 +398,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: _busy ? null : widget.onSkipAsReader,
                             child: Text(
                               'Continue as guest',
-                              style: TextStyle(color: AppStyles.colors(context).textMuted),
+                              style: TextStyle(
+                                color: AppStyles.colors(context).textMuted,
+                              ),
                             ),
                           ),
                         ],
@@ -411,11 +418,7 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 class _SocialBtn extends StatelessWidget {
-  const _SocialBtn({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
+  const _SocialBtn({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
@@ -440,7 +443,9 @@ class _SocialBtn extends StatelessWidget {
           child: Icon(
             icon,
             size: 28,
-            color: onTap == null ? Colors.grey.shade400 : const Color(0xFF8B5CF6),
+            color: onTap == null
+                ? AppStyles.colors(context).textFaint
+                : AppStyles.colors(context).brand,
           ),
         ),
       ),

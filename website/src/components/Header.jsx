@@ -5,9 +5,10 @@ import { getTags } from "../api";
 
 /** Keep core reading destinations aligned with the Flutter app. */
 const MAIN_NAV = [
-  { to: "/", label: "Home", end: true },
-  { to: "/library", label: "Library" },
-  { to: "/write", label: "Write" },
+  { to: "/", label: "Discover", end: true },
+  { to: "/genres/Stories", label: "Stories" },
+  { to: "/community", label: "Community" },
+  { to: "/write", label: "For writers" },
 ];
 
 const FALLBACK_CATEGORIES = [
@@ -239,12 +240,12 @@ export default function Header({ user, onLogout, onAuthSuccess }) {
               </button>
               {moreOpen && (
                 <div className="header-more-menu" role="menu">
+                  <Link role="menuitem" to="/library" onClick={closeMenu}>My library</Link>
                   {user && !isGuest ? <Link role="menuitem" to="/profile" onClick={closeMenu}>My profile</Link> : null}
                   <Link role="menuitem" to="/notifications" onClick={closeMenu}>Notifications</Link>
                   <Link role="menuitem" to="/account" onClick={closeMenu}>Account & settings</Link>
                   <Link role="menuitem" to="/community" onClick={closeMenu}>Community</Link>
                   <Link role="menuitem" to="/contests" onClick={closeMenu}>Writing contests</Link>
-                  <Link role="menuitem" to="/audiobooks" onClick={closeMenu}>Audio stories</Link>
                   {user && !isGuest ? (
                     <button type="button" role="menuitem" onClick={() => { closeMenu(); onLogout?.(); navigate("/"); }}>Sign out</button>
                   ) : (
