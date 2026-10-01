@@ -1,4 +1,4 @@
-import { createSupportRequest, getMyPreferences, updateMyPreferences } from "../api";
+import { createSupportRequest, getMyPreferences, getMyReadingStats, updateMyPreferences } from "../api";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { isGuestUser } from "../utils/guest";
@@ -237,28 +237,65 @@ export function AccountContact() {
 }
 
 export function AccountStats({ user }) {
+  const guest = isGuestUser(user);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(!guest);
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (guest) {
+      setLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    getMyReadingStats()
+      .then((data) => { if (!cancelled) setStats(data || {}); })
+      .catch((err) => { if (!cancelled) setError(err.message || "Reading stats could not load."); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [guest, user?.id, user?.user_id, reloadKey]);
+
+  if (guest) {
+    return (
+      <PageShell title="Reading stats">
+        <section className="guest-lock card-panel">
+          <h2>Your reading journey</h2>
+          <p className="meta">Sign in to sync reading totals and genre activity across devices.</p>
+          <Link className="btn btn-primary" to="/login">Sign in</Link>
+        </section>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell title="Reading stats">
+      {error ? <div className="error-banner" role="alert">{error} <button type="button" className="btn btn-ghost btn-sm" onClick={() => setReloadKey((key) => key + 1)}>Retry</button></div> : null}
       <div className="profile-stat-row">
         <div className="profile-stat-card">
-          <strong>{user?.chapters_read ?? user?.chaptersRead ?? 0}</strong>
-          <span>Chapters read</span>
+          <strong>{loading ? "—" : Number(stats?.books_read || 0).toLocaleString()}</strong>
+          <span>Books read</span>
         </div>
         <div className="profile-stat-card">
-          <strong>{user?.day_streak ?? user?.dayStreak ?? 0}</strong>
-          <span>Day streak</span>
+          <strong>{loading ? "—" : Number(stats?.pages_read || 0).toLocaleString()}</strong>
+          <span>Pages read</span>
         </div>
         <div className="profile-stat-card">
-          <strong>{user?.social_karma ?? user?.socialKarma ?? 0}</strong>
-          <span>Social karma</span>
+          <strong>{loading ? "—" : Number(stats?.current_streak || 0).toLocaleString()}</strong>
+          <span>Current streak</span>
+        </div>
+        <div className="profile-stat-card">
+          <strong>{loading ? "—" : Number(stats?.month_books || 0).toLocaleString()}</strong>
+          <span>This month</span>
         </div>
       </div>
-      <p className="meta" style={{ marginTop: 16 }}>
-        A snapshot of your reading activity and story progress.
-      </p>
-      <Link className="btn btn-primary" to="/library" style={{ marginTop: 12, display: "inline-flex" }}>
-        Open library
-      </Link>
+      <section className="reading-stats-genres">
+        <h2>Top genres</h2>
+        {stats?.top_genres?.length ? <div className="reading-genre-list">{stats.top_genres.map((genre) => <div className="reading-genre-row" key={genre.name}><span>{genre.name}</span><strong>{genre.count}</strong></div>)}</div> : <p className="meta">Genre activity will appear as you add stories to your library.</p>}
+      </section>
+      <Link className="btn btn-primary" to="/library">Open library</Link>
     </PageShell>
   );
 }

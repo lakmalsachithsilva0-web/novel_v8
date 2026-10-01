@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { getMe, getMyReviews, getMyStories, getUserActivity, getUserWall, postUserWall, resolveAssetUrl, updateMe, uploadProfileImage } from "../api";
+import { commentWallPost, getBootstrap, getMe, getMyReviews, getMyStories, getReadingLists, getToken, getUserActivity, getUserWall, likeWallPost, postUserWall, resolveAssetUrl, updateMe, uploadProfileImage } from "../api";
 import { isGuestUser } from "../utils/guest";
+import WallPostCard from "../components/WallPostCard";
 
 const TABS = ["About", "Stories", "Wall", "Activity", "Reviews"];
 
@@ -15,6 +16,8 @@ export default function ProfilePage({ user }) {
   const guest = isGuestUser(user);
   const [me, setMe] = useState(user);
   const [stories, setStories] = useState([]);
+  const [readingLists, setReadingLists] = useState([]);
+  const [achievementGroups, setAchievementGroups] = useState([]);
   const [wall, setWall] = useState([]);
   const [activity, setActivity] = useState([]);
   const [reviews, setReviews] = useState([]);
@@ -22,6 +25,7 @@ export default function ProfilePage({ user }) {
   const [feedError, setFeedError] = useState("");
   const [wallDraft, setWallDraft] = useState("");
   const [wallSaving, setWallSaving] = useState(false);
+  const [wallBusy, setWallBusy] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("About");
@@ -37,19 +41,23 @@ export default function ProfilePage({ user }) {
     if (guest) {
       setMe(user);
       setStories([]);
+      setReadingLists([]);
+      setAchievementGroups([]);
       setLoading(false);
       return () => { cancelled = true; };
     }
 
     setLoading(true);
     setError("");
-    Promise.allSettled([getMe(), getMyStories()])
-      .then(([profileResult, storiesResult]) => {
+    Promise.allSettled([getMe(), getMyStories(), getReadingLists(), getBootstrap()])
+      .then(([profileResult, storiesResult, listsResult, bootstrapResult]) => {
         if (cancelled) return;
         if (profileResult.status === "fulfilled") setMe(profileResult.value || user);
         else setError(`Profile details could not load: ${profileResult.reason?.message || "Please try again."}`);
         if (storiesResult.status === "fulfilled") setStories(normalizeItems(storiesResult.value));
         else setError((current) => [current, `Your stories could not load: ${storiesResult.reason?.message || "Please try again."}`].filter(Boolean).join(" "));
+        if (listsResult.status === "fulfilled") setReadingLists(normalizeItems(listsResult.value));
+        if (bootstrapResult.status === "fulfilled") setAchievementGroups(normalizeItems(bootstrapResult.value?.achievements));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -132,6 +140,35 @@ export default function ProfilePage({ user }) {
       setFeedError(err.message || "Could not post to your wall.");
     } finally {
       setWallSaving(false);
+    }
+  }
+  async function likeProfileWallPost(post) {
+    setWallBusy(post.id);
+    setFeedError("");
+    try {
+      const result = await likeWallPost(post.id);
+      setWall((current) => current.map((item) => item.id === post.id ? { ...item, likes: result?.likes ?? item.likes, liked: result?.liked === true } : item));
+      return true;
+    } catch (err) {
+      setFeedError(err.message || "Could not update this like.");
+      return false;
+    } finally {
+      setWallBusy(null);
+    }
+  }
+  async function commentOnProfileWall(post, body) {
+    setWallBusy(post.id);
+    setFeedError("");
+    try {
+      await commentWallPost(post.id, body);
+      const response = await getUserWall(profileId);
+      setWall(normalizeItems(response));
+      return true;
+    } catch (err) {
+      setFeedError(err.message || "Could not post this reply.");
+      return false;
+    } finally {
+      setWallBusy(null);
     }
   }
   const stats = useMemo(() => [
@@ -232,16 +269,51 @@ export default function ProfilePage({ user }) {
         </div>
 
         {tab === "About" ? (
-          <section className="profile-about card-panel">
-            <span className="eyebrow">A LITTLE INTRODUCTION</span>
-            <h2>About {name.split(" ")[0]}</h2>
-            <p>{me?.bio?.trim() || "No bio yet. Add a few lines about yourself to make this profile your own."}</p>
-            <div className="profile-about-details">
-              <div><span>Saved stories</span><strong>{me?.library_count ?? 0}</strong></div>
-              <div><span>Reading lists</span><strong>{me?.reading_list_count ?? 0}</strong></div>
-              <div><span>Stories written</span><strong>{me?.story_count ?? stories.length}</strong></div>
-            </div>
-          </section>
+          <>
+            <section className="profile-about card-panel">
+              <span className="eyebrow">A LITTLE INTRODUCTION</span>
+              <h2>About {name.split(" ")[0]}</h2>
+              <p>{me?.bio?.trim() || "No bio yet. Add a few lines about yourself to make this profile your own."}</p>
+              <div className="profile-about-details">
+                <div><span>Saved stories</span><strong>{me?.library_count ?? 0}</strong></div>
+                <div><span>Reading lists</span><strong>{readingLists.length}</strong></div>
+                <div><span>Stories written</span><strong>{me?.story_count ?? stories.length}</strong></div>
+              </div>
+            </section>
+
+            <section className="profile-reading-lists-section">
+              <div className="profile-section-heading"><div><span className="eyebrow">YOUR COLLECTIONS</span><h2>Reading lists</h2></div><Link to="/library">Manage lists</Link></div>
+              {readingLists.length ? (
+                <div className="profile-reading-list-grid">
+                  {readingLists.slice(0, 6).map((list) => {
+                    const image = resolveAssetUrl(list.cover_path || list.covers?.[0] || "");
+                    return <Link className="profile-reading-list" to="/library" key={list.id || list.name}>
+                      <span className="profile-reading-list-cover">{image ? <img src={image} alt="" loading="lazy" /> : (list.name || "L").slice(0, 1).toUpperCase()}</span>
+                      <span><strong>{list.name}</strong><small>{Number(list.story_count || 0)} stories</small></span>
+                    </Link>;
+                  })}
+                </div>
+              ) : <p className="meta">Create reading lists to keep your next reads together.</p>}
+            </section>
+
+            <section className="profile-achievements-section">
+              <div className="profile-section-heading"><div><span className="eyebrow">MILESTONES</span><h2>Achievements</h2></div></div>
+              {achievementGroups.length ? (
+                <div className="profile-achievement-groups">
+                  {achievementGroups.map((group) => <section className="profile-achievement-group" key={group.group_name}>
+                    <h3>{group.group_name}</h3>
+                    <div className="profile-achievement-grid">
+                      {(group.items || []).slice(0, 4).map((achievement) => <article className="profile-achievement" key={`${group.group_name}-${achievement.title}`}>
+                        <span className="profile-achievement-badge">{achievement.badge_value || "✦"}</span>
+                        <span><strong>{achievement.title}</strong><small>{achievement.subtitle}</small></span>
+                        {achievement.progress_label ? <em>{achievement.progress_label}</em> : null}
+                      </article>)}
+                    </div>
+                  </section>)}
+                </div>
+              ) : <p className="meta">Achievements will appear here as the catalog milestones become available.</p>}
+            </section>
+          </>
         ) : tab === "Stories" ? (
           <section className="profile-stories-section">
             <div className="profile-section-heading">
@@ -285,7 +357,7 @@ export default function ProfilePage({ user }) {
             {feedError ? <div className="error-banner" role="alert">{feedError}</div> : null}
             {feedLoading ? <p className="meta">Loading your wall…</p> : null}
             {!feedLoading && !wall.length ? <div className="profile-empty card-panel"><h3>Your wall is ready</h3><p className="meta">Notes from you and your readers will appear here.</p></div> : null}
-            <div className="profile-feed-list">{wall.map((item) => <article className="profile-feed-card card-panel" key={item.id}><div className="profile-feed-avatar">{item.photo_url ? <img src={resolveAssetUrl(item.photo_url)} alt="" /> : (item.sender_name || "R").slice(0,1).toUpperCase()}</div><div><strong>{item.sender_name || item.display_name || "Reader"}</strong><time>{item.created_at ? new Date(item.created_at).toLocaleString() : ""}</time><p>{item.body || item.message}</p></div></article>)}</div>
+            <div className="profile-feed-list">{wall.map((item) => <WallPostCard key={item.id} post={item} canInteract={Boolean(getToken())} busy={wallBusy === item.id} onLike={likeProfileWallPost} onComment={commentOnProfileWall} />)}</div>
           </section>
         ) : tab === "Reviews" ? (
           <section className="profile-reviews-section">

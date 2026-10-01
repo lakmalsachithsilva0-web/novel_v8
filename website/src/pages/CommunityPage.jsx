@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getActivityFeed, getMe, getUserWall, postUserWall, getToken } from "../api";
+import { commentWallPost, getActivityFeed, getMe, getUserWall, likeWallPost, postUserWall, getToken } from "../api";
 import { isGuestUser } from "../utils/guest";
+import WallPostCard from "../components/WallPostCard";
 
 export default function CommunityPage({ user }) {
   const guest = isGuestUser(user);
@@ -13,6 +14,7 @@ export default function CommunityPage({ user }) {
   const [targetId, setTargetId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [wallBusy, setWallBusy] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,6 +68,38 @@ export default function CommunityPage({ user }) {
     }
   }
 
+  async function onLikePost(post) {
+    setWallBusy(post.id);
+    setError("");
+    try {
+      const result = await likeWallPost(post.id);
+      setWall((current) => current.map((item) => item.id === post.id ? { ...item, likes: result?.likes ?? item.likes, liked: result?.liked === true } : item));
+      return true;
+    } catch (err) {
+      setError(String(err.message || err));
+      return false;
+    } finally {
+      setWallBusy(null);
+    }
+  }
+
+  async function onCommentPost(post, text) {
+    setWallBusy(post.id);
+    setError("");
+    try {
+      await commentWallPost(post.id, text);
+      const response = await getUserWall(targetId);
+      setWall(response?.items || response || []);
+      setMsg("Your reply has been shared.");
+      return true;
+    } catch (err) {
+      setError(String(err.message || err));
+      return false;
+    } finally {
+      setWallBusy(null);
+    }
+  }
+
   return (
     <main className="community-page page-shell">
       <header className="community-hero">
@@ -92,7 +126,7 @@ export default function CommunityPage({ user }) {
           <section className="community-feed-section">
             <div className="community-section-heading"><div><span className="eyebrow">YOUR SPACE</span><h2>Wall moments</h2></div><span className="community-count">{wall.length}</span></div>
             {loading ? <div className="community-loading card-panel">Gathering your community…</div> : null}
-            {!loading && wall.length ? <ul className="community-feed">{wall.map((post) => <li className="community-post card-panel" key={post.id}><span className="community-post-avatar">{(post.display_name || post.sender_name || "R").slice(0, 1).toUpperCase()}</span><div className="community-post-copy"><div className="community-post-meta"><strong>{post.display_name || post.sender_name || "Reader"}</strong><time>{post.created_at || "A moment ago"}</time></div><p>{post.body || post.message}</p></div></li>)}</ul> : null}
+            {!loading && wall.length ? <div className="community-feed">{wall.map((post) => <WallPostCard key={post.id} post={post} canInteract={!guest && Boolean(getToken())} busy={wallBusy === post.id} onLike={onLikePost} onComment={onCommentPost} />)}</div> : null}
             {!loading && !guest && !wall.length ? <div className="community-empty card-panel"><span>✧</span><h3>Be the first to leave a note.</h3><p className="meta">Your wall is ready for reading updates, story milestones, and little moments in between.</p></div> : null}
           </section>
         </section>

@@ -2,7 +2,7 @@ const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
 const isLoopbackApi = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
   configuredApiBaseUrl,
 );
-const API_BASE_URL = !configuredApiBaseUrl || isLoopbackApi
+const API_BASE_URL = isLoopbackApi
   ? ""
   : (configuredApiBaseUrl || "https://novel-v7.vercel.app").replace(/\/+$/, "");
 
@@ -93,6 +93,10 @@ export function getMe() {
 
 export function getMyReviews() {
   return request("/api/me/reviews");
+}
+
+export function getMyReadingStats() {
+  return request("/api/me/reading-stats");
 }
 
 export function updateMe(payload) {
@@ -383,6 +387,17 @@ export function getUserWall(userId) {
 
 export function postUserWall(userId, body) {
   return request(`/api/users/${userId}/wall`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+}
+
+export function likeWallPost(postId) {
+  return request(`/api/wall/${postId}/like`, { method: "POST", body: "{}" });
+}
+
+export function commentWallPost(postId, body) {
+  return request(`/api/wall/${postId}/comment`, {
     method: "POST",
     body: JSON.stringify({ body }),
   });

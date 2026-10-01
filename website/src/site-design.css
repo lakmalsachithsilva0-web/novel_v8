@@ -304,6 +304,54 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .story-inkitt-body { width: calc(100% - 24px); }
   .story-title { font-size: 28px; }
 }
+
+/* Reading stats and the Flutter-equivalent Profile About sections. */
+.profile-reading-lists-section, .profile-achievements-section, .reading-stats-genres { margin-top: 26px; }
+.profile-reading-list-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.profile-reading-list { display:flex; align-items:center; gap:12px; min-width:0; padding:10px; border:1px solid var(--site-line); border-radius:9px; background:var(--site-surface); }
+.profile-reading-list:hover { border-color:var(--site-brand); background:var(--site-card); }
+.profile-reading-list-cover { display:grid; flex:0 0 46px; width:46px; height:46px; overflow:hidden; place-items:center; border-radius:6px; background:var(--site-raised); color:var(--site-brand-light); font:600 1.2rem var(--serif); }
+.profile-reading-list-cover img { width:100%; height:100%; object-fit:cover; }
+.profile-reading-list > span:last-child { display:grid; min-width:0; gap:3px; }
+.profile-reading-list strong, .profile-achievement strong { overflow:hidden; color:var(--site-ink); font-size:.88rem; text-overflow:ellipsis; white-space:nowrap; }
+.profile-reading-list small, .profile-achievement small { color:var(--site-muted); font-size:.75rem; }
+.profile-achievement-groups { display:grid; gap:18px; }
+.profile-achievement-group h3 { margin:0 0 9px; color:var(--site-muted); font-size:.85rem; font-family:var(--font); font-weight:600; }
+.profile-achievement-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+.profile-achievement { display:grid; grid-template-columns:38px minmax(0,1fr) auto; align-items:center; gap:10px; min-width:0; padding:11px; border:1px solid var(--site-line); border-radius:8px; background:var(--site-surface); }
+.profile-achievement-badge { display:grid; width:36px; height:36px; place-items:center; border-radius:50%; background:rgba(139,92,246,.14); color:var(--site-brand-light); font-size:1.1rem; }
+.profile-achievement > span:nth-child(2) { display:grid; min-width:0; gap:2px; }
+.profile-achievement em { color:var(--site-brand-light); font-size:.73rem; font-style:normal; }
+.reading-stats-genres h2 { margin:0 0 12px; font-size:1.35rem; }
+.reading-genre-list { display:grid; max-width:700px; border:1px solid var(--site-line); border-radius:9px; background:var(--site-surface); }
+.reading-genre-row { display:flex; justify-content:space-between; gap:12px; padding:12px 14px; border-bottom:1px solid var(--site-line); color:var(--site-muted); }
+.reading-genre-row:last-child { border-bottom:0; }
+.reading-genre-row strong { color:var(--site-ink); font-variant-numeric:tabular-nums; }
+.community-feed, .profile-feed-list { display:grid; gap:10px; margin:0; padding:0; list-style:none; }
+.wall-post { min-width:0; padding:15px; border:1px solid var(--site-line) !important; border-radius:9px !important; background:var(--site-card) !important; }
+.wall-post-head { display:flex; align-items:center; gap:10px; }
+.wall-post-avatar { display:grid; flex:0 0 38px; width:38px; height:38px; overflow:hidden; place-items:center; border-radius:50%; background:var(--site-raised); color:var(--site-brand-light); font-weight:700; }
+.wall-post-avatar img { width:100%; height:100%; object-fit:cover; }
+.wall-post-author { display:grid; min-width:0; gap:2px; }
+.wall-post-author strong { color:var(--site-ink); font-size:.88rem; }
+.wall-post-author time { color:var(--site-faint); font-size:.72rem; }
+.wall-post-body { margin:12px 0; color:#D8D1E1; line-height:1.65; overflow-wrap:anywhere; white-space:pre-wrap; }
+.wall-post-image { max-width:min(100%,560px); max-height:440px; margin:10px 0; border-radius:8px; object-fit:cover; }
+.wall-post-actions { display:flex; gap:8px; padding-top:8px; border-top:1px solid var(--site-line); }
+.wall-post-actions button { min-height:34px; padding:6px 9px; border:0; border-radius:6px; background:transparent; color:var(--site-muted); font:inherit; font-size:.78rem; cursor:pointer; }
+.wall-post-actions button:hover, .wall-post-actions button.is-active { background:rgba(139,92,246,.12); color:var(--site-brand-light); }
+.wall-post-actions button:disabled { opacity:.5; cursor:wait; }
+.wall-post-actions button span { margin-left:3px; color:var(--site-ink); font-variant-numeric:tabular-nums; }
+.wall-post-reply { display:grid; gap:8px; margin-top:10px; }
+.wall-post-reply textarea { width:100%; min-height:64px; resize:vertical; }
+.wall-post-reply > div { display:flex; align-items:center; justify-content:space-between; gap:10px; color:var(--site-faint); font-size:.72rem; }
+@media (max-width: 760px) {
+  .profile-reading-list-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 480px) {
+  .profile-reading-list-grid, .profile-achievement-grid { grid-template-columns:1fr; }
+  .profile-achievement { grid-template-columns:36px minmax(0,1fr) auto; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
