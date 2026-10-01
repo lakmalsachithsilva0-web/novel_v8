@@ -1,9 +1,10 @@
-const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/+$/, "");
-const isLoopbackApi = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApiBase);
-const productionApiBase = "https://novel-v7.vercel.app";
-const API_BASE_URL = import.meta.env.DEV
-  ? (configuredApiBase && !isLoopbackApi ? configuredApiBase : "")
-  : (configuredApiBase && !isLoopbackApi ? configuredApiBase : productionApiBase);
+const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
+const isLoopbackApi = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
+  configuredApiBaseUrl,
+);
+const API_BASE_URL = !configuredApiBaseUrl || isLoopbackApi
+  ? ""
+  : (configuredApiBaseUrl || "https://novel-v7.vercel.app").replace(/\/+$/, "");
 
 const TOKEN_KEY = "novelhub_web_token";
 const DEVICE_ID_KEY = "novelhub_web_device_id";
@@ -26,6 +27,16 @@ export function clearToken() {
 export function resolveAssetUrl(path) {
   if (!path) return "";
   if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
+    if (import.meta.env.DEV && !API_BASE_URL) {
+      try {
+        const url = new URL(path);
+        if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+          return `${url.pathname}${url.search}${url.hash}`;
+        }
+      } catch {
+        return path;
+      }
+    }
     return path;
   }
   const p = path.startsWith("/") ? path : `/${path}`;
